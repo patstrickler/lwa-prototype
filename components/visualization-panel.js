@@ -1948,15 +1948,31 @@ export class VisualizationPanel {
         }
         
         try {
-            // Ensure the container exists before rendering
-            if (!document.getElementById(chartId)) {
-                throw new Error('Chart container not found');
-            }
-            
-            // Use Highcharts.chart() with explicit pie type
-            Highcharts.chart(chartId, chartConfig);
+            // Wait for DOM to be ready before rendering
+            requestAnimationFrame(() => {
+                try {
+                    const container = document.getElementById(chartId);
+                    if (!container) {
+                        throw new Error('Chart container not found');
+                    }
+                    
+                    // Use Highcharts.chart() with explicit pie type
+                    // Donut is just a pie chart with innerSize set
+                    Highcharts.chart(chartId, chartConfig);
+                } catch (error) {
+                    console.error('Error rendering pie/donut chart:', error);
+                    const errorContainer = document.getElementById(chartId);
+                    if (errorContainer) {
+                        errorContainer.innerHTML = `
+                            <div class="chart-placeholder">
+                                <p class="error">Error rendering ${isDonut ? 'donut' : 'pie'} chart: ${error.message}</p>
+                            </div>
+                        `;
+                    }
+                }
+            });
         } catch (error) {
-            console.error('Error rendering pie/donut chart:', error);
+            console.error('Error setting up pie/donut chart:', error);
             chartContainer.innerHTML = `
                 <div class="chart-placeholder">
                     <p class="error">Error rendering ${isDonut ? 'donut' : 'pie'} chart: ${error.message}</p>
