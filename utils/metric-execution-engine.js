@@ -2,6 +2,7 @@
 // Executes metric definitions on dataset rows and returns scalar values
 
 import { calculateMean, calculateSum, calculateMin, calculateMax, calculateStdev, calculateCount, calculateCountDistinct } from './metric-calculator.js';
+import { evaluateMetricScript } from './metric-script-parser.js';
 
 /**
  * Metric Execution Engine
@@ -103,6 +104,17 @@ export class MetricExecutionEngine {
             throw new Error('Dataset is required');
         }
         
+        // If metric has an expression, use the script parser
+        if (metric.expression) {
+            try {
+                return evaluateMetricScript(metric.expression, dataset);
+            } catch (error) {
+                console.error('Error evaluating metric expression:', error);
+                throw new Error(`Failed to evaluate metric expression: ${error.message}`);
+            }
+        }
+        
+        // Otherwise, use column-based execution
         // Build metric definition from stored metric
         const metricDefinition = {
             operation: metric.operation,
