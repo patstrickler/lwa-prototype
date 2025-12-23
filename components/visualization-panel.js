@@ -1134,7 +1134,7 @@ export class VisualizationPanel {
             return;
         }
         
-        const data = this.getDatasetData(dataset);
+        let data = this.getDatasetData(dataset);
         if (!data || data.length === 0) return;
         
         // Handle special chart types first (before determining columns)
