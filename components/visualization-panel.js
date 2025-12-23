@@ -1131,6 +1131,123 @@ export class VisualizationPanel {
                 return;
             }
             
+            // If metric has an expression (like IF statements), group by X and recalculate expression for each group
+            if (metric.expression) {
+                // Apply date grouping if X axis is a date column with grouping
+                let processedData = data;
+                if (xAxis.type === 'column' && xAxis.dateGrouping && xAxis.dateGrouping !== 'day') {
+                    processedData = this.applyDateGrouping(data, xAxis.value, xAxis.dateGrouping);
+                }
+                
+                // Group data by X column
+                const groups = {};
+                processedData.forEach(row => {
+                    const xValue = row[xAxis.value];
+                    if (xValue === null || xValue === undefined) return;
+                    const xKey = String(xValue);
+                    if (!groups[xKey]) {
+                        groups[xKey] = [];
+                    }
+                    groups[xKey].push(row);
+                });
+                
+                console.log('Metric expression grouping:', {
+                    totalRows: data.length,
+                    groupsCount: Object.keys(groups).length,
+                    groupSizes: Object.entries(groups).map(([key, rows]) => ({ key, size: rows.length })),
+                    metricExpression: metric.expression,
+                    xAxisColumn: xAxis.value
+                });
+                
+                // Recalculate metric expression for each group
+                const aggregated = [];
+                Object.entries(groups).forEach(([xKey, groupRows]) => {
+                    // Convert group rows to dataset format
+                    const groupRowsArray = groupRows.map(row => {
+                        return dataset.columns.map(col => row[col]);
+                    });
+                    
+                    // Create a subset dataset for this group
+                    const groupDataset = {
+                        id: dataset.id,
+                        name: dataset.name,
+                        columns: dataset.columns,
+                        rows: groupRowsArray
+                    };
+                    
+                    try {
+                        // Calculate metric expression for this group using the execution engine
+                        const metricValue = metricExecutionEngine.executeMetric(metric, groupDataset);
+                        
+                        console.log(`Group ${xKey}: ${groupRows.length} rows, expression result = ${metricValue}`);
+                        
+                        aggregated.push({
+                            x: groupRows[0][xAxis.value],
+                            y: metricValue !== null && metricValue !== undefined ? metricValue : 0
+                        });
+                    } catch (error) {
+                        console.error('Error calculating metric expression for group:', error, {
+                            xKey,
+                            groupSize: groupRows.length,
+                            expression: metric.expression
+                        });
+                        aggregated.push({
+                            x: groupRows[0][xAxis.value],
+                            y: 0
+                        });
+                    }
+                });
+                
+                // Sort by X value
+                aggregated.sort((a, b) => {
+                    if (typeof a.x === 'number' && typeof b.x === 'number') {
+                        return a.x - b.x;
+                    }
+                    return String(a.x).localeCompare(String(b.x));
+                });
+                
+                // Convert to Highcharts format
+                const isXNumeric = typeof aggregated[0]?.x === 'number';
+                let chartData, categories;
+                
+                if (chartType === 'line') {
+                    if (isXNumeric) {
+                        chartData = aggregated.map(p => [parseFloat(p.x) || 0, p.y]);
+                    } else {
+                        categories = aggregated.map(p => String(p.x));
+                        chartData = aggregated.map(p => p.y);
+                    }
+                } else if (chartType === 'bar') {
+                    categories = aggregated.map(p => String(p.x));
+                    chartData = aggregated.map(p => p.y);
+                } else {
+                    // Scatter
+                    chartData = aggregated.map(p => [parseFloat(p.x) || 0, p.y]);
+                }
+                
+                const seriesData = { chartData, isXNumeric, categories };
+                
+                const chartId = `chart_${Date.now()}`;
+                const chartContainer = document.createElement('div');
+                chartContainer.id = chartId;
+                chartContainer.className = 'chart-wrapper';
+                
+                const chartsContainer = this.container.querySelector('#charts-container');
+                chartsContainer.appendChild(chartContainer);
+                
+                const stylingOptions = this.getStylingOptions();
+                const yLabel = stylingOptions.yLabel || metric.name;
+                
+                this.renderHighchart(chartId, chartType, seriesData, {
+                    xLabel: stylingOptions.xLabel || this.formatColumnName(xAxis.value),
+                    yLabel: yLabel,
+                    title: stylingOptions.title || `${yLabel} by ${this.formatColumnName(xAxis.value)}`,
+                    color: stylingOptions.color,
+                    showTrendline: stylingOptions.showTrendline
+                });
+                return;
+            }
+            
             // Fallback: metric doesn't have operation/column, show as reference line
             // Find a numeric column for the main series
             const numericColumns = dataset.columns.filter(col => {
