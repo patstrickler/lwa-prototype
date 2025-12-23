@@ -18,17 +18,28 @@ export class TableBrowser {
         this.init();
     }
     
-    init() {
-        this.loadSavedDatasets();
-        this.render();
-        this.attachEventListeners();
+    async init() {
+        try {
+            await this.loadSavedDatasets();
+            this.render();
+            this.attachEventListeners();
+        } catch (error) {
+            console.error('Error initializing TableBrowser:', error);
+            // Render anyway with empty datasets
+            this.render();
+            this.attachEventListeners();
+        }
     }
     
     async loadSavedDatasets() {
         const { datasetStore } = await import('../data/datasets.js');
-        this.savedDatasets = datasetStore.getAll();
+        this.savedDatasets = datasetStore.getAll() || [];
         // Sort by creation date (newest first)
-        this.savedDatasets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        this.savedDatasets.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+            return dateB - dateA;
+        });
     }
     
     render() {

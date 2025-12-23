@@ -253,7 +253,20 @@ export class QueryBuilder {
                 strings: false
             },
             tabSize: 2,
-            insertSpaces: true
+            insertSpaces: true,
+            padding: {
+                top: 12,
+                bottom: 12
+            },
+            scrollbar: {
+                vertical: 'auto',
+                horizontal: 'auto',
+                useShadows: false,
+                verticalHasArrows: false,
+                horizontalHasArrows: false,
+                verticalScrollbarSize: 12,
+                horizontalScrollbarSize: 12
+            }
         });
         
         // Add placeholder
