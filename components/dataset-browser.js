@@ -174,7 +174,10 @@ export class DatasetBrowser {
                                         <span class="item-value">${this.formatMetricValue(metric.value)}</span>
                                     </div>
                                     <span class="item-operation">${this.escapeHtml(metric.operation || '')}</span>
-                                    <button class="edit-btn" title="Edit metric">✏️</button>
+                                    <div class="item-actions">
+                                        <button class="edit-btn" title="Edit metric">✏️</button>
+                                        <button class="delete-btn" title="Delete metric">🗑️</button>
+                                    </div>
                                 </div>
                             `).join('')
                             : '<div class="empty-state-small">No metrics defined</div>'
@@ -198,7 +201,10 @@ export class DatasetBrowser {
                                         <span class="item-name">${this.escapeHtml(script.name)}</span>
                                         <span class="item-language">${script.language || 'N/A'}</span>
                                     </div>
-                                    <button class="edit-btn" title="Edit script">✏️</button>
+                                    <div class="item-actions">
+                                        <button class="edit-btn" title="Edit script">✏️</button>
+                                        <button class="delete-btn" title="Delete script">🗑️</button>
+                                    </div>
                                 </div>
                             `).join('')
                             : '<div class="empty-state-small">No scripts defined</div>'
@@ -389,6 +395,24 @@ export class DatasetBrowser {
                 }
             }
             
+            // Handle delete button clicks
+            const deleteBtn = e.target.closest('.delete-btn');
+            if (deleteBtn) {
+                const editableItem = deleteBtn.closest('.editable-item');
+                if (editableItem) {
+                    const type = editableItem.getAttribute('data-type');
+                    const id = editableItem.getAttribute('data-id');
+                    
+                    if (type === 'metric') {
+                        this.handleDeleteMetric(id, editableItem);
+                    } else if (type === 'script') {
+                        this.handleDeleteScript(id, editableItem);
+                    }
+                    e.stopPropagation();
+                    return;
+                }
+            }
+            
             // Handle drag start for draggable items
             const draggableItem = e.target.closest('.draggable-item');
             if (draggableItem && e.type === 'dragstart') {
@@ -567,6 +591,42 @@ export class DatasetBrowser {
         const detailsPanel = this.container.querySelector('.dataset-details-panel');
         if (detailsPanel) {
             detailsPanel.style.display = 'block';
+        }
+    }
+    
+    handleDeleteMetric(metricId, element) {
+        const metric = metricsStore.get(metricId);
+        if (!metric) {
+            return;
+        }
+        
+        const metricName = metric.name || 'this metric';
+        if (confirm(`Are you sure you want to delete "${metricName}"? This action cannot be undone.`)) {
+            const deleted = metricsStore.delete(metricId);
+            if (deleted) {
+                // Refresh the display
+                if (this.selectedDataset) {
+                    this.render();
+                }
+            }
+        }
+    }
+    
+    handleDeleteScript(scriptId, element) {
+        const script = scriptsStore.get(scriptId);
+        if (!script) {
+            return;
+        }
+        
+        const scriptName = script.name || 'this script';
+        if (confirm(`Are you sure you want to delete "${scriptName}"? This action cannot be undone.`)) {
+            const deleted = scriptsStore.delete(scriptId);
+            if (deleted) {
+                // Refresh the display
+                if (this.selectedDataset) {
+                    this.render();
+                }
+            }
         }
     }
     

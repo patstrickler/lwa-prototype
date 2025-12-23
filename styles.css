@@ -617,7 +617,14 @@ main {
     border-radius: 3px;
 }
 
-.edit-btn {
+.item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.edit-btn,
+.delete-btn {
     background: none;
     border: none;
     font-size: 14px;
@@ -625,12 +632,16 @@ main {
     padding: 4px 8px;
     border-radius: 4px;
     transition: background-color 0.2s;
-    flex-shrink: 0;
     opacity: 0.6;
 }
 
 .edit-btn:hover {
     background-color: #dee2e6;
+    opacity: 1;
+}
+
+.delete-btn:hover {
+    background-color: #f8d7da;
     opacity: 1;
 }
 
