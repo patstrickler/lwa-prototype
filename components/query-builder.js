@@ -2,12 +2,16 @@
 // SQL editor → Dataset
 
 import { executeSQL } from '../utils/sql-engine.js';
+import { getSuggestions, getWordStartPosition } from '../utils/autocomplete.js';
 
 export class QueryBuilder {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
         this.datasetCallbacks = [];
         this.currentResult = null;
+        this.suggestions = [];
+        this.selectedSuggestionIndex = -1;
+        this.autocompleteVisible = false;
         this.init();
     }
     
@@ -19,7 +23,10 @@ export class QueryBuilder {
     render() {
         this.container.innerHTML = `
             <div class="query-builder">
-                <textarea id="sql-editor" placeholder="Enter your SQL query here..."></textarea>
+                <div class="sql-editor-wrapper">
+                    <textarea id="sql-editor" placeholder="Enter your SQL query here..."></textarea>
+                    <div id="autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
+                </div>
                 <div class="query-actions">
                     <button id="run-query" class="btn btn-primary">Run Query</button>
                     <button id="clear-query" class="btn btn-secondary">Clear</button>
@@ -47,10 +54,24 @@ export class QueryBuilder {
         const runBtn = this.container.querySelector('#run-query');
         const clearBtn = this.container.querySelector('#clear-query');
         const saveBtn = this.container.querySelector('#save-dataset');
+        const sqlEditor = this.container.querySelector('#sql-editor');
         
         runBtn.addEventListener('click', () => this.executeQuery());
         clearBtn.addEventListener('click', () => this.clearQuery());
         saveBtn.addEventListener('click', () => this.saveAsDataset());
+        
+        // Autocomplete event listeners
+        sqlEditor.addEventListener('input', (e) => this.handleInput(e));
+        sqlEditor.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        sqlEditor.addEventListener('click', () => this.updateSuggestions());
+        sqlEditor.addEventListener('scroll', () => this.updateSuggestions());
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.container.contains(e.target)) {
+                this.hideSuggestions();
+            }
+        });
     }
     
     async executeQuery() {
@@ -316,6 +337,174 @@ export class QueryBuilder {
     
     notifyDatasetCreated(dataset) {
         this.datasetCallbacks.forEach(callback => callback(dataset));
+    }
+    
+    // Autocomplete methods
+    handleInput(e) {
+        this.updateSuggestions();
+    }
+    
+    handleKeyDown(e) {
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
+        
+        if (!this.autocompleteVisible || this.suggestions.length === 0) {
+            return;
+        }
+        
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.selectedSuggestionIndex = Math.min(
+                    this.selectedSuggestionIndex + 1,
+                    this.suggestions.length - 1
+                );
+                this.highlightSuggestion();
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, -1);
+                this.highlightSuggestion();
+                break;
+                
+            case 'Enter':
+            case 'Tab':
+                if (this.selectedSuggestionIndex >= 0) {
+                    e.preventDefault();
+                    this.insertSuggestion(this.suggestions[this.selectedSuggestionIndex]);
+                }
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                this.hideSuggestions();
+                break;
+        }
+    }
+    
+    updateSuggestions() {
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        const sql = sqlEditor.value;
+        const cursorPosition = sqlEditor.selectionStart;
+        
+        this.suggestions = getSuggestions(sql, cursorPosition);
+        
+        if (this.suggestions.length > 0) {
+            this.selectedSuggestionIndex = -1;
+            this.showSuggestions();
+        } else {
+            this.hideSuggestions();
+        }
+    }
+    
+    showSuggestions() {
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
+        
+        if (!suggestionsDiv || this.suggestions.length === 0) {
+            return;
+        }
+        
+        // Build suggestions HTML
+        suggestionsDiv.innerHTML = this.suggestions.map((suggestion, index) => {
+            const typeClass = `suggestion-${suggestion.type}`;
+            const selectedClass = index === this.selectedSuggestionIndex ? 'selected' : '';
+            return `
+                <div class="suggestion-item ${typeClass} ${selectedClass}" data-index="${index}">
+                    <span class="suggestion-type">${suggestion.type}</span>
+                    <span class="suggestion-text">${this.escapeHtml(suggestion.text)}</span>
+                </div>
+            `;
+        }).join('');
+        
+        // Position suggestions near cursor
+        this.positionSuggestions();
+        
+        // Add click handlers
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                this.insertSuggestion(this.suggestions[index]);
+            });
+        });
+        
+        suggestionsDiv.style.display = 'block';
+        this.autocompleteVisible = true;
+    }
+    
+    hideSuggestions() {
+        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.style.display = 'none';
+        }
+        this.autocompleteVisible = false;
+        this.selectedSuggestionIndex = -1;
+    }
+    
+    highlightSuggestion() {
+        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
+        if (!suggestionsDiv) return;
+        
+        const items = suggestionsDiv.querySelectorAll('.suggestion-item');
+        items.forEach((item, index) => {
+            if (index === this.selectedSuggestionIndex) {
+                item.classList.add('selected');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    positionSuggestions() {
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
+        
+        if (!sqlEditor || !suggestionsDiv) return;
+        
+        // Simple positioning: place dropdown below the textarea
+        // For more precise positioning, we'd need to calculate cursor position
+        // which is complex with textareas. This simpler approach works well.
+        const wrapper = sqlEditor.parentElement;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const editorRect = sqlEditor.getBoundingClientRect();
+        
+        // Position relative to wrapper
+        suggestionsDiv.style.left = '0px';
+        suggestionsDiv.style.top = `${editorRect.height + 2}px`;
+    }
+    
+    insertSuggestion(suggestion) {
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        const sql = sqlEditor.value;
+        const cursorPosition = sqlEditor.selectionStart;
+        const textBeforeCursor = sql.substring(0, cursorPosition);
+        
+        const wordStart = getWordStartPosition(textBeforeCursor);
+        const wordEnd = cursorPosition;
+        
+        // Replace current word with suggestion
+        const newSql = sql.substring(0, wordStart) + suggestion.text + sql.substring(wordEnd);
+        
+        // Update textarea
+        sqlEditor.value = newSql;
+        
+        // Set cursor position after inserted text
+        const newCursorPosition = wordStart + suggestion.text.length;
+        sqlEditor.setSelectionRange(newCursorPosition, newCursorPosition);
+        
+        // Hide suggestions and update
+        this.hideSuggestions();
+        this.updateSuggestions();
+        
+        // Focus back on editor
+        sqlEditor.focus();
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
