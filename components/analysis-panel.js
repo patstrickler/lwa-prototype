@@ -29,19 +29,6 @@ export class AnalysisPanel {
         this.container.innerHTML = `
             <div class="analysis-panel">
                 <div id="unified-analysis-builder-container"></div>
-                
-                <div class="results-section">
-                    <div class="results-header">
-                        <h3>Defined Metrics</h3>
-                        <button id="refresh-metrics" class="btn btn-secondary" title="Re-execute all metrics">Refresh</button>
-                    </div>
-                    <div id="metrics-list"></div>
-                </div>
-                
-                <div class="scripts-section">
-                    <h3>Saved Scripts</h3>
-                    <div id="scripts-list"></div>
-                </div>
             </div>
         `;
     }
@@ -62,19 +49,16 @@ export class AnalysisPanel {
     initUnifiedBuilder() {
         this.unifiedBuilder = new UnifiedAnalysisBuilder('#unified-analysis-builder-container');
         this.unifiedBuilder.onMetricCreated((metric) => {
-            this.updateMetricsList();
+            // Refresh dataset browser to show new metric
             this.notifyMetricsUpdated([metric]);
         });
         this.unifiedBuilder.onScriptSaved(() => {
-            this.updateScriptsList();
+            // Scripts are displayed in side panel, no action needed
         });
     }
     
     attachEventListeners() {
-        const refreshMetricsBtn = this.container.querySelector('#refresh-metrics');
-        if (refreshMetricsBtn) {
-            refreshMetricsBtn.addEventListener('click', () => this.reExecuteMetrics());
-        }
+        // Event listeners are handled by unified builder
     }
     
     setDataset(dataset) {
@@ -216,66 +200,8 @@ export class AnalysisPanel {
     }
     
     updateMetricsList() {
-        const metricsList = this.container.querySelector('#metrics-list');
-        
-        if (!this.currentDataset) {
-            metricsList.innerHTML = '<p class="empty-message">Select a dataset to view metrics.</p>';
-            return;
-        }
-        
-        // Check if dataset still exists
-        if (!datasetStore.exists(this.currentDataset.id)) {
-            metricsList.innerHTML = `
-                <div class="error-message">
-                    <div class="error-icon">⚠️</div>
-                    <div class="error-text">
-                        <strong>Dataset "${this.currentDataset.name}" is missing or has been deleted.</strong>
-                        <p>Metrics for this dataset cannot be displayed. Please select a different dataset.</p>
-                    </div>
-                </div>
-            `;
-            return;
-        }
-        
-        const metrics = metricsStore.getByDataset(this.currentDataset.id);
-        
-        if (metrics.length === 0) {
-            metricsList.innerHTML = '<p class="empty-message">No metrics yet. Add a metric to get started.</p>';
-            return;
-        }
-        
-        metricsList.innerHTML = metrics.map(metric => {
-            const operationLabel = {
-                'mean': 'Mean',
-                'sum': 'Sum',
-                'min': 'Min',
-                'max': 'Max',
-                'stdev': 'Std Dev',
-                'count': 'Count',
-                'count_distinct': 'Count Distinct'
-            }[metric.operation] || metric.operation;
-            
-            const columnName = metric.column ? this.formatColumnName(metric.column) : 'N/A';
-            
-            // Check if metric has an error
-            const hasError = metric.value === null || metric._error;
-            const errorMessage = metric._error || (metric.value === null ? 'Calculation failed' : null);
-            
-            return `
-                <div class="metric-item ${hasError ? 'metric-error' : ''}">
-                    <div class="metric-header">
-                        <span class="metric-name">${this.escapeHtml(metric.name)}</span>
-                        <span class="metric-value ${hasError ? 'metric-value-error' : ''}">${hasError ? 'Error' : this.formatValue(metric.value)}</span>
-                    </div>
-                    <div class="metric-details">
-                        <span class="metric-operation">${operationLabel}</span>
-                        <span class="metric-separator">•</span>
-                        <span class="metric-column">${columnName}</span>
-                    </div>
-                    ${errorMessage ? `<div class="metric-error-message">${this.escapeHtml(errorMessage)}</div>` : ''}
-                </div>
-            `;
-        }).join('');
+        // Metrics are now displayed in the side panel (dataset browser)
+        // This method is kept for compatibility but does nothing
     }
     
     formatColumnName(column) {
@@ -308,34 +234,8 @@ export class AnalysisPanel {
     }
     
     updateScriptsList() {
-        const scriptsList = this.container.querySelector('#scripts-list');
-        if (!scriptsList) return;
-        
-        const scripts = scriptsStore.getAll();
-        
-        if (scripts.length === 0) {
-            scriptsList.innerHTML = '<p class="empty-message">No saved scripts yet. Create and save a script to see it here.</p>';
-            return;
-        }
-        
-        scriptsList.innerHTML = scripts.map(script => {
-            const languageLabel = script.language === 'python' ? 'Python' : 'R';
-            const resultType = script.result ? script.result.type : 'none';
-            const resultValue = script.result ? this.formatScriptResult(script.result) : 'Not executed';
-            
-            return `
-                <div class="script-item">
-                    <div class="script-header">
-                        <span class="script-name">${this.escapeHtml(script.name)}</span>
-                        <span class="script-language">${languageLabel}</span>
-                    </div>
-                    <div class="script-code-preview">${this.escapeHtml(script.code.substring(0, 100))}${script.code.length > 100 ? '...' : ''}</div>
-                    <div class="script-result-preview">
-                        <strong>Last Result:</strong> ${resultType !== 'none' ? `${resultType} - ${resultValue}` : 'Not executed'}
-                    </div>
-                </div>
-            `;
-        }).join('');
+        // Scripts are now displayed in the side panel (dataset browser)
+        // This method is kept for compatibility but does nothing
     }
     
     formatScriptResult(result) {
