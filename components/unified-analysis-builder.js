@@ -490,7 +490,7 @@ export class UnifiedAnalysisBuilder {
             
             // Create the metric with expression
             const metric = metricsStore.create(
-                dataset.id,
+                fullDataset.id,
                 name,
                 value,
                 'calculated',
