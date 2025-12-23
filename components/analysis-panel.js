@@ -188,7 +188,9 @@ export class AnalysisPanel {
                 'sum': 'Sum',
                 'min': 'Min',
                 'max': 'Max',
-                'stdev': 'Std Dev'
+                'stdev': 'Std Dev',
+                'count': 'Count',
+                'count_distinct': 'Count Distinct'
             }[metric.operation] || metric.operation;
             
             const columnName = metric.column ? this.formatColumnName(metric.column) : 'N/A';

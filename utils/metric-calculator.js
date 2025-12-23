@@ -207,11 +207,89 @@ export function calculateStdev(rows, columns, columnName) {
 }
 
 /**
+ * Calculates the count of non-null values in a column
+ * @param {any[][]} rows - Array of row arrays
+ * @param {string[]} columns - Column names array
+ * @param {string} columnName - Name of the column to calculate on
+ * @returns {number}
+ * @throws {Error} If column is missing or dataset is empty
+ */
+export function calculateCount(rows, columns, columnName) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Cannot calculate count: dataset is empty');
+    }
+    
+    if (!columns || !Array.isArray(columns)) {
+        throw new Error('Cannot calculate count: column names are missing');
+    }
+    
+    const columnIndex = columns.indexOf(columnName);
+    if (columnIndex === -1) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${columns.join(', ')}`);
+    }
+    
+    // Count non-null, non-undefined values
+    const count = rows.filter(row => {
+        if (!row || !Array.isArray(row) || row.length <= columnIndex) {
+            return false;
+        }
+        const value = row[columnIndex];
+        return value !== null && value !== undefined;
+    }).length;
+    
+    return count;
+}
+
+/**
+ * Calculates the count of distinct (unique) values in a column
+ * @param {any[][]} rows - Array of row arrays
+ * @param {string[]} columns - Column names array
+ * @param {string} columnName - Name of the column to calculate on
+ * @returns {number}
+ * @throws {Error} If column is missing or dataset is empty
+ */
+export function calculateCountDistinct(rows, columns, columnName) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Cannot calculate count distinct: dataset is empty');
+    }
+    
+    if (!columns || !Array.isArray(columns)) {
+        throw new Error('Cannot calculate count distinct: column names are missing');
+    }
+    
+    const columnIndex = columns.indexOf(columnName);
+    if (columnIndex === -1) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${columns.join(', ')}`);
+    }
+    
+    // Get all non-null, non-undefined values
+    const values = rows
+        .map(row => {
+            if (!row || !Array.isArray(row) || row.length <= columnIndex) {
+                return null;
+            }
+            return row[columnIndex];
+        })
+        .filter(val => val !== null && val !== undefined)
+        .map(val => {
+            // Convert to string for comparison (handles different types)
+            if (typeof val === 'object') {
+                return JSON.stringify(val);
+            }
+            return String(val);
+        });
+    
+    // Count distinct values using Set
+    const distinctValues = new Set(values);
+    return distinctValues.size;
+}
+
+/**
  * Calculates a metric based on operation type
  * @param {any[][]} rows - Array of row arrays
  * @param {string[]} columns - Column names array
  * @param {string} columnName - Name of the column to calculate on
- * @param {string} operation - Operation type: 'mean', 'sum', 'min', 'max', 'stdev'
+ * @param {string} operation - Operation type: 'mean', 'sum', 'min', 'max', 'stdev', 'count', 'count_distinct'
  * @returns {number|null}
  * @throws {Error} If operation is invalid or calculation fails
  */
@@ -232,8 +310,13 @@ export function calculateMetric(rows, columns, columnName, operation) {
             return calculateMax(rows, columns, columnName);
         case 'stdev':
             return calculateStdev(rows, columns, columnName);
+        case 'count':
+            return calculateCount(rows, columns, columnName);
+        case 'count_distinct':
+        case 'countdistinct':
+            return calculateCountDistinct(rows, columns, columnName);
         default:
-            throw new Error(`Unsupported operation: "${operation}". Supported operations: mean, sum, min, max, stdev`);
+            throw new Error(`Unsupported operation: "${operation}". Supported operations: mean, sum, min, max, stdev, count, count_distinct`);
     }
 }
 

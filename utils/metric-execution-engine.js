@@ -1,7 +1,7 @@
 // Metric Execution Engine
 // Executes metric definitions on dataset rows and returns scalar values
 
-import { calculateMean, calculateSum, calculateMin, calculateMax, calculateStdev } from './metric-calculator.js';
+import { calculateMean, calculateSum, calculateMin, calculateMax, calculateStdev, calculateCount, calculateCountDistinct } from './metric-calculator.js';
 
 /**
  * Metric Execution Engine
@@ -15,14 +15,16 @@ export class MetricExecutionEngine {
             'sum': calculateSum,
             'min': calculateMin,
             'max': calculateMax,
-            'stdev': calculateStdev
+            'stdev': calculateStdev,
+            'count': calculateCount,
+            'count_distinct': calculateCountDistinct
         };
     }
     
     /**
      * Executes a metric definition on dataset rows
      * @param {Object} metricDefinition - Metric definition object
-     * @param {string} metricDefinition.operation - Aggregation operation (mean, sum, min, max, stdev)
+     * @param {string} metricDefinition.operation - Aggregation operation (mean, sum, min, max, stdev, count, count_distinct)
      * @param {string} metricDefinition.column - Column name to aggregate
      * @param {any[][]} rows - Dataset rows (array of arrays)
      * @param {string[]} columns - Dataset column names

@@ -65,23 +65,10 @@ header h1 {
 
 main {
     position: relative;
-    display: flex;
-    gap: 20px;
-    align-items: flex-start;
-}
-
-.dataset-browser-sidebar {
-    flex: 0 0 320px;
-    min-width: 320px;
-    position: sticky;
-    top: 20px;
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
 }
 
 .main-content {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
 }
 
 .page {
@@ -119,6 +106,27 @@ main {
 }
 
 .query-builder-content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Analysis Layout */
+.analysis-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.dataset-browser-sidebar {
+    flex: 0 0 320px;
+    min-width: 320px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.analysis-content {
     flex: 1;
     min-width: 0;
 }
@@ -543,6 +551,10 @@ main {
         position: relative;
         top: 0;
         max-height: 400px;
+    }
+    
+    .analysis-layout {
+        flex-direction: column;
     }
     
     .dataset-browser-sidebar {

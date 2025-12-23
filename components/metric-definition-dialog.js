@@ -58,6 +58,8 @@ export class MetricDefinitionDialog {
                         <option value="min">Minimum</option>
                         <option value="max">Maximum</option>
                         <option value="stdev">Standard Deviation</option>
+                        <option value="count">Count</option>
+                        <option value="count_distinct">Count Distinct</option>
                     </select>
                 </div>
                 
