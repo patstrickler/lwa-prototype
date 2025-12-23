@@ -44,8 +44,16 @@ export function getSamplesData() {
     const baseDate = new Date('2023-01-15');
     const endDate = new Date('2024-12-15');
     
-    for (let i = 1; i <= 1000; i++) {
-        const sampleId = i;
+    // Generate unique, varied sample IDs (using a shuffled range)
+    const sampleIdPool = Array.from({ length: 1000 }, (_, i) => i + 1);
+    // Shuffle for more variation
+    for (let i = sampleIdPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [sampleIdPool[i], sampleIdPool[j]] = [sampleIdPool[j], sampleIdPool[i]];
+    }
+    
+    for (let i = 0; i < 1000; i++) {
+        const sampleId = sampleIdPool[i];
         const studyCode = randomChoice(studyCodes);
         const subjectId = randomInt(1001, 1500);
         const visit = `V${randomInt(1, 12)}`;
@@ -230,9 +238,18 @@ export function getTestsData() {
     
     const tests = [];
     
+    // Generate unique, varied test IDs (using a shuffled range)
+    const testIdPool = Array.from({ length: 1000 }, (_, i) => i + 1);
+    // Shuffle for more variation
+    for (let i = testIdPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [testIdPool[i], testIdPool[j]] = [testIdPool[j], testIdPool[i]];
+    }
+    
     // Generate ~1000 test records by cycling through and adding variations
-    for (let i = 1; i <= 1000; i++) {
-        const testInfo = testData[(i - 1) % testData.length];
+    for (let i = 0; i < 1000; i++) {
+        const testId = testIdPool[i];
+        const testInfo = testData[i % testData.length];
         
         // Add some variations to test names (study-specific, lot numbers, etc.)
         let testName = testInfo.name;
@@ -247,7 +264,7 @@ export function getTestsData() {
         }
         
         tests.push([
-            i,
+            testId,
             testName,
             testInfo.type,
             testInfo.method,
@@ -268,13 +285,26 @@ export function getResultsData() {
     const baseDate = new Date('2023-01-20');
     const endDate = new Date('2024-12-10');
     
+    // Generate unique, varied result IDs (using a shuffled range)
+    const resultIdPool = Array.from({ length: 1000 }, (_, i) => i + 1);
+    // Shuffle for more variation
+    for (let i = resultIdPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [resultIdPool[i], resultIdPool[j]] = [resultIdPool[j], resultIdPool[i]];
+    }
+    
+    // Create pools of valid sample_ids and test_ids for better distribution
+    const validSampleIds = Array.from({ length: 1000 }, (_, i) => i + 1);
+    const validTestIds = Array.from({ length: 1000 }, (_, i) => i + 1);
+    
     // Generate results that link to samples (1-1000) and tests (1-1000)
-    for (let i = 1; i <= 1000; i++) {
-        const resultId = i;
+    for (let i = 0; i < 1000; i++) {
+        const resultId = resultIdPool[i];
         
         // Distribute samples more realistically - some samples have more tests
-        const sampleId = Math.min(1000, Math.floor(Math.pow(Math.random(), 0.7) * 1000) + 1);
-        const testId = randomInt(1, 1000);
+        // Use weighted distribution where earlier samples are more likely
+        const sampleId = validSampleIds[Math.min(999, Math.floor(Math.pow(Math.random(), 0.7) * 1000))];
+        const testId = validTestIds[randomInt(0, 999)];
         
         // Determine result value based on test category (using modulo to cycle through test types)
         // Since tests cycle through the testData array, use modulo to determine category
