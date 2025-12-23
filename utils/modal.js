@@ -8,8 +8,8 @@ export class Modal {
      */
     static alert(message) {
         return new Promise((resolve) => {
-            const modal = this.createModal('alert', message, null);
-            const okBtn = modal.querySelector('.modal-btn-primary');
+            const backdrop = this.createModal('alert', message, null);
+            const okBtn = backdrop.querySelector('.modal-btn-primary');
             
             if (!okBtn) {
                 console.error('Modal: OK button not found in alert modal');
@@ -18,10 +18,10 @@ export class Modal {
             }
             
             okBtn.addEventListener('click', () => {
-                this.closeModal(modal);
+                this.closeModal(backdrop);
                 resolve();
             });
-            document.body.appendChild(modal);
+            document.body.appendChild(backdrop);
             // Focus the OK button
             setTimeout(() => okBtn.focus(), 100);
         });
@@ -34,10 +34,9 @@ export class Modal {
      */
     static confirm(message) {
         return new Promise((resolve) => {
-            const modal = this.createModal('confirm', message, null);
-            const okBtn = modal.querySelector('.modal-btn-primary');
-            const cancelBtn = modal.querySelector('.modal-btn-secondary');
-            const backdrop = modal.querySelector('.modal-backdrop');
+            const backdrop = this.createModal('confirm', message, null);
+            const okBtn = backdrop.querySelector('.modal-btn-primary');
+            const cancelBtn = backdrop.querySelector('.modal-btn-secondary');
             
             if (!okBtn || !cancelBtn) {
                 console.error('Modal: Buttons not found in confirm modal');
@@ -46,26 +45,24 @@ export class Modal {
             }
             
             okBtn.addEventListener('click', () => {
-                this.closeModal(modal);
+                this.closeModal(backdrop);
                 resolve(true);
             });
             
             cancelBtn.addEventListener('click', () => {
-                this.closeModal(modal);
+                this.closeModal(backdrop);
                 resolve(false);
             });
             
-            // Close on backdrop click
-            if (backdrop) {
-                backdrop.addEventListener('click', (e) => {
-                    if (e.target === e.currentTarget) {
-                        this.closeModal(modal);
-                        resolve(false);
-                    }
-                });
-            }
+            // Close on backdrop click (backdrop is the element itself)
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) {
+                    this.closeModal(backdrop);
+                    resolve(false);
+                }
+            });
             
-            document.body.appendChild(modal);
+            document.body.appendChild(backdrop);
             setTimeout(() => okBtn.focus(), 100);
         });
     }
