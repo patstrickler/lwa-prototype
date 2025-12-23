@@ -228,6 +228,11 @@ export class VisualizationPanel {
             .replace(/\b\w/g, char => char.toUpperCase());
     }
     
+    /**
+     * Converts dataset rows (array of arrays) to data objects (array of objects)
+     * @param {Object} dataset - Dataset with rows and columns
+     * @returns {Array} Array of data objects
+     */
     getDatasetData(dataset) {
         // Convert rows (array of arrays) to data (array of objects) if needed
         if (dataset.data) {
@@ -245,6 +250,90 @@ export class VisualizationPanel {
         }
         
         return [];
+    }
+    
+    /**
+     * Converts dataset rows into Highcharts series format
+     * @param {Array} data - Array of data objects
+     * @param {string} xColumn - Column name for X axis
+     * @param {string} yColumn - Column name for Y axis
+     * @param {string} chartType - Type of chart (line, bar, scatter)
+     * @returns {Object} Object with chartData and metadata
+     */
+    convertToHighchartsSeries(data, xColumn, yColumn, chartType) {
+        if (!data || data.length === 0) {
+            return { chartData: [], isXNumeric: false, categories: [] };
+        }
+        
+        // Extract and validate data points
+        const points = data
+            .map(row => {
+                const xValue = row[xColumn];
+                const yValue = row[yColumn];
+                
+                // Skip rows with missing values
+                if (xValue === null || xValue === undefined || 
+                    yValue === null || yValue === undefined) {
+                    return null;
+                }
+                
+                return {
+                    x: xValue,
+                    y: parseFloat(yValue) || 0,
+                    name: String(xValue) // For tooltips
+                };
+            })
+            .filter(point => point !== null);
+        
+        if (points.length === 0) {
+            return { chartData: [], isXNumeric: false, categories: [] };
+        }
+        
+        // Determine if x values are numeric
+        const isXNumeric = typeof points[0].x === 'number';
+        
+        // Sort data for line and bar charts
+        if (chartType === 'line' || chartType === 'bar') {
+            points.sort((a, b) => {
+                if (isXNumeric) {
+                    return a.x - b.x;
+                }
+                return String(a.x).localeCompare(String(b.x));
+            });
+        }
+        
+        // Convert to Highcharts format
+        let chartData;
+        let categories = [];
+        
+        if (chartType === 'scatter') {
+            // Scatter plot: array of [x, y] pairs
+            chartData = points.map(point => [parseFloat(point.x) || 0, point.y]);
+        } else if (chartType === 'line' || chartType === 'bar') {
+            if (isXNumeric) {
+                // Numeric x-axis: use [x, y] format for line charts
+                if (chartType === 'line') {
+                    chartData = points.map(point => [parseFloat(point.x) || 0, point.y]);
+                } else {
+                    // For bar charts with numeric x, we'll use categories for better display
+                    categories = points.map(point => String(point.x));
+                    chartData = points.map(point => point.y);
+                }
+            } else {
+                // Categorical x-axis: use y values with categories
+                categories = points.map(point => String(point.x));
+                chartData = points.map(point => point.y);
+            }
+        } else {
+            // Default: just y values
+            chartData = points.map(point => point.y);
+        }
+        
+        return {
+            chartData,
+            isXNumeric,
+            categories
+        };
     }
     
     renderChart() {
