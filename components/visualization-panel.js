@@ -2333,6 +2333,87 @@ export class VisualizationPanel {
     }
     
     /**
+     * Applies aggregation to data grouped by X column
+     * @param {Array} data - Array of data objects
+     * @param {string} xColumn - Column to group by
+     * @param {string} yColumn - Column to aggregate
+     * @param {string} aggregation - Aggregation function (COUNT, COUNT_DISTINCT, SUM, AVG, MIN, MAX)
+     * @returns {Array} Aggregated data
+     */
+    applyAggregation(data, xColumn, yColumn, aggregation) {
+        if (!data || data.length === 0) return [];
+        
+        // Group by X column
+        const groups = {};
+        data.forEach(row => {
+            const xValue = row[xColumn];
+            if (xValue === null || xValue === undefined) return;
+            
+            const xKey = String(xValue);
+            if (!groups[xKey]) {
+                groups[xKey] = {
+                    x: xValue,
+                    values: []
+                };
+            }
+            groups[xKey].values.push(row[yColumn]);
+        });
+        
+        // Apply aggregation to each group
+        const aggregated = Object.values(groups).map(group => {
+            const values = group.values.filter(v => v !== null && v !== undefined);
+            let yValue;
+            
+            switch (aggregation) {
+                case 'COUNT':
+                    yValue = values.length;
+                    break;
+                case 'COUNT_DISTINCT':
+                    yValue = new Set(values).size;
+                    break;
+                case 'SUM':
+                    yValue = values.reduce((sum, v) => {
+                        const num = parseFloat(v);
+                        return sum + (isNaN(num) ? 0 : num);
+                    }, 0);
+                    break;
+                case 'AVG':
+                    const sum = values.reduce((s, v) => {
+                        const num = parseFloat(v);
+                        return s + (isNaN(num) ? 0 : num);
+                    }, 0);
+                    yValue = values.length > 0 ? sum / values.length : 0;
+                    break;
+                case 'MIN':
+                    const nums = values.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                    yValue = nums.length > 0 ? Math.min(...nums) : 0;
+                    break;
+                case 'MAX':
+                    const nums2 = values.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                    yValue = nums2.length > 0 ? Math.max(...nums2) : 0;
+                    break;
+                default:
+                    yValue = values.length;
+            }
+            
+            return {
+                x: group.x,
+                y: yValue
+            };
+        });
+        
+        // Sort by X value
+        aggregated.sort((a, b) => {
+            if (typeof a.x === 'number' && typeof b.x === 'number') {
+                return a.x - b.x;
+            }
+            return String(a.x).localeCompare(String(b.x));
+        });
+        
+        return aggregated;
+    }
+    
+    /**
      * Handles item selection from dataset browser
      * @param {string} type - 'column' or 'metric'
      * @param {string} value - Column name or metric ID
