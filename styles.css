@@ -1514,6 +1514,7 @@ main {
     position: relative;
     cursor: pointer;
     transition: all 0.2s;
+    gap: 8px;
 }
 
 .axis-selection-display:hover {
@@ -1522,9 +1523,19 @@ main {
 }
 
 .axis-selection-display.drag-over {
+    background-color: #d1ecf1;
+    border-color: #17a2b8;
+    border-style: solid;
+}
+
+.axis-selection-display.drag-over.column-drop {
+    background-color: #d1ecf1;
+    border-color: #007bff;
+}
+
+.axis-selection-display.drag-over.metric-drop {
     background-color: #d4edda;
     border-color: #28a745;
-    border-style: solid;
 }
 
 .axis-select-btn {
@@ -1554,21 +1565,24 @@ main {
     display: flex;
     align-items: center;
     gap: 10px;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
 }
 
 .selected-item.column-selected {
     padding: 8px 12px;
-    background-color: #e7f3ff;
-    border: 1px solid #007bff;
+    background-color: #d1ecf1;
+    border: 2px solid #007bff;
     border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
 }
 
 .selected-item.metric-selected {
     padding: 8px 12px;
-    background-color: #fff3cd;
-    border: 1px solid #ffc107;
+    background-color: #d4edda;
+    border: 2px solid #28a745;
     border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.1);
 }
 
 .selected-item .item-icon {
@@ -1862,10 +1876,71 @@ main {
     margin-top: 20px;
 }
 
-.metric-builder-form {
+.metric-script-builder {
     display: flex;
     flex-direction: column;
     gap: 15px;
+}
+
+.metric-controls {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 15px;
+}
+
+.metric-editor-wrapper {
+    margin-top: 10px;
+}
+
+.metric-editor-container {
+    position: relative;
+}
+
+.metric-expression-editor {
+    width: 100%;
+    min-height: 150px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    resize: vertical;
+    background-color: #fff;
+    line-height: 1.5;
+}
+
+.metric-expression-editor:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.metric-help {
+    margin-top: 8px;
+    padding: 10px;
+    background-color: #e7f3ff;
+    border-left: 3px solid #007bff;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #004085;
+    line-height: 1.6;
+}
+
+.metric-help strong {
+    color: #002752;
+}
+
+#metric-autocomplete-suggestions {
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    min-width: 200px;
+    margin-top: 2px;
 }
 
 .metric-result {

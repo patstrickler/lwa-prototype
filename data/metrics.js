@@ -51,7 +51,7 @@ class MetricsStore {
         }
     }
     
-    create(datasetId, name, value, type, column = null, operation = null) {
+    create(datasetId, name, value, type, column = null, operation = null, expression = null) {
         const id = `metric_${this.nextId++}`;
         const metric = {
             id,
@@ -61,6 +61,7 @@ class MetricsStore {
             type,
             column,
             operation,
+            expression,
             createdAt: new Date().toISOString()
         };
         this.metrics.set(id, metric);
