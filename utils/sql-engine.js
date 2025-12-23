@@ -1,6 +1,8 @@
 // Mock SQL Execution Engine
 // Simulates SQL query execution with latency and returns mock tabular data
 
+import { getTableData } from '../data/table-data.js';
+
 /**
  * Executes a mock SQL query with simulated latency
  * @param {string} sql - SQL query string
@@ -317,18 +319,38 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
         const tableDef = tableMap[tableName];
         if (!tableDef) continue;
         
+        // Check if we have stored data for this table
+        const storedData = getTableData(tableName);
         const tableRows = [];
-        const tableRowCount = rowCount;
         
-        for (let i = 0; i < tableRowCount; i++) {
-            const row = {};
-            // Store columns with both qualified (alias.column) and unqualified names
-            tableDef.columns.forEach(col => {
-                const value = generateColumnValue(col, i, tableName);
-                row[col] = value; // Unqualified
-                row[`${alias}.${col}`] = value; // Qualified with alias
+        if (storedData && storedData.length > 0) {
+            // Use stored data (limit to rowCount or available data, whichever is smaller)
+            const dataToUse = storedData.slice(0, Math.min(rowCount, storedData.length));
+            
+            dataToUse.forEach((rowArray, idx) => {
+                const row = {};
+                // Map array values to column names
+                tableDef.columns.forEach((col, colIdx) => {
+                    const value = rowArray[colIdx] !== undefined ? rowArray[colIdx] : null;
+                    row[col] = value; // Unqualified
+                    row[`${alias}.${col}`] = value; // Qualified with alias
+                });
+                tableRows.push(row);
             });
-            tableRows.push(row);
+        } else {
+            // Fallback to generating data on-the-fly
+            const tableRowCount = rowCount;
+            
+            for (let i = 0; i < tableRowCount; i++) {
+                const row = {};
+                // Store columns with both qualified (alias.column) and unqualified names
+                tableDef.columns.forEach(col => {
+                    const value = generateColumnValue(col, i, tableName);
+                    row[col] = value; // Unqualified
+                    row[`${alias}.${col}`] = value; // Qualified with alias
+                });
+                tableRows.push(row);
+            }
         }
         
         tableData[alias] = tableRows;

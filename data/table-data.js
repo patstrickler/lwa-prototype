@@ -207,31 +207,47 @@ export function getTestResultsData() {
     
     // Generate results that link to samples (1-1000) and tests (1-1000)
     // Multiple results can exist for same sample/test combination
+    // Create more realistic distribution - some samples have multiple tests
     for (let i = 1; i <= 1000; i++) {
         const resultId = i;
-        const sampleId = randomInt(1, 1000);
+        
+        // Distribute samples more realistically - some samples have more tests
+        // Use weighted distribution where earlier samples are more likely
+        const sampleId = Math.min(1000, Math.floor(Math.pow(Math.random(), 0.7) * 1000) + 1);
         const testId = randomInt(1, 1000);
         
         // Generate realistic result values based on test type patterns
-        // This is simplified - in reality, values would depend on the actual test
+        // Vary by test ID to simulate different test types
         let resultValue;
         const testMod = testId % 100;
         
-        if (testMod < 20) {
-            // Hematology - cell counts
-            resultValue = randomInt(1000, 50000);
-        } else if (testMod < 40) {
-            // Chemistry - mg/dL values
-            resultValue = randomFloat(5, 500);
+        if (testMod < 15) {
+            // Hematology - cell counts (WBC, RBC, platelets)
+            resultValue = randomInt(2000, 15000);
+        } else if (testMod < 30) {
+            // Chemistry - mg/dL values (glucose, cholesterol, etc.)
+            resultValue = randomFloat(50, 300);
+        } else if (testMod < 45) {
+            // Percentage values (hematocrit, differential counts)
+            resultValue = randomFloat(15, 65);
         } else if (testMod < 60) {
-            // Percentage values
-            resultValue = randomFloat(0, 100);
-        } else if (testMod < 80) {
-            // Small numeric values (enzymes, hormones)
-            resultValue = randomFloat(0.1, 100);
+            // Enzyme values U/L (ALT, AST, etc.)
+            resultValue = randomFloat(10, 200);
+        } else if (testMod < 75) {
+            // Hormone values (TSH, hormones in pg/mL or mIU/L)
+            resultValue = randomFloat(0.5, 50);
+        } else if (testMod < 85) {
+            // Tumor markers and very sensitive assays (ng/mL)
+            resultValue = randomFloat(0.1, 25);
         } else {
-            // Very small values (tumor markers, etc.)
-            resultValue = randomFloat(0.01, 50);
+            // Very small values (troponin, BNP, etc.)
+            resultValue = randomFloat(0.01, 5);
+        }
+        
+        // Some results should be "negative" or "normal" text values for qualitative tests
+        if (testMod > 80 && Math.random() < 0.3) {
+            const qualitativeValues = ['Negative', 'Positive', 'Normal', 'Abnormal', 'Not Detected', 'Detected'];
+            resultValue = randomChoice(qualitativeValues);
         }
         
         const resultDate = randomDate(baseDate, endDate);
