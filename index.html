@@ -7,17 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <!-- Monaco Editor -->
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
-    <script>
-        // Configure Monaco Editor after loader is available
-        window.addEventListener('load', function() {
-            if (typeof require !== 'undefined') {
-                require.config({ 
-                    paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } 
-                });
-            }
-        });
-    </script>
+    <script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
 </head>
 <body>
     <div class="container">
