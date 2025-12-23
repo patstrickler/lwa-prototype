@@ -50,6 +50,26 @@ export class QueryBuilder {
         `;
     }
     
+    attachEventListeners() {
+        // Get the textarea element
+        this.editor = this.container.querySelector('#sql-editor');
+        
+        const runBtn = this.container.querySelector('#run-query');
+        const clearBtn = this.container.querySelector('#clear-query');
+        const saveBtn = this.container.querySelector('#save-dataset');
+        const updateBtn = this.container.querySelector('#update-dataset');
+        
+        if (!this.editor || !runBtn || !clearBtn || !saveBtn || !updateBtn) {
+            console.error('Query builder elements not found');
+            return;
+        }
+        
+        runBtn.addEventListener('click', () => this.executeQuery());
+        clearBtn.addEventListener('click', () => this.clearQuery());
+        saveBtn.addEventListener('click', () => this.saveAsDataset());
+        updateBtn.addEventListener('click', () => this.updateDataset());
+    }
+    
     async executeQuery() {
         if (!this.editor) return;
         
