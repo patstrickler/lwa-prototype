@@ -114,15 +114,15 @@ export class VisualizationPanel {
     }
     
     attachEventListeners() {
-        const chartTypeSelect = this.querySelector('#chart-type-select');
-        const clearBtn = this.querySelector('#clear-selections-btn');
-        const stylingToggle = this.querySelector('#styling-toggle');
-        const seriesColorInput = this.querySelector('#series-color-input');
-        const seriesColorText = this.querySelector('#series-color-text');
-        const trendlineToggle = this.querySelector('#trendline-toggle');
-        const titleInput = this.querySelector('#chart-title-input');
-        const xLabelInput = this.querySelector('#x-axis-label-input');
-        const yLabelInput = this.querySelector('#y-axis-label-input');
+        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        const clearBtn = this.container.querySelector('#clear-selections-btn');
+        const stylingToggle = this.container.querySelector('#styling-toggle');
+        const seriesColorInput = this.container.querySelector('#series-color-input');
+        const seriesColorText = this.container.querySelector('#series-color-text');
+        const trendlineToggle = this.container.querySelector('#trendline-toggle');
+        const titleInput = this.container.querySelector('#chart-title-input');
+        const xLabelInput = this.container.querySelector('#x-axis-label-input');
+        const yLabelInput = this.container.querySelector('#y-axis-label-input');
         
         // Chart type change - update field selection UI and preserve selections
         chartTypeSelect.addEventListener('change', () => {
@@ -232,8 +232,8 @@ export class VisualizationPanel {
     }
     
     toggleStylingPanel() {
-        const panel = this.querySelector('#styling-panel');
-        const toggle = this.querySelector('#styling-toggle');
+        const panel = this.container.querySelector('#styling-panel');
+        const toggle = this.container.querySelector('#styling-toggle');
         const icon = toggle.querySelector('.toggle-icon');
         
         if (panel.style.display === 'none') {
@@ -250,7 +250,7 @@ export class VisualizationPanel {
      * @param {string} chartType - The selected chart type
      */
     updateFieldSelectionUI(chartType) {
-        const container = this.querySelector('#field-selection-container');
+        const container = this.container.querySelector('#field-selection-container');
         if (!container) return;
         
         if (!chartType) {
@@ -625,7 +625,7 @@ export class VisualizationPanel {
     }
     
     refreshDatasetList() {
-        const datasetSelect = this.querySelector('#dataset-select');
+        const datasetSelect = this.container.querySelector('#dataset-select');
         if (!datasetSelect) return;
         
         const currentValue = datasetSelect.value;
@@ -670,10 +670,10 @@ export class VisualizationPanel {
     onDatasetSelected() {
         // Use requestAnimationFrame to batch DOM updates
         requestAnimationFrame(() => {
-            const datasetSelect = this.querySelector('#dataset-select');
+            const datasetSelect = this.container.querySelector('#dataset-select');
             const datasetId = datasetSelect.value;
-            const xAxisSelect = this.querySelector('#x-axis-select');
-            const yAxisSelect = this.querySelector('#y-axis-select');
+            const xAxisSelect = this.container.querySelector('#x-axis-select');
+            const yAxisSelect = this.container.querySelector('#y-axis-select');
             
             if (!datasetId) {
                 xAxisSelect.disabled = true;
@@ -1510,7 +1510,7 @@ export class VisualizationPanel {
      * @returns {Object} Styling options object
      */
     getStylingOptions() {
-        const titleInput = this.querySelector('#chart-title-input');
+        const titleInput = this.container.querySelector('#chart-title-input');
         const xLabelInput = this.container.querySelector('#x-axis-label-input');
         const yLabelInput = this.container.querySelector('#y-axis-label-input');
         const colorInput = this.container.querySelector('#series-color-input');
@@ -2046,7 +2046,7 @@ export class VisualizationPanel {
         
         this.currentDataset = dataset;
         // Update selection if this dataset is currently selected
-        const datasetSelect = this.querySelector('#dataset-select');
+        const datasetSelect = this.container.querySelector('#dataset-select');
         if (datasetSelect && dataset && datasetSelect.value === dataset.id) {
             this.onDatasetSelected();
         }
@@ -2129,7 +2129,7 @@ export class VisualizationPanel {
             this.currentDataset = null;
             return;
         }
-        const datasetSelect = this.querySelector('#dataset-select');
+        const datasetSelect = this.container.querySelector('#dataset-select');
         if (datasetSelect) {
             datasetSelect.value = datasetId;
             this.onDatasetSelected();
