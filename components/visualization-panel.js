@@ -112,6 +112,14 @@ export class VisualizationPanel {
         `;
         
         this.refreshDatasetList();
+        
+        // Update axis displays if selections exist
+        if (this.xAxisSelection) {
+            this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
+        }
+        if (this.yAxisSelection) {
+            this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+        }
     }
     
     attachEventListeners() {
@@ -1310,6 +1318,348 @@ export class VisualizationPanel {
             datasetSelect.value = datasetId;
             this.onDatasetSelected();
         }
+    }
+    
+    /**
+     * Sets up drag and drop for an axis selection display
+     * @param {HTMLElement} axisDisplay - The axis display element
+     * @param {string} axis - 'x' or 'y'
+     */
+    setupDragAndDrop(axisDisplay, axis) {
+        if (!axisDisplay) return;
+        
+        // Allow dropping
+        axisDisplay.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            axisDisplay.classList.add('drag-over');
+        });
+        
+        axisDisplay.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            axisDisplay.classList.remove('drag-over');
+        });
+        
+        axisDisplay.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            axisDisplay.classList.remove('drag-over');
+            
+            const dragData = e.dataTransfer.getData('application/json');
+            if (dragData) {
+                try {
+                    const data = JSON.parse(dragData);
+                    if (data.type && data.value && data.datasetId) {
+                        this.selectAxis(data.type, data.value, data.datasetId, axis);
+                    }
+                } catch (error) {
+                    console.error('Error parsing drag data:', error);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Shows a dropdown with available fields for axis selection
+     * @param {string} axis - 'x' or 'y'
+     * @param {HTMLElement} triggerElement - Element that triggered the dropdown
+     */
+    showAxisSelectionDropdown(axis, triggerElement) {
+        // Close any existing dropdown
+        this.closeAxisSelectionDropdown();
+        
+        // Get current dataset from browser or stored selection
+        let dataset = null;
+        if (this.xAxisSelection) {
+            dataset = datasetStore.get(this.xAxisSelection.datasetId);
+        } else if (this.yAxisSelection) {
+            dataset = datasetStore.get(this.yAxisSelection.datasetId);
+        }
+        
+        // If no dataset, try to get from dataset browser
+        if (!dataset) {
+            const datasetBrowser = document.querySelector('#dataset-browser-visualization');
+            if (datasetBrowser) {
+                const select = datasetBrowser.querySelector('.dataset-browser-select');
+                if (select && select.value) {
+                    dataset = datasetStore.get(select.value);
+                }
+            }
+        }
+        
+        if (!dataset) {
+            alert('Please select a dataset first from the left panel.');
+            return;
+        }
+        
+        const axisDisplay = this.container.querySelector(`#${axis}-axis-display`);
+        if (!axisDisplay || !triggerElement) return;
+        
+        // Get position for dropdown
+        const rect = triggerElement.getBoundingClientRect();
+        const axisRect = axisDisplay.getBoundingClientRect();
+        
+        // Get columns and metrics
+        const columns = dataset.columns || [];
+        const metrics = metricsStore.getByDataset(dataset.id) || [];
+        
+        // Create dropdown
+        const dropdown = document.createElement('div');
+        dropdown.className = 'axis-selection-dropdown';
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = `${rect.bottom + 5}px`;
+        dropdown.style.left = `${axisRect.left}px`;
+        dropdown.style.width = `${axisRect.width}px`;
+        dropdown.style.zIndex = '1000';
+        
+        dropdown.innerHTML = `
+            <div class="dropdown-header">
+                <span>Select ${axis.toUpperCase()} Axis</span>
+                <button class="dropdown-close" onclick="this.closest('.axis-selection-dropdown').remove()">×</button>
+            </div>
+            <div class="dropdown-content">
+                ${columns.length > 0 ? `
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Columns</div>
+                        ${columns.map(col => `
+                            <div class="dropdown-item column-item" 
+                                 data-type="column" 
+                                 data-value="${this.escapeHtml(col)}"
+                                 data-dataset="${dataset.id}">
+                                <span class="item-icon">📊</span>
+                                <span class="item-name">${this.escapeHtml(this.formatColumnName(col))}</span>
+                                <span class="item-type">${this.inferColumnType(dataset, col)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                ${metrics.length > 0 ? `
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Metrics</div>
+                        ${metrics.map(metric => `
+                            <div class="dropdown-item metric-item" 
+                                 data-type="metric" 
+                                 data-value="${metric.id}"
+                                 data-dataset="${dataset.id}">
+                                <span class="item-icon">📈</span>
+                                <div class="item-info">
+                                    <span class="item-name">${this.escapeHtml(metric.name)}</span>
+                                    <span class="item-value">${this.formatMetricValue(metric.value)}</span>
+                                </div>
+                                <span class="item-operation">${this.escapeHtml(metric.operation || '')}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                ${columns.length === 0 && metrics.length === 0 ? `
+                    <div class="empty-state-small">No columns or metrics available</div>
+                ` : ''}
+            </div>
+        `;
+        
+        document.body.appendChild(dropdown);
+        
+        // Add click handlers for dropdown items
+        dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const type = item.getAttribute('data-type');
+                const value = item.getAttribute('data-value');
+                const datasetId = item.getAttribute('data-dataset');
+                this.selectAxis(type, value, datasetId, axis);
+                this.closeAxisSelectionDropdown();
+            });
+        });
+        
+        // Store reference for closing
+        this.currentDropdown = dropdown;
+    }
+    
+    /**
+     * Closes the axis selection dropdown
+     */
+    closeAxisSelectionDropdown() {
+        if (this.currentDropdown) {
+            this.currentDropdown.remove();
+            this.currentDropdown = null;
+        }
+    }
+    
+    /**
+     * Handles axis selection from the dataset browser or dropdown
+     * @param {string} type - 'column' or 'metric'
+     * @param {string} value - Column name or metric ID
+     * @param {string} datasetId - Dataset ID
+     * @param {string} axis - 'x' or 'y'
+     */
+    selectAxis(type, value, datasetId, axis = null) {
+        if (!axis) {
+            // If no axis specified, use the one that's not set, or default to X
+            axis = !this.xAxisSelection ? 'x' : (!this.yAxisSelection ? 'y' : 'x');
+        }
+        
+        const selection = { type, value, datasetId };
+        
+        if (axis === 'x') {
+            this.xAxisSelection = selection;
+            this.updateAxisDisplay('x-axis-display', selection);
+        } else {
+            this.yAxisSelection = selection;
+            this.updateAxisDisplay('y-axis-display', selection);
+        }
+        
+        this.autoRender();
+    }
+    
+    /**
+     * Updates the axis selection display
+     * @param {string} displayId - ID of the display element
+     * @param {Object} selection - Selection object or null
+     */
+    updateAxisDisplay(displayId, selection) {
+        const display = this.container.querySelector(`#${displayId}`);
+        if (!display) return;
+        
+        // Clear placeholder
+        const placeholder = display.querySelector('.selection-placeholder');
+        if (placeholder) {
+            placeholder.style.display = selection ? 'none' : 'block';
+        }
+        
+        // Remove existing selected item
+        const existing = display.querySelector('.selected-item');
+        if (existing) {
+            existing.remove();
+        }
+        
+        if (!selection) {
+            return;
+        }
+        
+        const dataset = datasetStore.get(selection.datasetId);
+        if (!dataset) return;
+        
+        const selectedItem = document.createElement('div');
+        
+        if (selection.type === 'column') {
+            selectedItem.className = 'selected-item column-selected';
+            selectedItem.innerHTML = `
+                <span class="item-icon">📊</span>
+                <span class="item-name">${this.escapeHtml(this.formatColumnName(selection.value))}</span>
+                <span class="item-type">Column</span>
+                <button class="remove-selection" title="Remove selection">×</button>
+            `;
+        } else {
+            const metric = metricsStore.get(selection.value);
+            if (metric) {
+                selectedItem.className = 'selected-item metric-selected';
+                selectedItem.innerHTML = `
+                    <span class="item-icon">📈</span>
+                    <div class="item-info">
+                        <span class="item-name">${this.escapeHtml(metric.name)}</span>
+                        <span class="item-value">${this.formatMetricValue(metric.value)}</span>
+                    </div>
+                    <span class="item-type">Metric</span>
+                    <button class="remove-selection" title="Remove selection">×</button>
+                `;
+            }
+        }
+        
+        // Add remove button handler
+        const removeBtn = selectedItem.querySelector('.remove-selection');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (displayId === 'x-axis-display') {
+                    this.xAxisSelection = null;
+                } else {
+                    this.yAxisSelection = null;
+                }
+                this.updateAxisDisplay(displayId, null);
+                this.autoRender();
+            });
+        }
+        
+        display.appendChild(selectedItem);
+    }
+    
+    formatMetricValue(value) {
+        const num = parseFloat(value);
+        if (isNaN(num)) return String(value);
+        
+        if (num >= 1000000) {
+            return (num / 1000000).toFixed(2) + 'M';
+        } else if (num >= 1000) {
+            return (num / 1000).toFixed(2) + 'K';
+        } else if (num % 1 === 0) {
+            return num.toString();
+        } else {
+            return num.toFixed(2);
+        }
+    }
+    
+    inferColumnType(dataset, columnName) {
+        if (!dataset.rows || dataset.rows.length === 0) {
+            return 'unknown';
+        }
+        
+        const columnIndex = dataset.columns.indexOf(columnName);
+        if (columnIndex === -1) return 'unknown';
+        
+        const sampleValues = dataset.rows
+            .map(row => row[columnIndex])
+            .filter(val => val !== null && val !== undefined)
+            .slice(0, 10);
+        
+        if (sampleValues.length === 0) return 'unknown';
+        
+        const allNumeric = sampleValues.every(val => {
+            const num = parseFloat(val);
+            return !isNaN(num) && isFinite(num);
+        });
+        
+        if (allNumeric) return 'numeric';
+        
+        const allDates = sampleValues.every(val => {
+            const str = String(val);
+            return /^\d{4}-\d{2}-\d{2}/.test(str) || !isNaN(Date.parse(str));
+        });
+        
+        if (allDates) return 'date';
+        
+        return 'text';
+    }
+    
+    /**
+     * Handles item selection from dataset browser
+     * @param {string} type - 'column' or 'metric'
+     * @param {string} value - Column name or metric ID
+     * @param {string} datasetId - Dataset ID
+     */
+    handleBrowserItemSelection(type, value, datasetId) {
+        if (!value) {
+            // Item was deselected
+            return;
+        }
+        
+        // Determine which axis to set (alternate between X and Y)
+        if (!this.xAxisSelection) {
+            this.selectAxis(type, value, datasetId, 'x');
+        } else if (!this.yAxisSelection) {
+            this.selectAxis(type, value, datasetId, 'y');
+        } else {
+            // Both are set, replace the one that was clicked (we'll need to track last click)
+            // For now, replace Y axis
+            this.selectAxis(type, value, datasetId, 'y');
+        }
+    }
+    
+    clearSelections() {
+        this.xAxisSelection = null;
+        this.yAxisSelection = null;
+        this.updateAxisDisplay('x-axis-display', null);
+        this.updateAxisDisplay('y-axis-display', null);
+        this.clearChart();
     }
 }
 

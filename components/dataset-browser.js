@@ -91,10 +91,11 @@ export class DatasetBrowser {
                     <div class="items-list" style="display: ${this.columnsExpanded ? 'block' : 'none'};">
                         ${dataset.columns && dataset.columns.length > 0
                             ? dataset.columns.map(col => `
-                                <div class="selectable-item column-item" 
+                                <div class="selectable-item column-item draggable-item" 
                                      data-type="column"
                                      data-value="${this.escapeHtml(col)}"
-                                     data-dataset="${dataset.id}">
+                                     data-dataset="${dataset.id}"
+                                     draggable="true">
                                     <span class="item-icon">📊</span>
                                     <span class="item-name">${this.escapeHtml(this.formatColumnName(col))}</span>
                                     <span class="item-type">${this.inferColumnType(dataset, col)}</span>
@@ -113,10 +114,12 @@ export class DatasetBrowser {
                     <div class="items-list editable-items">
                         ${metrics && metrics.length > 0
                             ? metrics.map(metric => `
-                                <div class="editable-item metric-item" 
+                                <div class="editable-item metric-item draggable-item" 
                                      data-type="metric"
                                      data-id="${metric.id}"
-                                     data-dataset="${dataset.id}">
+                                     data-value="${metric.id}"
+                                     data-dataset="${dataset.id}"
+                                     draggable="true">
                                     <span class="item-icon">📈</span>
                                     <div class="item-info">
                                         <span class="item-name">${this.escapeHtml(metric.name)}</span>
@@ -256,6 +259,33 @@ export class DatasetBrowser {
             }
         });
         
+        // Drag and drop handlers
+        this.container.addEventListener('dragstart', (e) => {
+            const draggableItem = e.target.closest('.draggable-item');
+            if (draggableItem) {
+                const type = draggableItem.getAttribute('data-type');
+                const value = draggableItem.getAttribute('data-value');
+                const datasetId = draggableItem.getAttribute('data-dataset');
+                
+                const dragData = {
+                    type,
+                    value,
+                    datasetId
+                };
+                
+                e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                e.dataTransfer.effectAllowed = 'move';
+                draggableItem.classList.add('dragging');
+            }
+        });
+        
+        this.container.addEventListener('dragend', (e) => {
+            const draggableItem = e.target.closest('.draggable-item');
+            if (draggableItem) {
+                draggableItem.classList.remove('dragging');
+            }
+        });
+        
         // Column/Metric click to select for axes
         this.container.addEventListener('click', (e) => {
             // Handle column expand/collapse
@@ -290,6 +320,34 @@ export class DatasetBrowser {
                     e.stopPropagation();
                     return;
                 }
+            }
+            
+            // Handle drag start for draggable items
+            const draggableItem = e.target.closest('.draggable-item');
+            if (draggableItem && e.type === 'dragstart') {
+                const type = draggableItem.getAttribute('data-type');
+                const value = draggableItem.getAttribute('data-value');
+                const datasetId = draggableItem.getAttribute('data-dataset');
+                
+                const dragData = {
+                    type,
+                    value,
+                    datasetId
+                };
+                
+                e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                e.dataTransfer.effectAllowed = 'move';
+                draggableItem.classList.add('dragging');
+                
+                e.stopPropagation();
+                return;
+            }
+            
+            // Handle drag end
+            if (draggableItem && e.type === 'dragend') {
+                draggableItem.classList.remove('dragging');
+                e.stopPropagation();
+                return;
             }
             
             // Handle column selection
