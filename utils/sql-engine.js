@@ -643,20 +643,46 @@ function evaluateSingleCondition(row, columnMap, condition, originalWhere) {
                         const rowValue = row[colIndex];
                         const compareValue = parseValue(valueStr);
                         
-                        if (compareValue !== null) {
+                        // Perform comparison
+                        const comparison = compareValues(rowValue, compareValue);
+                        switch (op) {
+                            case '=':
+                                return comparison === 0;
+                            case '!=':
+                                return comparison !== 0;
+                            case '>':
+                                return comparison > 0;
+                            case '<':
+                                return comparison < 0;
+                            case '>=':
+                                return comparison >= 0;
+                            case '<=':
+                                return comparison <= 0;
+                        }
+                    } else {
+                        // If we can't extract the value, try a fallback: extract from normalized condition
+                        // This handles cases where the extraction regex fails
+                        const normalizedParts = condition.split(op);
+                        if (normalizedParts.length === 2) {
+                            const valueStr = normalizedParts[1].trim();
+                            const rowValue = row[colIndex];
+                            const compareValue = parseValue(valueStr);
+                            
+                            // Perform case-insensitive comparison for strings
+                            const comparison = compareValues(rowValue, compareValue);
                             switch (op) {
                                 case '=':
-                                    return compareValues(rowValue, compareValue) === 0;
+                                    return comparison === 0;
                                 case '!=':
-                                    return compareValues(rowValue, compareValue) !== 0;
+                                    return comparison !== 0;
                                 case '>':
-                                    return compareValues(rowValue, compareValue) > 0;
+                                    return comparison > 0;
                                 case '<':
-                                    return compareValues(rowValue, compareValue) < 0;
+                                    return comparison < 0;
                                 case '>=':
-                                    return compareValues(rowValue, compareValue) >= 0;
+                                    return comparison >= 0;
                                 case '<=':
-                                    return compareValues(rowValue, compareValue) <= 0;
+                                    return comparison <= 0;
                             }
                         }
                     }
