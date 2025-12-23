@@ -6,6 +6,7 @@ import { metricsStore } from '../data/metrics.js';
 import { debounceRAF } from '../utils/debounce.js';
 import { Modal } from '../utils/modal.js';
 import { calculateMetric } from '../utils/metric-calculator.js';
+import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
 
 export class VisualizationPanel {
     constructor(containerSelector) {
@@ -1016,9 +1017,15 @@ export class VisualizationPanel {
             
             // If metric has operation and column, group by X and recalculate for each group
             if (metric.operation && metric.column) {
+                // Apply date grouping if X axis is a date column with grouping
+                let processedData = data;
+                if (xAxis.type === 'column' && xAxis.dateGrouping && xAxis.dateGrouping !== 'day') {
+                    processedData = this.applyDateGrouping(data, xAxis.value, xAxis.dateGrouping);
+                }
+                
                 // Group data by X column
                 const groups = {};
-                data.forEach(row => {
+                processedData.forEach(row => {
                     const xValue = row[xAxis.value];
                     if (xValue === null || xValue === undefined) return;
                     const xKey = String(xValue);
