@@ -52,6 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
         queryBuilder.insertText(`${tableName}.${columnName}`);
     });
     
+    tableBrowser.onQuerySelect((queryId) => {
+        queryBuilder.loadQuery(queryId);
+    });
+    
     // Set up event listeners for component communication
     // Dataset Browser → Analysis Panel
     datasetBrowser.onSelection((dataset) => {
@@ -73,6 +77,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     analysisPanel.onDatasetUpdated((dataset) => {
         visualizationPanel.updateDataset(dataset);
+    });
+    
+    // Dataset Browser → Visualization Panel
+    datasetBrowser.onDatasetSelect((dataset) => {
+        if (visualizationPanel.selectDataset) {
+            visualizationPanel.selectDataset(dataset.id);
+        }
     });
 });
 

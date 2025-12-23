@@ -1208,5 +1208,17 @@ export class VisualizationPanel {
         div.textContent = text;
         return div.innerHTML;
     }
+    
+    /**
+     * Selects a dataset in the visualization builder
+     * @param {string} datasetId - Dataset ID to select
+     */
+    selectDataset(datasetId) {
+        const datasetSelect = this.container.querySelector('#dataset-select');
+        if (datasetSelect) {
+            datasetSelect.value = datasetId;
+            this.onDatasetSelected();
+        }
+    }
 }
 
