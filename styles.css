@@ -247,6 +247,25 @@ main {
     min-width: 0;
 }
 
+.visualization-builder-sidebar {
+    flex: 0 0 var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    position: sticky;
+    top: var(--spacing-xl);
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+}
+
+.visualization-builder-sidebar .visualization-builder {
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border-light);
+    padding: var(--spacing-xl);
+    position: sticky;
+    top: 0;
+}
+
 /* Saved Datasets Dropdown Styles */
 .saved-datasets-dropdown-container {
     background-color: var(--color-bg-elevated);
@@ -2872,18 +2891,16 @@ main {
 
 /* Visualization Panel Styles */
 .visualization-builder {
-    margin-bottom: 30px;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #ddd;
+    margin-bottom: 0;
 }
 
 .visualization-builder h3 {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 20px;
-    color: #495057;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-xl);
+    color: var(--color-text);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border-light);
 }
 
 .builder-form {

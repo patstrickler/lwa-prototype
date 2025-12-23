@@ -113,15 +113,15 @@ export class VisualizationPanel {
     }
     
     attachEventListeners() {
-        const chartTypeSelect = this.container.querySelector('#chart-type-select');
-        const clearBtn = this.container.querySelector('#clear-selections-btn');
-        const stylingToggle = this.container.querySelector('#styling-toggle');
-        const seriesColorInput = this.container.querySelector('#series-color-input');
-        const seriesColorText = this.container.querySelector('#series-color-text');
-        const trendlineToggle = this.container.querySelector('#trendline-toggle');
-        const titleInput = this.container.querySelector('#chart-title-input');
-        const xLabelInput = this.container.querySelector('#x-axis-label-input');
-        const yLabelInput = this.container.querySelector('#y-axis-label-input');
+        const chartTypeSelect = this.querySelector('#chart-type-select');
+        const clearBtn = this.querySelector('#clear-selections-btn');
+        const stylingToggle = this.querySelector('#styling-toggle');
+        const seriesColorInput = this.querySelector('#series-color-input');
+        const seriesColorText = this.querySelector('#series-color-text');
+        const trendlineToggle = this.querySelector('#trendline-toggle');
+        const titleInput = this.querySelector('#chart-title-input');
+        const xLabelInput = this.querySelector('#x-axis-label-input');
+        const yLabelInput = this.querySelector('#y-axis-label-input');
         
         // Chart type change - update field selection UI and preserve selections
         chartTypeSelect.addEventListener('change', () => {
@@ -149,7 +149,7 @@ export class VisualizationPanel {
         }
         
         // Click handlers for axis selection dropdown
-        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
+        const axisSelectBtns = this.querySelectorAll('.axis-select-btn');
         axisSelectBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -231,8 +231,8 @@ export class VisualizationPanel {
     }
     
     toggleStylingPanel() {
-        const panel = this.container.querySelector('#styling-panel');
-        const toggle = this.container.querySelector('#styling-toggle');
+        const panel = this.querySelector('#styling-panel');
+        const toggle = this.querySelector('#styling-toggle');
         const icon = toggle.querySelector('.toggle-icon');
         
         if (panel.style.display === 'none') {
@@ -249,7 +249,7 @@ export class VisualizationPanel {
      * @param {string} chartType - The selected chart type
      */
     updateFieldSelectionUI(chartType) {
-        const container = this.container.querySelector('#field-selection-container');
+        const container = this.querySelector('#field-selection-container');
         if (!container) return;
         
         if (!chartType) {
@@ -448,7 +448,7 @@ export class VisualizationPanel {
         });
         
         // Click handlers for axis selection buttons
-        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
+        const axisSelectBtns = this.querySelectorAll('.axis-select-btn');
         axisSelectBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -624,7 +624,7 @@ export class VisualizationPanel {
     }
     
     refreshDatasetList() {
-        const datasetSelect = this.container.querySelector('#dataset-select');
+        const datasetSelect = this.querySelector('#dataset-select');
         if (!datasetSelect) return;
         
         const currentValue = datasetSelect.value;
@@ -669,10 +669,10 @@ export class VisualizationPanel {
     onDatasetSelected() {
         // Use requestAnimationFrame to batch DOM updates
         requestAnimationFrame(() => {
-            const datasetSelect = this.container.querySelector('#dataset-select');
+            const datasetSelect = this.querySelector('#dataset-select');
             const datasetId = datasetSelect.value;
-            const xAxisSelect = this.container.querySelector('#x-axis-select');
-            const yAxisSelect = this.container.querySelector('#y-axis-select');
+            const xAxisSelect = this.querySelector('#x-axis-select');
+            const yAxisSelect = this.querySelector('#y-axis-select');
             
             if (!datasetId) {
                 xAxisSelect.disabled = true;
@@ -1038,76 +1038,40 @@ export class VisualizationPanel {
                 });
                 
                 // Recalculate metric for each group
-                // Create a proper grouped dataframe: extract metric column values per group
                 const aggregated = [];
                 Object.entries(groups).forEach(([xKey, groupRows]) => {
-                    if (groupRows.length === 0) return;
-                    
-                    // Extract the metric column values from this group
-                    const metricColumnValues = groupRows
-                        .map(row => row[metric.column])
-                        .filter(val => val !== null && val !== undefined);
-                    
-                    let metricValue = 0;
-                    
-                    // Apply the metric operation directly to the grouped values
-                    const operationLower = metric.operation.toLowerCase();
-                    switch (operationLower) {
-                        case 'count':
-                            metricValue = metricColumnValues.length;
-                            break;
-                        case 'count_distinct':
-                        case 'countdistinct':
-                            // Use Set to get distinct values, converting to string for comparison
-                            metricValue = new Set(metricColumnValues.map(v => String(v))).size;
-                            break;
-                        case 'sum':
-                            metricValue = metricColumnValues.reduce((sum, v) => {
-                                const num = parseFloat(v);
-                                return sum + (isNaN(num) ? 0 : num);
-                            }, 0);
-                            break;
-                        case 'mean':
-                        case 'avg':
-                            const sum = metricColumnValues.reduce((s, v) => {
-                                const num = parseFloat(v);
-                                return s + (isNaN(num) ? 0 : num);
-                            }, 0);
-                            metricValue = metricColumnValues.length > 0 ? sum / metricColumnValues.length : 0;
-                            break;
-                        case 'min':
-                            const nums = metricColumnValues.map(v => parseFloat(v)).filter(n => !isNaN(n));
-                            metricValue = nums.length > 0 ? Math.min(...nums) : 0;
-                            break;
-                        case 'max':
-                            const nums2 = metricColumnValues.map(v => parseFloat(v)).filter(n => !isNaN(n));
-                            metricValue = nums2.length > 0 ? Math.max(...nums2) : 0;
-                            break;
-                        default:
-                            // Fallback to using calculateMetric for complex operations
-                            try {
-                                const groupRowsArray = groupRows.map(row => {
-                                    return dataset.columns.map(col => {
-                                        const value = row[col];
-                                        return value !== undefined ? value : null;
-                                    });
-                                });
-                                metricValue = calculateMetric(
-                                    groupRowsArray,
-                                    dataset.columns,
-                                    metric.column,
-                                    metric.operation
-                                ) || 0;
-                            } catch (error) {
-                                console.error('Error calculating metric for group:', error);
-                                metricValue = 0;
-                            }
-                    }
-                    
-                    aggregated.push({
-                        x: groupRows[0][xAxis.value],
-                        y: metricValue
+                    // Convert group rows to dataset format for metric calculation
+                    const groupRowsArray = groupRows.map(row => {
+                        return dataset.columns.map(col => row[col]);
                     });
+                    
+                    try {
+                        // Calculate metric for this group
+                        const metricValue = calculateMetric(
+                            groupRowsArray,
+                            dataset.columns,
+                            metric.column,
+                            metric.operation
+                        );
+                        
+                        console.log(`Group ${xKey}: ${groupRows.length} rows, COUNT_DISTINCT(${metric.column}) = ${metricValue}`);
+                        
+                        aggregated.push({
+                            x: groupRows[0][xAxis.value],
+                            y: metricValue !== null && metricValue !== undefined ? metricValue : 0
+                        });
+                    } catch (error) {
+                        console.error('Error calculating metric for group:', error, {
+                            xKey,
+                            groupSize: groupRows.length,
+                            operation: metric.operation,
+                            column: metric.column
+                        });
+                        aggregated.push({
+                            x: groupRows[0][xAxis.value],
+                            y: 0
+                        });
+                    }
                 });
                 
                 // Sort by X value
@@ -1160,9 +1124,23 @@ export class VisualizationPanel {
                 return;
             }
             
-            // Fallback: metric doesn't have operation/column, cannot group
-            // Show error message instead of reference line
-            this.showError(`Metric "${metric.name}" cannot be grouped. It needs an operation and column to group by ${xAxis.value}.`);
+            // Fallback: metric doesn't have operation/column, show as reference line
+            // Find a numeric column for the main series
+            const numericColumns = dataset.columns.filter(col => {
+                const sampleValue = data[0] && data[0][col];
+                return sampleValue !== null && sampleValue !== undefined && 
+                       (typeof sampleValue === 'number' || !isNaN(parseFloat(sampleValue)));
+            });
+            
+            if (numericColumns.length === 0) {
+                // No numeric columns, just show the metric as reference line with X column
+                this.renderChartWithReferenceLine(datasetId, xAxis.value, yAxis.value, chartType, metric);
+                return;
+            }
+            
+            // Use first numeric column as main series
+            const mainColumn = numericColumns[0];
+            this.renderChartWithReferenceLine(datasetId, xAxis.value, yAxis.value, chartType, metric, mainColumn);
             return;
         }
         
@@ -1272,6 +1250,11 @@ export class VisualizationPanel {
             if (!dataset.columns.includes(xColumn)) {
                 this.showError(`Column "${xColumn}" not found in dataset "${dataset.name}"`);
                 return;
+            }
+            
+            // Apply date grouping if specified
+            if (xAxis.dateGrouping && xAxis.dateGrouping !== 'day') {
+                data = this.applyDateGrouping(data, xColumn, xAxis.dateGrouping);
             }
         } else {
             // X is metric - use index or first column
@@ -1403,7 +1386,7 @@ export class VisualizationPanel {
      * @returns {Object} Styling options object
      */
     getStylingOptions() {
-        const titleInput = this.container.querySelector('#chart-title-input');
+        const titleInput = this.querySelector('#chart-title-input');
         const xLabelInput = this.container.querySelector('#x-axis-label-input');
         const yLabelInput = this.container.querySelector('#y-axis-label-input');
         const colorInput = this.container.querySelector('#series-color-input');
@@ -1939,7 +1922,7 @@ export class VisualizationPanel {
         
         this.currentDataset = dataset;
         // Update selection if this dataset is currently selected
-        const datasetSelect = this.container.querySelector('#dataset-select');
+        const datasetSelect = this.querySelector('#dataset-select');
         if (datasetSelect && dataset && datasetSelect.value === dataset.id) {
             this.onDatasetSelected();
         }
@@ -2022,59 +2005,11 @@ export class VisualizationPanel {
             this.currentDataset = null;
             return;
         }
-        
-        // Check if dataset has changed
-        const previousDatasetId = this.currentDataset ? this.currentDataset.id : null;
-        const datasetChanged = previousDatasetId !== datasetId;
-        
-        const datasetSelect = this.container.querySelector('#dataset-select');
+        const datasetSelect = this.querySelector('#dataset-select');
         if (datasetSelect) {
             datasetSelect.value = datasetId;
-            this.currentDataset = datasetStore.get(datasetId);
-            
-            // If dataset changed, reset the visualization editor
-            if (datasetChanged) {
-                this.resetVisualizationEditor();
-            }
-            
             this.onDatasetSelected();
         }
-    }
-    
-    /**
-     * Resets the visualization editor to initial state
-     */
-    resetVisualizationEditor() {
-        // Clear all selections
-        this.clearSelections();
-        
-        // Clear chart type selection
-        const chartTypeSelect = this.container.querySelector('#chart-type-select');
-        if (chartTypeSelect) {
-            chartTypeSelect.value = '';
-        }
-        
-        // Clear chart
-        this.clearChart();
-        
-        // Hide field selection container
-        const fieldSelectionContainer = this.container.querySelector('#field-selection-container');
-        if (fieldSelectionContainer) {
-            fieldSelectionContainer.style.display = 'none';
-        }
-        
-        // Reset styling options
-        const titleInput = this.container.querySelector('#chart-title-input');
-        const xLabelInput = this.container.querySelector('#x-axis-label-input');
-        const yLabelInput = this.container.querySelector('#y-axis-label-input');
-        const colorInput = this.container.querySelector('#series-color-input');
-        const trendlineToggle = this.container.querySelector('#trendline-toggle');
-        
-        if (titleInput) titleInput.value = '';
-        if (xLabelInput) xLabelInput.value = '';
-        if (yLabelInput) yLabelInput.value = '';
-        if (colorInput) colorInput.value = '#007bff';
-        if (trendlineToggle) trendlineToggle.checked = false;
     }
     
     /**
@@ -2513,6 +2448,86 @@ export class VisualizationPanel {
         if (allDates) return 'date';
         
         return 'text';
+    }
+    
+    /**
+     * Applies date grouping to data
+     * @param {Array} data - Array of data objects
+     * @param {string} dateColumn - Column name containing dates
+     * @param {string} grouping - Grouping level: 'day', 'week', 'month', 'quarter', 'year'
+     * @returns {Array} Data with grouped dates
+     */
+    applyDateGrouping(data, dateColumn, grouping) {
+        if (!data || data.length === 0) return [];
+        
+        // Group by date grouping level
+        const groups = {};
+        data.forEach(row => {
+            const dateValue = row[dateColumn];
+            if (dateValue === null || dateValue === undefined) return;
+            
+            let date;
+            try {
+                date = new Date(dateValue);
+                if (isNaN(date.getTime())) return;
+            } catch (e) {
+                return;
+            }
+            
+            let groupKey;
+            switch (grouping) {
+                case 'week':
+                    // Get week of year (ISO week)
+                    const week = this.getWeekOfYear(date);
+                    groupKey = `${date.getFullYear()}-W${String(week).padStart(2, '0')}`;
+                    break;
+                case 'month':
+                    groupKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    break;
+                case 'quarter':
+                    const quarter = Math.floor(date.getMonth() / 3) + 1;
+                    groupKey = `${date.getFullYear()}-Q${quarter}`;
+                    break;
+                case 'year':
+                    groupKey = String(date.getFullYear());
+                    break;
+                case 'day':
+                default:
+                    groupKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            }
+            
+            if (!groups[groupKey]) {
+                groups[groupKey] = [];
+            }
+            groups[groupKey].push(row);
+        });
+        
+        // Aggregate data within each group (use first row as base, update date column)
+        const grouped = Object.entries(groups).map(([groupKey, groupRows]) => {
+            const baseRow = { ...groupRows[0] };
+            baseRow[dateColumn] = groupKey;
+            return baseRow;
+        });
+        
+        // Sort by group key
+        grouped.sort((a, b) => {
+            return String(a[dateColumn]).localeCompare(String(b[dateColumn]));
+        });
+        
+        return grouped;
+    }
+    
+    /**
+     * Gets ISO week number for a date
+     * @param {Date} date - Date object
+     * @returns {number} Week number (1-53)
+     */
+    getWeekOfYear(date) {
+        const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     }
     
     /**
