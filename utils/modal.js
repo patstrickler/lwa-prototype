@@ -10,6 +10,13 @@ export class Modal {
         return new Promise((resolve) => {
             const modal = this.createModal('alert', message, null);
             const okBtn = modal.querySelector('.modal-btn-primary');
+            
+            if (!okBtn) {
+                console.error('Modal: OK button not found in alert modal');
+                resolve();
+                return;
+            }
+            
             okBtn.addEventListener('click', () => {
                 this.closeModal(modal);
                 resolve();
@@ -30,6 +37,13 @@ export class Modal {
             const modal = this.createModal('confirm', message, null);
             const okBtn = modal.querySelector('.modal-btn-primary');
             const cancelBtn = modal.querySelector('.modal-btn-secondary');
+            const backdrop = modal.querySelector('.modal-backdrop');
+            
+            if (!okBtn || !cancelBtn) {
+                console.error('Modal: Buttons not found in confirm modal');
+                resolve(false);
+                return;
+            }
             
             okBtn.addEventListener('click', () => {
                 this.closeModal(modal);
@@ -42,12 +56,14 @@ export class Modal {
             });
             
             // Close on backdrop click
-            modal.querySelector('.modal-backdrop').addEventListener('click', (e) => {
-                if (e.target === e.currentTarget) {
-                    this.closeModal(modal);
-                    resolve(false);
-                }
-            });
+            if (backdrop) {
+                backdrop.addEventListener('click', (e) => {
+                    if (e.target === e.currentTarget) {
+                        this.closeModal(modal);
+                        resolve(false);
+                    }
+                });
+            }
             
             document.body.appendChild(modal);
             setTimeout(() => okBtn.focus(), 100);
@@ -62,19 +78,30 @@ export class Modal {
      */
     static prompt(message, defaultValue = '') {
         return new Promise((resolve) => {
-            const modal = this.createModal('prompt', message, defaultValue);
-            const input = modal.querySelector('.modal-input');
-            const okBtn = modal.querySelector('.modal-btn-primary');
-            const cancelBtn = modal.querySelector('.modal-btn-secondary');
+            const backdrop = this.createModal('prompt', message, defaultValue);
+            const input = backdrop.querySelector('.modal-input');
+            const okBtn = backdrop.querySelector('.modal-btn-primary');
+            const cancelBtn = backdrop.querySelector('.modal-btn-secondary');
+            
+            if (!input || !okBtn || !cancelBtn) {
+                console.error('Modal: Required elements not found in prompt modal', {
+                    input: !!input,
+                    okBtn: !!okBtn,
+                    cancelBtn: !!cancelBtn,
+                    backdrop: !!backdrop
+                });
+                resolve(null);
+                return;
+            }
             
             const handleOk = () => {
                 const value = input.value;
-                this.closeModal(modal);
+                this.closeModal(backdrop);
                 resolve(value);
             };
             
             const handleCancel = () => {
-                this.closeModal(modal);
+                this.closeModal(backdrop);
                 resolve(null);
             };
             
@@ -91,16 +118,20 @@ export class Modal {
                 }
             });
             
-            // Close on backdrop click
-            modal.querySelector('.modal-backdrop').addEventListener('click', (e) => {
-                if (e.target === e.currentTarget) {
+            // Close on backdrop click (backdrop is the element itself)
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) {
                     handleCancel();
                 }
             });
             
-            document.body.appendChild(modal);
-            setTimeout(() => input.focus(), 100);
-            input.select(); // Select default value if present
+            document.body.appendChild(backdrop);
+            setTimeout(() => {
+                if (input) {
+                    input.focus();
+                    input.select(); // Select default value if present
+                }
+            }, 100);
         });
     }
     

@@ -1,8 +1,7 @@
 // Dataset Browser Component
-// Displays available datasets with their columns and metrics in a sidebar
+// Displays dataset selection dropdown and available columns in a sidebar
 
 import { datasetStore } from '../data/datasets.js';
-import { metricsStore } from '../data/metrics.js';
 
 export class DatasetBrowser {
     constructor(containerSelector) {
@@ -25,105 +24,68 @@ export class DatasetBrowser {
         const datasets = datasetStore.getAll();
         
         // Filter out any datasets that don't exist (safety check)
-        const validDatasets = datasets.filter(ds => datasetStore.exists(ds.id));
+        const validDatasets = datasets.filter(ds => {
+            const exists = datasetStore.get(ds.id);
+            return exists !== undefined;
+        });
+        
+        const selectedId = this.selectedDataset ? this.selectedDataset.id : '';
         
         this.container.innerHTML = `
             <div class="dataset-browser">
                 <div class="browser-header">
-                    <h3>Datasets</h3>
+                    <h3>Dataset Selection</h3>
                 </div>
                 <div class="browser-content">
-                    ${validDatasets.length === 0 
-                        ? '<div class="empty-state">No datasets available. Create a dataset from the Query Builder.</div>'
-                        : validDatasets.map(dataset => this.renderDataset(dataset)).join('')
-                    }
+                    <div class="dataset-selector-section">
+                        <label for="dataset-browser-select">Select Dataset:</label>
+                        <select id="dataset-browser-select" class="form-control">
+                            <option value="">-- Choose Dataset --</option>
+                            ${validDatasets.map(ds => `
+                                <option value="${ds.id}" ${ds.id === selectedId ? 'selected' : ''}>${ds.name}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    
+                    ${this.selectedDataset ? this.renderDatasetDetails(this.selectedDataset) : ''}
                 </div>
             </div>
         `;
     }
     
-    renderDataset(dataset) {
-        // Check if dataset still exists
-        if (!datasetStore.exists(dataset.id)) {
-            return ''; // Don't render deleted datasets
-        }
-        
-        const metrics = metricsStore.getByDataset(dataset.id);
-        const isSelected = this.selectedDataset && this.selectedDataset.id === dataset.id;
-        
-        // Filter metrics to only show those where dataset exists
-        const validMetrics = metrics.filter(metric => datasetStore.exists(metric.datasetId));
-        
-        const columnsHtml = dataset.columns && dataset.columns.length > 0
-            ? dataset.columns.map(col => `
-                <div class="dataset-column" data-dataset="${dataset.id}" data-column="${col}">
-                    <span class="column-icon">📊</span>
-                    <span class="column-name">${this.formatColumnName(col)}</span>
-                    <span class="column-type">${this.inferColumnType(dataset, col)}</span>
-                </div>
-            `).join('')
-            : '<div class="empty-state-small">No columns</div>';
-        
-        const metricsHtml = validMetrics && validMetrics.length > 0
-            ? validMetrics.map(metric => {
-                // Check if metric's dataset exists
-                const metricDataset = datasetStore.get(metric.datasetId);
-                if (!metricDataset) {
-                    return `
-                        <div class="dataset-metric metric-error" data-dataset="${dataset.id}" data-metric="${metric.id}">
-                            <span class="metric-icon">⚠️</span>
-                            <div class="metric-info">
-                                <span class="metric-name">${metric.name}</span>
-                                <span class="metric-value metric-value-error">Dataset Missing</span>
-                            </div>
-                            <span class="metric-operation">${metric.operation || ''}</span>
-                        </div>
-                    `;
-                }
-                return `
-                    <div class="dataset-metric" data-dataset="${dataset.id}" data-metric="${metric.id}">
-                        <span class="metric-icon">📈</span>
-                        <div class="metric-info">
-                            <span class="metric-name">${metric.name}</span>
-                            <span class="metric-value">${this.formatMetricValue(metric.value)}</span>
-                        </div>
-                        <span class="metric-operation">${metric.operation || ''}</span>
-                    </div>
-                `;
-            }).join('')
-            : '<div class="empty-state-small">No metrics defined</div>';
-        
+    renderDatasetDetails(dataset) {
         return `
-            <div class="dataset-item ${isSelected ? 'selected' : ''}" data-dataset="${dataset.id}">
-                <div class="dataset-header" data-dataset="${dataset.id}">
-                    <span class="dataset-icon">🗂️</span>
-                    <span class="dataset-name">${dataset.name}</span>
-                    <span class="dataset-toggle">${isSelected ? '▲' : '▼'}</span>
-                </div>
-                <div class="dataset-info">
-                    <div class="dataset-meta">
-                        <span class="meta-item">${dataset.columns ? dataset.columns.length : 0} columns</span>
-                        <span class="meta-item">${dataset.rows ? dataset.rows.length : 0} rows</span>
+            <div class="dataset-details-panel">
+                <div class="dataset-info-header">
+                    <h4>${this.escapeHtml(dataset.name)}</h4>
+                    <div class="dataset-stats">
+                        <span>${dataset.columns ? dataset.columns.length : 0} columns</span>
+                        <span>•</span>
+                        <span>${dataset.rows ? dataset.rows.length : 0} rows</span>
                     </div>
                 </div>
-                <div class="dataset-details" style="display: ${isSelected ? 'block' : 'none'};">
-                    <div class="dataset-section">
-                        <div class="section-header">
-                            <span class="section-icon">📋</span>
-                            <span class="section-title">Columns</span>
-                        </div>
-                        <div class="dataset-columns">
-                            ${columnsHtml}
-                        </div>
+                
+                <div class="columns-section">
+                    <div class="section-title">
+                        <span class="section-icon">📊</span>
+                        <span>Available Columns</span>
                     </div>
-                    <div class="dataset-section">
-                        <div class="section-header">
-                            <span class="section-icon">📈</span>
-                            <span class="section-title">Metrics</span>
-                        </div>
-                        <div class="dataset-metrics">
-                            ${metricsHtml}
-                        </div>
+                    <div class="columns-list">
+                        ${dataset.columns && dataset.columns.length > 0
+                            ? dataset.columns.map(col => `
+                                <div class="column-item" 
+                                     data-column="${this.escapeHtml(col)}"
+                                     data-dataset="${dataset.id}">
+                                    <span class="column-icon">📊</span>
+                                    <div class="column-info">
+                                        <span class="column-name">${this.escapeHtml(this.formatColumnName(col))}</span>
+                                        <span class="column-original">${this.escapeHtml(col)}</span>
+                                    </div>
+                                    <span class="column-type-badge">${this.inferColumnType(dataset, col)}</span>
+                                </div>
+                            `).join('')
+                            : '<div class="empty-state-small">No columns available</div>'
+                        }
                     </div>
                 </div>
             </div>
@@ -136,19 +98,10 @@ export class DatasetBrowser {
             .replace(/\b\w/g, char => char.toUpperCase());
     }
     
-    formatMetricValue(value) {
-        const num = parseFloat(value);
-        if (isNaN(num)) return String(value);
-        
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(2) + 'M';
-        } else if (num >= 1000) {
-            return (num / 1000).toFixed(2) + 'K';
-        } else if (num % 1 === 0) {
-            return num.toString();
-        } else {
-            return num.toFixed(2);
-        }
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     inferColumnType(dataset, columnName) {
@@ -193,62 +146,34 @@ export class DatasetBrowser {
     attachEventListeners() {
         if (!this.container) return;
         
-        // Dataset header click to expand/collapse and select
-        this.container.addEventListener('click', (e) => {
-            const datasetHeader = e.target.closest('.dataset-header');
-            if (datasetHeader) {
-                const datasetId = datasetHeader.getAttribute('data-dataset');
-                this.toggleDataset(datasetId);
-                e.stopPropagation();
-                return;
-            }
-            
-            // Column click
-            const column = e.target.closest('.dataset-column');
-            if (column) {
-                const datasetId = column.getAttribute('data-dataset');
-                const columnName = column.getAttribute('data-column');
-                this.onColumnClick(datasetId, columnName);
-                e.stopPropagation();
-                return;
-            }
-            
-            // Metric click
-            const metric = e.target.closest('.dataset-metric');
-            if (metric) {
-                const datasetId = metric.getAttribute('data-dataset');
-                const metricId = metric.getAttribute('data-metric');
-                this.onMetricClick(datasetId, metricId);
-                e.stopPropagation();
-                return;
+        // Dataset dropdown selection
+        this.container.addEventListener('change', (e) => {
+            if (e.target.id === 'dataset-browser-select') {
+                const datasetId = e.target.value;
+                if (datasetId) {
+                    const dataset = datasetStore.get(datasetId);
+                    if (dataset) {
+                        this.selectedDataset = dataset;
+                        this.render();
+                        this.notifyDatasetSelected(dataset);
+                    }
+                } else {
+                    this.selectedDataset = null;
+                    this.render();
+                }
             }
         });
-    }
-    
-    toggleDataset(datasetId) {
-        const dataset = datasetStore.get(datasetId);
-        if (!dataset) return;
         
-        if (this.selectedDataset && this.selectedDataset.id === datasetId) {
-            // Collapse if already selected
-            this.selectedDataset = null;
-        } else {
-            // Select and expand
-            this.selectedDataset = dataset;
-            this.notifyDatasetSelected(dataset);
-        }
-        
-        this.render();
-    }
-    
-    onColumnClick(datasetId, columnName) {
-        // Could emit event or highlight in visualization builder
-        console.log('Column clicked:', datasetId, columnName);
-    }
-    
-    onMetricClick(datasetId, metricId) {
-        // Could emit event or highlight in visualization builder
-        console.log('Metric clicked:', datasetId, metricId);
+        // Column click (for potential future use)
+        this.container.addEventListener('click', (e) => {
+            const columnItem = e.target.closest('.column-item');
+            if (columnItem) {
+                const columnName = columnItem.getAttribute('data-column');
+                const datasetId = columnItem.getAttribute('data-dataset');
+                // Could emit event for column selection if needed
+                console.log('Column selected:', columnName, 'from dataset:', datasetId);
+            }
+        });
     }
     
     refresh() {

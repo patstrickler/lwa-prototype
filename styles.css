@@ -335,6 +335,74 @@ main {
 .browser-content {
     overflow-y: auto;
     flex: 1;
+    padding: 15px;
+}
+
+.dataset-selector-section {
+    margin-bottom: 20px;
+}
+
+.dataset-selector-section label {
+    display: block;
+    font-weight: 500;
+    font-size: 14px;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.dataset-details-panel {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.dataset-info-header {
+    margin-bottom: 15px;
+}
+
+.dataset-info-header h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.dataset-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6c757d;
+}
+
+.dataset-stats span {
+    display: inline-block;
+}
+
+.columns-section {
+    margin-top: 15px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 12px;
+}
+
+.section-icon {
+    font-size: 16px;
+}
+
+.columns-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .dataset-item {
@@ -735,34 +803,65 @@ main {
 .column-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
+    gap: 10px;
+    padding: 10px 12px;
     background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
     border-radius: 4px;
     font-size: 13px;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
+    cursor: default;
 }
 
 .column-item:hover {
     background-color: #e9ecef;
+    border-color: #dee2e6;
 }
 
 .column-icon {
-    font-size: 14px;
+    font-size: 16px;
     flex-shrink: 0;
 }
 
-.column-name {
+.column-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.column-name {
     color: #495057;
     font-weight: 500;
+    font-size: 13px;
 }
 
 .column-original {
     font-size: 11px;
     color: #6c757d;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    opacity: 0.7;
+    opacity: 0.8;
+    word-break: break-all;
+}
+
+.column-type-badge {
+    font-size: 11px;
+    color: #6c757d;
+    background-color: #e9ecef;
+    padding: 3px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.empty-state-small {
+    padding: 12px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 13px;
+    font-style: italic;
 }
 
 /* Query Builder Styles */

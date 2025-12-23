@@ -11,6 +11,8 @@ export class VisualizationPanel {
         this.currentDataset = null;
         this.currentMetrics = [];
         this.charts = [];
+        this.xAxisSelection = null; // { type: 'column'|'metric', value: string, datasetId: string }
+        this.yAxisSelection = null;
         this.init();
     }
     
@@ -28,24 +30,17 @@ export class VisualizationPanel {
                     <h3>Chart Builder</h3>
                     <div class="builder-form">
                         <div class="form-group">
-                            <label for="dataset-select">Dataset:</label>
-                            <select id="dataset-select" class="form-control">
-                                <option value="">-- Select Dataset --</option>
-                            </select>
+                            <label>X Axis Selection:</label>
+                            <div class="axis-selection-display" id="x-axis-display">
+                                <span class="selection-placeholder">Click a column or metric from the left panel</span>
+                            </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="x-axis-select">X Axis:</label>
-                            <select id="x-axis-select" class="form-control" disabled>
-                                <option value="">-- Select X Axis --</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="y-axis-select">Y Axis:</label>
-                            <select id="y-axis-select" class="form-control" disabled>
-                                <option value="">-- Select Y Axis --</option>
-                            </select>
+                            <label>Y Axis Selection:</label>
+                            <div class="axis-selection-display" id="y-axis-display">
+                                <span class="selection-placeholder">Click a column or metric from the left panel</span>
+                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -55,6 +50,10 @@ export class VisualizationPanel {
                                 <option value="bar">Bar Chart</option>
                                 <option value="scatter">Scatter Plot</option>
                             </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="button" class="btn btn-secondary" id="clear-selections-btn">Clear Selections</button>
                         </div>
                     </div>
                     
@@ -107,10 +106,8 @@ export class VisualizationPanel {
     }
     
     attachEventListeners() {
-        const datasetSelect = this.container.querySelector('#dataset-select');
-        const xAxisSelect = this.container.querySelector('#x-axis-select');
-        const yAxisSelect = this.container.querySelector('#y-axis-select');
         const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        const clearBtn = this.container.querySelector('#clear-selections-btn');
         const stylingToggle = this.container.querySelector('#styling-toggle');
         const seriesColorInput = this.container.querySelector('#series-color-input');
         const seriesColorText = this.container.querySelector('#series-color-text');
@@ -120,13 +117,11 @@ export class VisualizationPanel {
         const yLabelInput = this.container.querySelector('#y-axis-label-input');
         
         // Auto-render on selection changes
-        datasetSelect.addEventListener('change', () => {
-            this.onDatasetSelected();
-            this.autoRender();
-        });
-        xAxisSelect.addEventListener('change', () => this.autoRender());
-        yAxisSelect.addEventListener('change', () => this.autoRender());
         chartTypeSelect.addEventListener('change', () => this.autoRender());
+        
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearSelections());
+        }
         
         // Styling controls - also trigger auto-render
         if (stylingToggle) {
@@ -303,12 +298,14 @@ export class VisualizationPanel {
      * Auto-renders the chart when selections change
      */
     autoRender() {
-        const datasetSelect = this.container.querySelector('#dataset-select');
-        const xAxisSelect = this.container.querySelector('#x-axis-select');
-        const yAxisSelect = this.container.querySelector('#y-axis-select');
-        
-        if (!datasetSelect.value || !xAxisSelect.value || !yAxisSelect.value) {
+        if (!this.xAxisSelection || !this.yAxisSelection) {
             // Clear chart if not all required fields are selected
+            this.clearChart();
+            return;
+        }
+        
+        // Ensure both selections are from the same dataset
+        if (this.xAxisSelection.datasetId !== this.yAxisSelection.datasetId) {
             this.clearChart();
             return;
         }
@@ -455,47 +452,29 @@ export class VisualizationPanel {
     }
     
     renderChart() {
-        const datasetSelect = this.container.querySelector('#dataset-select');
-        const xAxisSelect = this.container.querySelector('#x-axis-select');
-        const yAxisSelect = this.container.querySelector('#y-axis-select');
-        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        if (!this.xAxisSelection || !this.yAxisSelection) {
+            return;
+        }
         
-        const datasetId = datasetSelect.value;
-        const xAxisValue = xAxisSelect.value;
-        const yAxisValue = yAxisSelect.value;
+        const chartTypeSelect = this.container.querySelector('#chart-type-select');
         const chartType = chartTypeSelect ? chartTypeSelect.value : 'line';
         
-        if (!datasetId || !xAxisValue || !yAxisValue) {
+        const datasetId = this.xAxisSelection.datasetId;
+        const dataset = datasetStore.get(datasetId);
+        if (!dataset) {
             return;
         }
         
         // Clear previous chart
         this.clearChart();
         
-        const dataset = datasetStore.get(datasetId);
-        if (!dataset) {
-            return;
-        }
-        
-        // Parse axis values (format: "column:name" or "metric:id")
-        const parseAxisValue = (value) => {
-            if (!value) return null;
-            const [type, ...rest] = value.split(':');
-            const id = rest.join(':'); // In case the ID contains colons
-            return { type, id };
-        };
-        
-        const xAxis = parseAxisValue(xAxisValue);
-        const yAxis = parseAxisValue(yAxisValue);
-        
-        if (!xAxis || !yAxis) {
-            return;
-        }
+        const xAxis = this.xAxisSelection;
+        const yAxis = this.yAxisSelection;
         
         // Handle special case: both axes are metrics - show KPI cards
         if (xAxis.type === 'metric' && yAxis.type === 'metric') {
-            const xMetric = metricsStore.get(xAxis.id);
-            const yMetric = metricsStore.get(yAxis.id);
+            const xMetric = metricsStore.get(xAxis.value);
+            const yMetric = metricsStore.get(yAxis.value);
             if (xMetric) this.renderKPICard(xMetric);
             if (yMetric) this.renderKPICard(yMetric);
             return;
@@ -503,7 +482,7 @@ export class VisualizationPanel {
         
         // Handle case where Y is a metric but X is a column - show reference line
         if (yAxis.type === 'metric' && xAxis.type === 'column') {
-            const metric = metricsStore.get(yAxis.id);
+            const metric = metricsStore.get(yAxis.value);
             if (!metric) return;
             
             const data = this.getDatasetData(dataset);
@@ -518,13 +497,13 @@ export class VisualizationPanel {
             
             if (numericColumns.length === 0) {
                 // No numeric columns, just show the metric as reference line with X column
-                this.renderChartWithReferenceLine(datasetId, xAxis.id, yAxis.id, chartType, metric);
+                this.renderChartWithReferenceLine(datasetId, xAxis.value, yAxis.value, chartType, metric);
                 return;
             }
             
             // Use first numeric column as main series
             const mainColumn = numericColumns[0];
-            this.renderChartWithReferenceLine(datasetId, xAxis.id, yAxis.id, chartType, metric, mainColumn);
+            this.renderChartWithReferenceLine(datasetId, xAxis.value, yAxis.value, chartType, metric, mainColumn);
             return;
         }
         
@@ -541,18 +520,18 @@ export class VisualizationPanel {
         let xColumn, yColumn, yLabel;
         
         if (xAxis.type === 'column') {
-            xColumn = xAxis.id;
+            xColumn = xAxis.value;
         } else {
             // X is metric - use index or first column
             xColumn = dataset.columns[0] || 'index';
         }
         
         if (yAxis.type === 'column') {
-            yColumn = yAxis.id;
+            yColumn = yAxis.value;
             yLabel = this.formatColumnName(yColumn);
         } else {
             // Y is metric - create constant value series
-            const metric = metricsStore.get(yAxis.id);
+            const metric = metricsStore.get(yAxis.value);
             if (!metric) return;
             
             // Create data with metric value

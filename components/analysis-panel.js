@@ -32,8 +32,6 @@ export class AnalysisPanel {
     render() {
         this.container.innerHTML = `
             <div class="analysis-panel">
-                <div id="dataset-selector-container"></div>
-                
                 <div class="metrics-section">
                     <div class="metrics-header">
                         <h3>Metrics</h3>
@@ -53,10 +51,8 @@ export class AnalysisPanel {
     }
     
     initDatasetSelector() {
-        this.datasetSelector = new DatasetSelector('#dataset-selector-container');
-        this.datasetSelector.onSelection((dataset) => {
-            this.setDataset(dataset);
-        });
+        // Dataset selector is now handled by the sidebar component
+        // This method is kept for compatibility but does nothing
     }
     
     initMetricDialog() {
