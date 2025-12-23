@@ -9,16 +9,40 @@ export class TableBrowser {
         this.tables = getAllTables();
         this.onTableClickCallbacks = [];
         this.onColumnClickCallbacks = [];
+        this.onQuerySelectCallbacks = [];
+        this.savedQueries = [];
         this.init();
     }
     
     init() {
+        this.loadSavedQueries();
         this.render();
         this.attachEventListeners();
     }
     
+    async loadSavedQueries() {
+        const { datasetStore } = await import('../data/datasets.js');
+        this.savedQueries = datasetStore.getAll();
+        // Sort by creation date (newest first)
+        this.savedQueries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+    
     render() {
         this.container.innerHTML = `
+            <div class="saved-queries-dropdown-container">
+                <label for="saved-queries-select" class="dropdown-label">Saved Queries</label>
+                <select id="saved-queries-select" class="saved-queries-dropdown">
+                    <option value="">-- Select a saved query --</option>
+                    ${this.savedQueries.map(query => `
+                        <option value="${query.id}">${this.escapeHtml(query.name)}</option>
+                    `).join('')}
+                </select>
+                <div class="query-dropdown-actions">
+                    <button id="edit-query-btn" class="btn-icon" title="Edit" disabled>✏️</button>
+                    <button id="delete-query-btn" class="btn-icon" title="Delete" disabled>🗑️</button>
+                    <button id="refresh-queries-btn" class="btn-icon" title="Refresh">🔄</button>
+                </div>
+            </div>
             <div class="table-browser">
                 <div class="table-browser-header">
                     <h3>Database Tables</h3>
@@ -54,6 +78,44 @@ export class TableBrowser {
     }
     
     attachEventListeners() {
+        // Saved queries dropdown
+        const querySelect = this.container.querySelector('#saved-queries-select');
+        const editBtn = this.container.querySelector('#edit-query-btn');
+        const deleteBtn = this.container.querySelector('#delete-query-btn');
+        const refreshBtn = this.container.querySelector('#refresh-queries-btn');
+        
+        querySelect.addEventListener('change', (e) => {
+            const queryId = e.target.value;
+            if (queryId) {
+                editBtn.disabled = false;
+                deleteBtn.disabled = false;
+                this.notifyQuerySelect(queryId);
+            } else {
+                editBtn.disabled = true;
+                deleteBtn.disabled = true;
+            }
+        });
+        
+        editBtn.addEventListener('click', async () => {
+            const queryId = querySelect.value;
+            if (queryId) {
+                this.notifyQuerySelect(queryId);
+            }
+        });
+        
+        deleteBtn.addEventListener('click', async () => {
+            const queryId = querySelect.value;
+            if (queryId) {
+                await this.deleteQuery(queryId);
+            }
+        });
+        
+        refreshBtn.addEventListener('click', async () => {
+            await this.loadSavedQueries();
+            this.render();
+            this.attachEventListeners();
+        });
+        
         // Table header click to expand/collapse
         this.container.querySelectorAll('.table-header').forEach(header => {
             header.addEventListener('click', (e) => {
@@ -94,6 +156,42 @@ export class TableBrowser {
         });
     }
     
+    async deleteQuery(queryId) {
+        const { datasetStore } = await import('../data/datasets.js');
+        const { Modal } = await import('../utils/modal.js');
+        const dataset = datasetStore.get(queryId);
+        
+        if (!dataset) {
+            await Modal.alert('Query not found.');
+            return;
+        }
+        
+        const confirmed = await Modal.confirm(
+            `Are you sure you want to delete "${dataset.name}"?`
+        );
+        
+        if (!confirmed) {
+            return;
+        }
+        
+        const deleted = datasetStore.delete(queryId);
+        
+        if (deleted) {
+            await Modal.alert(`Query "${dataset.name}" deleted successfully.`);
+            await this.loadSavedQueries();
+            this.render();
+            this.attachEventListeners();
+        } else {
+            await Modal.alert('Failed to delete query.');
+        }
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     onTableClick(callback) {
         this.onTableClickCallbacks.push(callback);
     }
@@ -108,6 +206,14 @@ export class TableBrowser {
     
     notifyColumnClick(tableName, columnName) {
         this.onColumnClickCallbacks.forEach(callback => callback(tableName, columnName));
+    }
+    
+    onQuerySelect(callback) {
+        this.onQuerySelectCallbacks.push(callback);
+    }
+    
+    notifyQuerySelect(queryId) {
+        this.onQuerySelectCallbacks.forEach(callback => callback(queryId));
     }
 }
 

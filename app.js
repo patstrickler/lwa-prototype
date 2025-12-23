@@ -56,6 +56,14 @@ document.addEventListener('DOMContentLoaded', () => {
         queryBuilder.loadQuery(queryId);
     });
     
+    // Query Builder → Table Browser (refresh dropdown after save/update)
+    queryBuilder.onRefreshTableBrowser(() => {
+        tableBrowser.loadSavedQueries().then(() => {
+            tableBrowser.render();
+            tableBrowser.attachEventListeners();
+        });
+    });
+    
     // Set up event listeners for component communication
     // Dataset Browser → Analysis Panel
     datasetBrowser.onSelection((dataset) => {

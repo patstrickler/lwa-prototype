@@ -20,19 +20,11 @@ export class QueryBuilder {
     init() {
         this.render();
         this.attachEventListeners();
-        this.loadSavedQueries();
     }
     
     render() {
         this.container.innerHTML = `
             <div class="query-builder">
-                <div class="saved-queries-panel">
-                    <div class="saved-queries-header">
-                        <h3>Saved Queries</h3>
-                        <button id="refresh-queries" class="btn-icon" title="Refresh">🔄</button>
-                    </div>
-                    <div id="saved-queries-list" class="saved-queries-list"></div>
-                </div>
                 <div class="sql-editor-wrapper">
                     <textarea id="sql-editor" placeholder="Enter your SQL query here..."></textarea>
                     <div id="autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
@@ -66,14 +58,12 @@ export class QueryBuilder {
         const clearBtn = this.container.querySelector('#clear-query');
         const saveBtn = this.container.querySelector('#save-dataset');
         const updateBtn = this.container.querySelector('#update-dataset');
-        const refreshBtn = this.container.querySelector('#refresh-queries');
         const sqlEditor = this.container.querySelector('#sql-editor');
         
         runBtn.addEventListener('click', () => this.executeQuery());
         clearBtn.addEventListener('click', () => this.clearQuery());
         saveBtn.addEventListener('click', () => this.saveAsDataset());
         updateBtn.addEventListener('click', () => this.updateDataset());
-        refreshBtn.addEventListener('click', () => this.loadSavedQueries());
         
         // Autocomplete event listeners
         sqlEditor.addEventListener('input', (e) => this.handleInput(e));
@@ -391,11 +381,20 @@ export class QueryBuilder {
         // Notify listeners
         this.notifyDatasetCreated(dataset);
         
-        // Refresh saved queries list
-        this.loadSavedQueries();
+        // Refresh table browser if callback exists
+        if (this.refreshTableBrowserCallback) {
+            this.refreshTableBrowserCallback();
+        }
         
         // Show success message
         await Modal.alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
+    }
+    
+    /**
+     * Sets a callback to refresh the table browser when queries are saved/updated
+     */
+    onRefreshTableBrowser(callback) {
+        this.refreshTableBrowserCallback = callback;
     }
     
     onDatasetCreated(callback) {
@@ -599,66 +598,6 @@ export class QueryBuilder {
         this.updateSuggestions();
     }
     
-    /**
-     * Loads and displays saved queries
-     */
-    async loadSavedQueries() {
-        const { datasetStore } = await import('../data/datasets.js');
-        const queriesList = this.container.querySelector('#saved-queries-list');
-        const datasets = datasetStore.getAll();
-        
-        if (datasets.length === 0) {
-            queriesList.innerHTML = '<div class="empty-message">No saved queries yet.</div>';
-            return;
-        }
-        
-        // Sort by creation date (newest first)
-        datasets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        
-        queriesList.innerHTML = datasets.map(dataset => {
-            const date = new Date(dataset.createdAt).toLocaleString();
-            const sqlPreview = dataset.sql.length > 60 
-                ? dataset.sql.substring(0, 60) + '...' 
-                : dataset.sql;
-            
-            return `
-                <div class="saved-query-item" data-id="${dataset.id}">
-                    <div class="saved-query-header">
-                        <div class="saved-query-name">${this.escapeHtml(dataset.name)}</div>
-                        <div class="saved-query-actions">
-                            <button class="btn-icon edit-query" data-id="${dataset.id}" title="Edit">✏️</button>
-                            <button class="btn-icon delete-query" data-id="${dataset.id}" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                    <div class="saved-query-sql">${this.escapeHtml(sqlPreview)}</div>
-                    <div class="saved-query-meta">
-                        <span>${dataset.columns.length} columns</span>
-                        <span>•</span>
-                        <span>${dataset.rows.length} rows</span>
-                        <span>•</span>
-                        <span>${date}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        // Attach event listeners
-        queriesList.querySelectorAll('.edit-query').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const datasetId = btn.dataset.id;
-                this.loadQuery(datasetId);
-            });
-        });
-        
-        queriesList.querySelectorAll('.delete-query').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const datasetId = btn.dataset.id;
-                this.deleteQuery(datasetId);
-            });
-        });
-    }
     
     /**
      * Loads a saved query into the editor for editing
@@ -728,7 +667,11 @@ export class QueryBuilder {
         
         if (updated) {
             await Modal.alert(`Dataset "${updated.name}" updated successfully!`);
-            this.loadSavedQueries();
+            
+            // Refresh table browser if callback exists
+            if (this.refreshTableBrowserCallback) {
+                this.refreshTableBrowserCallback();
+            }
             
             // Notify listeners
             this.notifyDatasetCreated(updated);
@@ -762,7 +705,11 @@ export class QueryBuilder {
         
         if (deleted) {
             await Modal.alert(`Query "${dataset.name}" deleted successfully.`);
-            this.loadSavedQueries();
+            
+            // Refresh table browser if callback exists
+            if (this.refreshTableBrowserCallback) {
+                this.refreshTableBrowserCallback();
+            }
             
             // If we were editing this query, clear the editor
             if (this.currentDatasetId === datasetId) {
