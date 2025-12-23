@@ -44,6 +44,9 @@ export class QueryBuilder {
                         </select>
                     </div>
                     <div class="query-buttons">
+                        <button id="save-dataset" class="btn btn-primary" disabled>Save as Dataset</button>
+                        <button id="update-dataset" class="btn btn-secondary" disabled style="display: none;">Update Dataset</button>
+                        <div class="button-separator"></div>
                         <button id="run-query" class="btn btn-primary">Run Query</button>
                         <button id="clear-query" class="btn btn-secondary">Clear</button>
                     </div>
@@ -58,10 +61,6 @@ export class QueryBuilder {
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
-                    <div class="results-actions">
-                        <button id="save-dataset" class="btn btn-primary" disabled>Save as Dataset</button>
-                        <button id="update-dataset" class="btn btn-secondary" disabled style="display: none;">Update Dataset</button>
                     </div>
                 </div>
             </div>

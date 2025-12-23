@@ -1371,6 +1371,14 @@ main {
 .query-buttons {
     display: flex;
     gap: 10px;
+    align-items: center;
+}
+
+.button-separator {
+    width: 1px;
+    height: 24px;
+    background-color: #dee2e6;
+    margin: 0 5px;
 }
 
 /* Column header hover tooltip */
@@ -1596,10 +1604,6 @@ main {
     font-style: italic;
 }
 
-.results-actions {
-    display: flex;
-    gap: 10px;
-}
 
 .btn:disabled {
     opacity: 0.6;
