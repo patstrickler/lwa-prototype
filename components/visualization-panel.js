@@ -273,7 +273,12 @@ export class VisualizationPanel {
      * @param {Object} dataset - The dataset object
      */
     populateAxisSelector(selector, dataset) {
-        selector.innerHTML = '<option value="">-- Select --</option>';
+        // Use document fragment for better performance
+        const fragment = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- Select --';
+        fragment.appendChild(placeholder);
         
         // Add columns section
         if (dataset.columns && dataset.columns.length > 0) {
@@ -285,7 +290,7 @@ export class VisualizationPanel {
                 option.textContent = `📊 ${this.formatColumnName(column)}`;
                 columnGroup.appendChild(option);
             });
-            selector.appendChild(columnGroup);
+            fragment.appendChild(columnGroup);
         }
         
         // Add metrics section
@@ -299,8 +304,14 @@ export class VisualizationPanel {
                 option.textContent = `📈 ${metric.name} (${this.formatMetricValue(metric.value)})`;
                 metricGroup.appendChild(option);
             });
-            selector.appendChild(metricGroup);
+            fragment.appendChild(metricGroup);
         }
+        
+        // Batch DOM update
+        requestAnimationFrame(() => {
+            selector.innerHTML = '';
+            selector.appendChild(fragment);
+        });
     }
     
     formatMetricValue(value) {

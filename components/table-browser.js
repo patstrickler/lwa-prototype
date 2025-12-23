@@ -9,39 +9,39 @@ export class TableBrowser {
         this.tables = getAllTables();
         this.onTableClickCallbacks = [];
         this.onColumnClickCallbacks = [];
-        this.onQuerySelectCallbacks = [];
+        this.onDatasetSelectCallbacks = [];
         this.onDatasetDeletedCallbacks = [];
-        this.savedQueries = [];
+        this.savedDatasets = [];
         this.init();
     }
     
     init() {
-        this.loadSavedQueries();
+        this.loadSavedDatasets();
         this.render();
         this.attachEventListeners();
     }
     
-    async loadSavedQueries() {
+    async loadSavedDatasets() {
         const { datasetStore } = await import('../data/datasets.js');
-        this.savedQueries = datasetStore.getAll();
+        this.savedDatasets = datasetStore.getAll();
         // Sort by creation date (newest first)
-        this.savedQueries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        this.savedDatasets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
     
     render() {
         this.container.innerHTML = `
-            <div class="saved-queries-dropdown-container">
-                <label for="saved-queries-select" class="dropdown-label">Saved Queries</label>
-                <select id="saved-queries-select" class="saved-queries-dropdown">
-                    <option value="">-- Select a saved query --</option>
-                    ${this.savedQueries.map(query => `
-                        <option value="${query.id}">${this.escapeHtml(query.name)}</option>
+            <div class="saved-datasets-dropdown-container">
+                <label for="saved-datasets-select" class="dropdown-label">Saved Datasets</label>
+                <select id="saved-datasets-select" class="saved-datasets-dropdown">
+                    <option value="">-- Select a saved dataset --</option>
+                    ${this.savedDatasets.map(dataset => `
+                        <option value="${dataset.id}">${this.escapeHtml(dataset.name)}</option>
                     `).join('')}
                 </select>
-                <div class="query-dropdown-actions">
-                    <button id="edit-query-btn" class="btn-icon" title="Edit" disabled>✏️</button>
-                    <button id="delete-query-btn" class="btn-icon" title="Delete" disabled>🗑️</button>
-                    <button id="refresh-queries-btn" class="btn-icon" title="Refresh">🔄</button>
+                <div class="dataset-dropdown-actions">
+                    <button id="edit-dataset-btn" class="btn-icon" title="Edit" disabled>✏️</button>
+                    <button id="delete-dataset-btn" class="btn-icon" title="Delete" disabled>🗑️</button>
+                    <button id="refresh-datasets-btn" class="btn-icon" title="Refresh">🔄</button>
                 </div>
             </div>
             <div class="table-browser">
@@ -79,18 +79,18 @@ export class TableBrowser {
     }
     
     attachEventListeners() {
-        // Saved queries dropdown
-        const querySelect = this.container.querySelector('#saved-queries-select');
-        const editBtn = this.container.querySelector('#edit-query-btn');
-        const deleteBtn = this.container.querySelector('#delete-query-btn');
-        const refreshBtn = this.container.querySelector('#refresh-queries-btn');
+        // Saved datasets dropdown
+        const datasetSelect = this.container.querySelector('#saved-datasets-select');
+        const editBtn = this.container.querySelector('#edit-dataset-btn');
+        const deleteBtn = this.container.querySelector('#delete-dataset-btn');
+        const refreshBtn = this.container.querySelector('#refresh-datasets-btn');
         
-        querySelect.addEventListener('change', (e) => {
-            const queryId = e.target.value;
-            if (queryId) {
+        datasetSelect.addEventListener('change', (e) => {
+            const datasetId = e.target.value;
+            if (datasetId) {
                 editBtn.disabled = false;
                 deleteBtn.disabled = false;
-                this.notifyQuerySelect(queryId);
+                this.notifyDatasetSelect(datasetId);
             } else {
                 editBtn.disabled = true;
                 deleteBtn.disabled = true;
@@ -98,21 +98,21 @@ export class TableBrowser {
         });
         
         editBtn.addEventListener('click', async () => {
-            const queryId = querySelect.value;
-            if (queryId) {
-                this.notifyQuerySelect(queryId);
+            const datasetId = datasetSelect.value;
+            if (datasetId) {
+                this.notifyDatasetSelect(datasetId);
             }
         });
         
         deleteBtn.addEventListener('click', async () => {
-            const queryId = querySelect.value;
-            if (queryId) {
-                await this.deleteQuery(queryId);
+            const datasetId = datasetSelect.value;
+            if (datasetId) {
+                await this.deleteDataset(datasetId);
             }
         });
         
         refreshBtn.addEventListener('click', async () => {
-            await this.loadSavedQueries();
+            await this.loadSavedDatasets();
             this.render();
             this.attachEventListeners();
         });
@@ -157,13 +157,13 @@ export class TableBrowser {
         });
     }
     
-    async deleteQuery(queryId) {
+    async deleteDataset(datasetId) {
         const { datasetStore } = await import('../data/datasets.js');
         const { Modal } = await import('../utils/modal.js');
-        const dataset = datasetStore.get(queryId);
+        const dataset = datasetStore.get(datasetId);
         
         if (!dataset) {
-            await Modal.alert('Query not found.');
+            await Modal.alert('Dataset not found.');
             return;
         }
         
@@ -175,20 +175,20 @@ export class TableBrowser {
             return;
         }
         
-        const result = datasetStore.delete(queryId);
+        const result = datasetStore.delete(datasetId);
         
         if (result.deleted) {
-            await Modal.alert(`Query "${dataset.name}" deleted successfully.`);
+            await Modal.alert(`Dataset "${dataset.name}" deleted successfully.`);
             
-            // Refresh saved queries dropdown
-            await this.loadSavedQueries();
+            // Refresh saved datasets dropdown
+            await this.loadSavedDatasets();
             this.render();
             this.attachEventListeners();
             
             // Notify all components about the deletion
-            this.notifyDatasetDeleted(queryId, dataset);
+            this.notifyDatasetDeleted(datasetId, dataset);
         } else {
-            await Modal.alert('Failed to delete query.');
+            await Modal.alert('Failed to delete dataset.');
         }
     }
     
@@ -214,12 +214,12 @@ export class TableBrowser {
         this.onColumnClickCallbacks.forEach(callback => callback(tableName, columnName));
     }
     
-    onQuerySelect(callback) {
-        this.onQuerySelectCallbacks.push(callback);
+    onDatasetSelect(callback) {
+        this.onDatasetSelectCallbacks.push(callback);
     }
     
-    notifyQuerySelect(queryId) {
-        this.onQuerySelectCallbacks.forEach(callback => callback(queryId));
+    notifyDatasetSelect(datasetId) {
+        this.onDatasetSelectCallbacks.forEach(callback => callback(datasetId));
     }
     
     onDatasetDeleted(callback) {

@@ -85,8 +85,8 @@ export class AnalysisPanel {
             if (this.datasetSelector) {
                 this.datasetSelector.setSelectedDataset(null);
             }
-            if (this.scriptPanel) {
-                this.scriptPanel.setDataset(null);
+            if (this.unifiedBuilder) {
+                this.unifiedBuilder.setDataset(null);
             }
             this.updateMetricsList();
             this.notifyDatasetUpdated(null);
@@ -97,9 +97,9 @@ export class AnalysisPanel {
         if (this.datasetSelector) {
             this.datasetSelector.setSelectedDataset(dataset);
         }
-        // Update script panel with current dataset
-        if (this.scriptPanel) {
-            this.scriptPanel.setDataset(dataset);
+        // Update unified builder with current dataset
+        if (this.unifiedBuilder) {
+            this.unifiedBuilder.setDataset(dataset);
         }
         // Re-execute metrics when dataset changes to ensure values are up-to-date
         // Debounce to prevent jitter from rapid dataset changes
