@@ -77,6 +77,46 @@ export class VisualizationPanel {
                             <button id="render-chart-btn" class="btn btn-primary" disabled>Render Chart</button>
                         </div>
                     </div>
+                    
+                    <div class="styling-options">
+                        <button type="button" class="styling-toggle" id="styling-toggle">
+                            <span>Chart Styling Options</span>
+                            <span class="toggle-icon">▼</span>
+                        </button>
+                        <div class="styling-panel" id="styling-panel" style="display: none;">
+                            <div class="styling-form">
+                                <div class="form-group">
+                                    <label for="chart-title-input">Chart Title:</label>
+                                    <input type="text" id="chart-title-input" class="form-control" placeholder="Auto-generated">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="x-axis-label-input">X Axis Label:</label>
+                                    <input type="text" id="x-axis-label-input" class="form-control" placeholder="Auto-generated">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="y-axis-label-input">Y Axis Label:</label>
+                                    <input type="text" id="y-axis-label-input" class="form-control" placeholder="Auto-generated">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="series-color-input">Series Color:</label>
+                                    <div class="color-input-wrapper">
+                                        <input type="color" id="series-color-input" class="form-control color-picker" value="#007bff">
+                                        <input type="text" id="series-color-text" class="form-control color-text" value="#007bff" placeholder="#007bff">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="trendline-toggle" class="form-checkbox">
+                                        <span>Show Trendline</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div id="charts-container" class="charts-container"></div>
@@ -93,6 +133,9 @@ export class VisualizationPanel {
         const yColumnSelect = this.container.querySelector('#y-column-select');
         const metricDisplayMode = this.container.querySelector('#metric-display-mode');
         const renderBtn = this.container.querySelector('#render-chart-btn');
+        const stylingToggle = this.container.querySelector('#styling-toggle');
+        const seriesColorInput = this.container.querySelector('#series-color-input');
+        const seriesColorText = this.container.querySelector('#series-color-text');
         
         datasetSelect.addEventListener('change', () => this.onDatasetSelected());
         xColumnSelect.addEventListener('change', () => this.updateRenderButtonState());
@@ -100,6 +143,38 @@ export class VisualizationPanel {
         yColumnSelect.addEventListener('change', () => this.updateRenderButtonState());
         metricDisplayMode.addEventListener('change', () => this.onMetricDisplayModeChanged());
         renderBtn.addEventListener('click', () => this.renderChart());
+        
+        // Styling controls
+        if (stylingToggle) {
+            stylingToggle.addEventListener('click', () => this.toggleStylingPanel());
+        }
+        
+        // Sync color picker and text input
+        if (seriesColorInput && seriesColorText) {
+            seriesColorInput.addEventListener('input', (e) => {
+                seriesColorText.value = e.target.value;
+            });
+            seriesColorText.addEventListener('input', (e) => {
+                const color = e.target.value;
+                if (/^#[0-9A-F]{6}$/i.test(color)) {
+                    seriesColorInput.value = color;
+                }
+            });
+        }
+    }
+    
+    toggleStylingPanel() {
+        const panel = this.container.querySelector('#styling-panel');
+        const toggle = this.container.querySelector('#styling-toggle');
+        const icon = toggle.querySelector('.toggle-icon');
+        
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            icon.textContent = '▲';
+        } else {
+            panel.style.display = 'none';
+            icon.textContent = '▼';
+        }
     }
     
     refreshDatasetList() {
@@ -552,12 +627,37 @@ export class VisualizationPanel {
             return;
         }
         
+        // Collect styling options
+        const stylingOptions = this.getStylingOptions();
+        
         // Render with Highcharts
         this.renderHighchart(chartId, chartType, seriesData, {
-            xLabel: this.formatColumnName(xColumn),
-            yLabel: yLabel,
-            title: `${yLabel} vs ${this.formatColumnName(xColumn)}`
+            xLabel: stylingOptions.xLabel || this.formatColumnName(xColumn),
+            yLabel: stylingOptions.yLabel || yLabel,
+            title: stylingOptions.title || `${yLabel} vs ${this.formatColumnName(xColumn)}`,
+            color: stylingOptions.color,
+            showTrendline: stylingOptions.showTrendline
         });
+    }
+    
+    /**
+     * Collects styling options from the form
+     * @returns {Object} Styling options object
+     */
+    getStylingOptions() {
+        const titleInput = this.container.querySelector('#chart-title-input');
+        const xLabelInput = this.container.querySelector('#x-axis-label-input');
+        const yLabelInput = this.container.querySelector('#y-axis-label-input');
+        const colorInput = this.container.querySelector('#series-color-input');
+        const trendlineToggle = this.container.querySelector('#trendline-toggle');
+        
+        return {
+            title: titleInput && titleInput.value.trim() ? titleInput.value.trim() : null,
+            xLabel: xLabelInput && xLabelInput.value.trim() ? xLabelInput.value.trim() : null,
+            yLabel: yLabelInput && yLabelInput.value.trim() ? yLabelInput.value.trim() : null,
+            color: colorInput ? colorInput.value : '#007bff',
+            showTrendline: trendlineToggle ? trendlineToggle.checked : false
+        };
     }
     
     /**
@@ -677,11 +777,74 @@ export class VisualizationPanel {
     }
     
     /**
+     * Calculates trendline data using linear regression
+     * @param {Array} chartData - Chart data array
+     * @param {boolean} isXNumeric - Whether X values are numeric
+     * @param {Array} categories - Category labels (if categorical)
+     * @returns {Array} Trendline data points
+     */
+    calculateTrendline(chartData, isXNumeric, categories) {
+        if (!chartData || chartData.length < 2) {
+            return [];
+        }
+        
+        // Convert chart data to [x, y] pairs for regression
+        let points = [];
+        
+        if (isXNumeric || chartData[0] instanceof Array) {
+            // Data is already in [x, y] format
+            points = chartData.map(point => {
+                if (Array.isArray(point)) {
+                    return { x: point[0], y: point[1] };
+                }
+                return null;
+            }).filter(p => p !== null && !isNaN(p.x) && !isNaN(p.y));
+        } else {
+            // Data is array of y values, use index as x
+            points = chartData.map((y, index) => ({
+                x: index,
+                y: parseFloat(y) || 0
+            })).filter(p => !isNaN(p.y));
+        }
+        
+        if (points.length < 2) {
+            return [];
+        }
+        
+        // Calculate linear regression: y = mx + b
+        const n = points.length;
+        const sumX = points.reduce((sum, p) => sum + p.x, 0);
+        const sumY = points.reduce((sum, p) => sum + p.y, 0);
+        const sumXY = points.reduce((sum, p) => sum + p.x * p.y, 0);
+        const sumXX = points.reduce((sum, p) => sum + p.x * p.x, 0);
+        
+        const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const b = (sumY - m * sumX) / n;
+        
+        // Generate trendline points
+        const minX = Math.min(...points.map(p => p.x));
+        const maxX = Math.max(...points.map(p => p.x));
+        
+        // For categorical data (no numeric x), return y values
+        // For numeric x, return [x, y] pairs
+        if (!isXNumeric && categories && categories.length > 0) {
+            // Categorical: return array of y values matching the number of categories
+            return categories.map((_, index) => m * index + b);
+        } else {
+            // Numeric: return [x, y] pairs for the trendline endpoints
+            return [
+                [minX, m * minX + b],
+                [maxX, m * maxX + b]
+            ];
+        }
+    }
+    
+    /**
      * Renders a Highcharts chart inside a div container
      * @param {string} containerId - ID of the div container to render chart in
      * @param {string} chartType - Type of chart (line, bar, scatter)
      * @param {Object} seriesData - Object with chartData, isXNumeric, and categories
-     * @param {Object} options - Chart options (xLabel, yLabel, title)
+     * @param {Object} options - Chart options (xLabel, yLabel, title, color, showTrendline)
      */
     renderHighchart(containerId, chartType, seriesData, options) {
         const container = document.getElementById(containerId);
@@ -759,7 +922,8 @@ export class VisualizationPanel {
             },
             series: [{
                 name: options.yLabel || 'Series 1',
-                data: chartData
+                data: chartData,
+                color: options.color || '#007bff'
             }],
             legend: {
                 enabled: true
@@ -790,6 +954,25 @@ export class VisualizationPanel {
                 }
             }
         };
+        
+        // Add trendline if requested and chart type supports it
+        if (options.showTrendline && (chartType === 'line' || chartType === 'scatter')) {
+            const trendlineData = this.calculateTrendline(chartData, isXNumeric, categories);
+            if (trendlineData && trendlineData.length > 0) {
+                chartConfig.series.push({
+                    name: 'Trendline',
+                    type: 'line',
+                    data: trendlineData,
+                    color: '#ff9800',
+                    dashStyle: 'dash',
+                    marker: {
+                        enabled: false
+                    },
+                    enableMouseTracking: false,
+                    zIndex: 1
+                });
+            }
+        }
         
         // Render the chart
         try {
