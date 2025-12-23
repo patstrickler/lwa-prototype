@@ -75,6 +75,14 @@ function parseAndExecuteSQL(sql) {
  */
 function getDefaultColumns(tableName) {
     const columnMap = {
+        // Lab-related tables
+        'samples': ['sample_id', 'sample_name', 'sample_type', 'collection_date', 'status', 'lab_id'],
+        'tests': ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
+        'test_results': ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
+        'labs': ['lab_id', 'lab_name', 'location', 'contact_email', 'phone'],
+        'technicians': ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
+        'sample_types': ['type_id', 'type_name', 'description', 'storage_requirements'],
+        // Legacy tables (keeping for compatibility)
         'users': ['id', 'name', 'email', 'created_at'],
         'orders': ['order_id', 'user_id', 'total', 'order_date'],
         'products': ['product_id', 'name', 'price', 'category'],
@@ -85,6 +93,45 @@ function getDefaultColumns(tableName) {
     };
     
     return columnMap[tableName] || columnMap['default'];
+}
+
+/**
+ * Gets all available tables in the database
+ * @returns {Array<{name: string, columns: string[], description: string}>}
+ */
+export function getAllTables() {
+    return [
+        {
+            name: 'samples',
+            columns: ['sample_id', 'sample_name', 'sample_type', 'collection_date', 'status', 'lab_id'],
+            description: 'Laboratory sample records'
+        },
+        {
+            name: 'tests',
+            columns: ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
+            description: 'Available test types and methods'
+        },
+        {
+            name: 'test_results',
+            columns: ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
+            description: 'Test results linked to samples'
+        },
+        {
+            name: 'labs',
+            columns: ['lab_id', 'lab_name', 'location', 'contact_email', 'phone'],
+            description: 'Laboratory information'
+        },
+        {
+            name: 'technicians',
+            columns: ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
+            description: 'Lab technician information'
+        },
+        {
+            name: 'sample_types',
+            columns: ['type_id', 'type_name', 'description', 'storage_requirements'],
+            description: 'Sample type definitions'
+        }
+    ];
 }
 
 /**

@@ -506,5 +506,30 @@ export class QueryBuilder {
         div.textContent = text;
         return div.innerHTML;
     }
+    
+    /**
+     * Inserts text at the current cursor position in the SQL editor
+     * @param {string} text - Text to insert
+     */
+    insertText(text) {
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        if (!sqlEditor) return;
+        
+        const start = sqlEditor.selectionStart;
+        const end = sqlEditor.selectionEnd;
+        const sql = sqlEditor.value;
+        
+        // Insert text at cursor position
+        const newSql = sql.substring(0, start) + text + sql.substring(end);
+        sqlEditor.value = newSql;
+        
+        // Set cursor position after inserted text
+        const newCursorPosition = start + text.length;
+        sqlEditor.setSelectionRange(newCursorPosition, newCursorPosition);
+        
+        // Focus editor and update suggestions
+        sqlEditor.focus();
+        this.updateSuggestions();
+    }
 }
 

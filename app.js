@@ -2,6 +2,7 @@
 import { QueryBuilder } from './components/query-builder.js';
 import { AnalysisPanel } from './components/analysis-panel.js';
 import { VisualizationPanel } from './components/visualization-panel.js';
+import { TableBrowser } from './components/table-browser.js';
 
 // Page routing/navigation functionality
 function initNavigation() {
@@ -35,9 +36,19 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     
     // Initialize components
+    const tableBrowser = new TableBrowser('#table-browser');
     const queryBuilder = new QueryBuilder('#query-builder');
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
+    
+    // Table Browser → Query Builder
+    tableBrowser.onTableClick((tableName) => {
+        queryBuilder.insertText(tableName);
+    });
+    
+    tableBrowser.onColumnClick((tableName, columnName) => {
+        queryBuilder.insertText(`${tableName}.${columnName}`);
+    });
     
     // Set up event listeners for component communication
     // Query Builder → Analysis Panel
