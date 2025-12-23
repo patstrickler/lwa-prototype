@@ -1855,7 +1855,7 @@ export class VisualizationPanel {
      * @param {string} axis - 'x' or 'y'
      * @param {HTMLElement} triggerElement - Element that triggered the dropdown
      */
-    showAxisSelectionDropdown(axis, triggerElement) {
+    async showAxisSelectionDropdown(axis, triggerElement) {
         // Close any existing dropdown
         this.closeAxisSelectionDropdown();
         
