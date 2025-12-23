@@ -1395,12 +1395,18 @@ export class VisualizationPanel {
             }
         }
         
+        // Convert 'donut' to 'pie' - Highcharts doesn't have a separate donut type
+        const normalizedChartType = chartType === 'donut' ? 'pie' : (chartType === 'scatter' ? 'scatter' : chartType);
+        
         // Build Highcharts configuration
         const chartConfig = {
             chart: {
-                type: chartType === 'scatter' ? 'scatter' : chartType,
+                type: normalizedChartType,
                 renderTo: containerId,
                 height: 400
+            },
+            accessibility: {
+                enabled: false
             },
             title: {
                 text: options.title || 'Chart'
@@ -1542,7 +1548,10 @@ export class VisualizationPanel {
             }
         };
         
-        if (chartType === 'line') {
+        // Convert 'donut' to 'pie' - Highcharts doesn't have a separate donut type
+        const normalizedChartType = chartType === 'donut' ? 'pie' : chartType;
+        
+        if (normalizedChartType === 'line') {
             if (isXNumeric) {
                 xAxisConfig.type = 'linear';
             } else {
@@ -1551,7 +1560,7 @@ export class VisualizationPanel {
                     xAxisConfig.categories = categories;
                 }
             }
-        } else if (chartType === 'bar') {
+        } else if (normalizedChartType === 'bar') {
             xAxisConfig.type = 'category';
             if (categories && categories.length > 0) {
                 xAxisConfig.categories = categories;
@@ -1561,9 +1570,12 @@ export class VisualizationPanel {
         // Build Highcharts configuration with reference line
         const chartConfig = {
             chart: {
-                type: chartType,
+                type: normalizedChartType,
                 renderTo: containerId,
                 height: 400
+            },
+            accessibility: {
+                enabled: false
             },
             title: {
                 text: options.title || 'Chart'
@@ -2383,6 +2395,9 @@ export class VisualizationPanel {
                 type: 'pie',  // Always use 'pie' type (donut is just pie with innerSize)
                 height: 400
             },
+            accessibility: {
+                enabled: false
+            },
             title: {
                 text: title
             },
@@ -2495,6 +2510,9 @@ export class VisualizationPanel {
                 type: 'scatter',
                 renderTo: chartId,
                 height: 400
+            },
+            accessibility: {
+                enabled: false
             },
             title: {
                 text: title
