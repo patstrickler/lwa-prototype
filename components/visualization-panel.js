@@ -996,8 +996,16 @@ export class VisualizationPanel {
             return;
         }
         
+        // Handle special chart types first (before metric/column logic)
+        if (chartType === 'table') {
+            this.renderTableWithFields(dataset);
+            return;
+        }
+        
         // Handle case where Y is a metric but X is a column - show reference line
-        if (yAxis.type === 'metric' && xAxis.type === 'column') {
+        // Only for Highcharts chart types (not table, scorecard)
+        if (yAxis.type === 'metric' && xAxis.type === 'column' && 
+            (chartType === 'line' || chartType === 'bar' || chartType === 'scatter')) {
             const metric = metricsStore.get(yAxis.value);
             if (!metric) return;
             
@@ -1076,12 +1084,6 @@ export class VisualizationPanel {
                 color: stylingOptions.color,
                 showTrendline: stylingOptions.showTrendline
             });
-            return;
-        }
-        
-        // Handle special chart types
-        if (chartType === 'table') {
-            this.renderTableWithFields(dataset);
             return;
         }
         
