@@ -71,6 +71,33 @@ function tokenize(expression) {
             continue;
         }
         
+        // Match string literals (quoted strings)
+        if (expression[i] === '"' || expression[i] === "'") {
+            const quote = expression[i];
+            i++; // consume opening quote
+            let str = '';
+            while (i < expression.length && expression[i] !== quote) {
+                if (expression[i] === '\\' && i + 1 < expression.length) {
+                    // Handle escape sequences
+                    i++;
+                    if (expression[i] === 'n') str += '\n';
+                    else if (expression[i] === 't') str += '\t';
+                    else if (expression[i] === '\\') str += '\\';
+                    else if (expression[i] === quote) str += quote;
+                    else str += expression[i];
+                } else {
+                    str += expression[i];
+                }
+                i++;
+            }
+            if (i >= expression.length) {
+                throw new Error('Unclosed string literal');
+            }
+            i++; // consume closing quote
+            tokens.push({ type: 'STRING', value: str });
+            continue;
+        }
+        
         // Match comparison operators (>=, <=, ==, !=)
         if (i + 1 < expression.length) {
             const twoChar = expression.substring(i, i + 2);
@@ -81,10 +108,21 @@ function tokenize(expression) {
             }
         }
         
-        // Match single character comparison operators (>, <)
-        if (['>', '<'].includes(expression[i])) {
-            tokens.push({ type: 'COMPARISON', value: expression[i] });
-            i++;
+        // Match single character comparison operators (>, <, =)
+        if (['>', '<', '='].includes(expression[i])) {
+            // Check if = is part of == (already handled above) or standalone
+            if (expression[i] === '=' && i + 1 < expression.length && expression[i + 1] === '=') {
+                // This is ==, should have been caught above, but handle it
+                tokens.push({ type: 'COMPARISON', value: '==' });
+                i += 2;
+            } else if (expression[i] === '=') {
+                // Single = for string comparison
+                tokens.push({ type: 'COMPARISON', value: '=' });
+                i++;
+            } else {
+                tokens.push({ type: 'COMPARISON', value: expression[i] });
+                i++;
+            }
             continue;
         }
         
@@ -183,6 +221,12 @@ function parse(tokens) {
             return { type: 'NUMBER', value: token.value };
         }
         
+        // String literal
+        if (token.type === 'STRING') {
+            index++;
+            return { type: 'STRING', value: token.value };
+        }
+        
         // Function call
         if (token.type === 'IDENTIFIER' && index + 1 < tokens.length && tokens[index + 1].type === '(') {
             const funcName = token.value.toUpperCase();
@@ -246,10 +290,14 @@ function evaluate(node, dataset) {
         case 'NUMBER':
             return node.value;
             
+        case 'STRING':
+            return node.value;
+            
         case 'COLUMN':
-            // For now, column references are not directly evaluable in expressions
-            // They should be used within functions
-            throw new Error(`Column "${node.name}" must be used within a function (e.g., SUM(${node.name}))`);
+            // For text comparisons, we need to get the column value
+            // But we can't evaluate a column directly - it needs context
+            // For now, throw an error and suggest using a function
+            throw new Error(`Column "${node.name}" must be used within a function (e.g., SUM(${node.name})) or for text comparison use a function that returns text`);
             
         case 'FUNCTION':
             return evaluateFunction(node.name, node.args, dataset);
@@ -278,19 +326,56 @@ function evaluate(node, dataset) {
             const compLeft = evaluate(node.left, dataset);
             const compRight = evaluate(node.right, dataset);
             
+            // Handle both numeric and string comparisons
+            const leftIsString = typeof compLeft === 'string';
+            const rightIsString = typeof compRight === 'string';
+            
+            // If either side is a string, do string comparison
+            if (leftIsString || rightIsString) {
+                const leftStr = String(compLeft);
+                const rightStr = String(compRight);
+                
+                switch (node.operator) {
+                    case '=':
+                    case '==':
+                        return leftStr === rightStr ? 1 : 0;
+                    case '!=':
+                        return leftStr !== rightStr ? 1 : 0;
+                    case '>':
+                        return leftStr.localeCompare(rightStr) > 0 ? 1 : 0;
+                    case '<':
+                        return leftStr.localeCompare(rightStr) < 0 ? 1 : 0;
+                    case '>=':
+                        return leftStr.localeCompare(rightStr) >= 0 ? 1 : 0;
+                    case '<=':
+                        return leftStr.localeCompare(rightStr) <= 0 ? 1 : 0;
+                    default:
+                        throw new Error(`Unknown comparison operator: ${node.operator}`);
+                }
+            }
+            
+            // Numeric comparison
+            const leftNum = Number(compLeft);
+            const rightNum = Number(compRight);
+            
+            if (isNaN(leftNum) || isNaN(rightNum)) {
+                throw new Error(`Cannot compare non-numeric values: ${compLeft} and ${compRight}`);
+            }
+            
             switch (node.operator) {
                 case '>':
-                    return compLeft > compRight ? 1 : 0;
+                    return leftNum > rightNum ? 1 : 0;
                 case '<':
-                    return compLeft < compRight ? 1 : 0;
+                    return leftNum < rightNum ? 1 : 0;
                 case '>=':
-                    return compLeft >= compRight ? 1 : 0;
+                    return leftNum >= rightNum ? 1 : 0;
                 case '<=':
-                    return compLeft <= compRight ? 1 : 0;
+                    return leftNum <= rightNum ? 1 : 0;
+                case '=':
                 case '==':
-                    return compLeft === compRight ? 1 : 0;
+                    return leftNum === rightNum ? 1 : 0;
                 case '!=':
-                    return compLeft !== compRight ? 1 : 0;
+                    return leftNum !== rightNum ? 1 : 0;
                 default:
                     throw new Error(`Unknown comparison operator: ${node.operator}`);
             }
@@ -305,7 +390,7 @@ function evaluate(node, dataset) {
  * @param {string} funcName - Function name (uppercase)
  * @param {Array} args - Function arguments (AST nodes)
  * @param {Object} dataset - Dataset object
- * @returns {number} Function result
+ * @returns {number|string} Function result
  */
 function evaluateFunction(funcName, args, dataset) {
     // Handle IF function specially
@@ -323,6 +408,40 @@ function evaluateFunction(funcName, args, dataset) {
         } else {
             return evaluate(args[2], dataset);
         }
+    }
+    
+    // Handle TEXT function - returns first text value from a column
+    if (funcName === 'TEXT' || funcName === 'FIRST_TEXT') {
+        if (args.length !== 1) {
+            throw new Error('TEXT function expects exactly 1 argument (column name)');
+        }
+        
+        const argNode = args[0];
+        if (argNode.type !== 'COLUMN') {
+            throw new Error('TEXT function expects a column name as argument');
+        }
+        
+        const columnName = argNode.name;
+        
+        // Check if column exists
+        if (!dataset.columns.includes(columnName)) {
+            throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${dataset.columns.join(', ')}`);
+        }
+        
+        // Get the column index
+        const columnIndex = dataset.columns.indexOf(columnName);
+        
+        // Return first non-null value as string, or empty string if no values
+        if (dataset.rows && dataset.rows.length > 0) {
+            for (let i = 0; i < dataset.rows.length; i++) {
+                const value = dataset.rows[i][columnIndex];
+                if (value !== null && value !== undefined) {
+                    return String(value);
+                }
+            }
+        }
+        
+        return '';
     }
     
     // All other functions expect exactly 1 argument (column name)
@@ -374,7 +493,7 @@ function evaluateFunction(funcName, args, dataset) {
             return calculateCountDistinct(dataset.rows, dataset.columns, columnName);
             
         default:
-            throw new Error(`Unknown function: ${funcName}. Supported functions: SUM, MEAN, MIN, MAX, STDDEV, COUNT, COUNT_DISTINCT, IF`);
+            throw new Error(`Unknown function: ${funcName}. Supported functions: SUM, MEAN, MIN, MAX, STDDEV, COUNT, COUNT_DISTINCT, IF, TEXT`);
     }
 }
 
