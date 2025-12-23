@@ -309,21 +309,19 @@ export class VisualizationPanel {
         if (chartType === 'scatter') {
             // Scatter plot: array of [x, y] pairs
             chartData = points.map(point => [parseFloat(point.x) || 0, point.y]);
-        } else if (chartType === 'line' || chartType === 'bar') {
+        } else if (chartType === 'line') {
             if (isXNumeric) {
-                // Numeric x-axis: use [x, y] format for line charts
-                if (chartType === 'line') {
-                    chartData = points.map(point => [parseFloat(point.x) || 0, point.y]);
-                } else {
-                    // For bar charts with numeric x, we'll use categories for better display
-                    categories = points.map(point => String(point.x));
-                    chartData = points.map(point => point.y);
-                }
+                // Line chart with numeric x-axis: use [x, y] format
+                chartData = points.map(point => [parseFloat(point.x) || 0, point.y]);
             } else {
-                // Categorical x-axis: use y values with categories
+                // Line chart with categorical x-axis: use y values with categories
                 categories = points.map(point => String(point.x));
                 chartData = points.map(point => point.y);
             }
+        } else if (chartType === 'bar') {
+            // Bar charts always use categories for better display
+            categories = points.map(point => String(point.x));
+            chartData = points.map(point => point.y);
         } else {
             // Default: just y values
             chartData = points.map(point => point.y);
@@ -366,7 +364,7 @@ export class VisualizationPanel {
             return;
         }
         
-        // Create chart container
+        // Create chart container div
         const chartId = `chart_${Date.now()}`;
         const chartContainer = document.createElement('div');
         chartContainer.id = chartId;
@@ -375,8 +373,8 @@ export class VisualizationPanel {
         const chartsContainer = this.container.querySelector('#charts-container');
         chartsContainer.appendChild(chartContainer);
         
-        // Prepare chart data
-        let chartData;
+        // Prepare chart data and labels
+        let seriesData;
         let yLabel;
         
         if (yType === 'metric') {
@@ -387,31 +385,39 @@ export class VisualizationPanel {
                 return;
             }
             // For metrics, create a constant value chart
-            chartData = data.map(row => ({
+            const metricData = data.map(row => ({
                 x: row[xColumn],
                 y: parseFloat(metric.value) || 0
             }));
+            seriesData = this.convertToHighchartsSeries(metricData, 'x', 'y', chartType);
             yLabel = metric.name;
         } else {
-            // Use Y column from dataset
-            chartData = data.map(row => ({
-                x: row[xColumn],
-                y: parseFloat(row[yValue]) || 0
-            }));
+            // Use Y column from dataset - convert rows to Highcharts series format
+            seriesData = this.convertToHighchartsSeries(data, xColumn, yValue, chartType);
             yLabel = this.formatColumnName(yValue);
         }
         
         // Render with Highcharts
-        this.renderHighchart(chartId, chartType, chartData, {
+        this.renderHighchart(chartId, chartType, seriesData, {
             xLabel: this.formatColumnName(xColumn),
             yLabel: yLabel,
             title: `${yLabel} vs ${this.formatColumnName(xColumn)}`
         });
     }
     
-    renderHighchart(containerId, chartType, data, options) {
+    /**
+     * Renders a Highcharts chart inside a div container
+     * @param {string} containerId - ID of the div container to render chart in
+     * @param {string} chartType - Type of chart (line, bar, scatter)
+     * @param {Object} seriesData - Object with chartData, isXNumeric, and categories
+     * @param {Object} options - Chart options (xLabel, yLabel, title)
+     */
+    renderHighchart(containerId, chartType, seriesData, options) {
         const container = document.getElementById(containerId);
-        if (!container) return;
+        if (!container) {
+            console.error(`Chart container with ID "${containerId}" not found`);
+            return;
+        }
         
         // Check if Highcharts is available
         if (typeof Highcharts === 'undefined') {
@@ -423,20 +429,19 @@ export class VisualizationPanel {
             return;
         }
         
-        // Sort data by x value for line and bar charts
-        if (chartType === 'line' || chartType === 'bar') {
-            data.sort((a, b) => {
-                if (typeof a.x === 'number' && typeof b.x === 'number') {
-                    return a.x - b.x;
-                }
-                return String(a.x).localeCompare(String(b.x));
-            });
+        // Validate series data
+        if (!seriesData || !seriesData.chartData || seriesData.chartData.length === 0) {
+            container.innerHTML = `
+                <div class="chart-placeholder">
+                    <p class="error">No data available to render chart.</p>
+                </div>
+            `;
+            return;
         }
         
-        // Determine if x values are numeric
-        const isXNumeric = data.length > 0 && typeof data[0].x === 'number';
+        const { chartData, isXNumeric, categories } = seriesData;
         
-        let chartData;
+        // Configure X axis based on chart type and data type
         let xAxisConfig = {
             title: {
                 text: options.xLabel || 'X Axis'
@@ -444,29 +449,33 @@ export class VisualizationPanel {
         };
         
         if (chartType === 'scatter') {
-            // Scatter plot: data is array of [x, y] pairs
-            chartData = data.map(point => [parseFloat(point.x) || 0, parseFloat(point.y) || 0]);
+            // Scatter plot always uses linear/numeric axis
             xAxisConfig.type = 'linear';
-        } else if (chartType === 'line' || chartType === 'bar') {
+        } else if (chartType === 'line') {
             if (isXNumeric) {
-                // Numeric x-axis: use [x, y] format
-                chartData = data.map(point => [parseFloat(point.x) || 0, parseFloat(point.y) || 0]);
+                // Line chart with numeric x-axis
                 xAxisConfig.type = 'linear';
             } else {
-                // Categorical x-axis: use y values with categories
-                chartData = data.map(point => parseFloat(point.y) || 0);
+                // Line chart with categorical x-axis
                 xAxisConfig.type = 'category';
-                xAxisConfig.categories = data.map(point => String(point.x));
+                if (categories && categories.length > 0) {
+                    xAxisConfig.categories = categories;
+                }
             }
-        } else {
-            // Default: just y values
-            chartData = data.map(point => parseFloat(point.y) || 0);
+        } else if (chartType === 'bar') {
+            // Bar charts always use category axis for better display
+            xAxisConfig.type = 'category';
+            if (categories && categories.length > 0) {
+                xAxisConfig.categories = categories;
+            }
         }
         
+        // Build Highcharts configuration
         const chartConfig = {
             chart: {
                 type: chartType === 'scatter' ? 'scatter' : chartType,
-                renderTo: containerId
+                renderTo: containerId,
+                height: 400
             },
             title: {
                 text: options.title || 'Chart'
@@ -486,16 +495,50 @@ export class VisualizationPanel {
             },
             credits: {
                 enabled: false
+            },
+            tooltip: {
+                enabled: true,
+                shared: false
+            },
+            plotOptions: {
+                line: {
+                    marker: {
+                        enabled: true,
+                        radius: 4
+                    }
+                },
+                bar: {
+                    dataLabels: {
+                        enabled: false
+                    }
+                },
+                scatter: {
+                    marker: {
+                        radius: 5
+                    }
+                }
             }
         };
         
+        // Render the chart
         try {
-            new Highcharts.Chart(chartConfig);
+            const chart = new Highcharts.Chart(chartConfig);
+            
+            // Store chart reference for potential updates
+            container._highchartsChart = chart;
+            
+            // Add to charts array for management
+            this.charts.push({
+                id: containerId,
+                chart: chart,
+                container: container
+            });
         } catch (error) {
-            console.error('Error rendering chart:', error);
+            console.error('Error rendering Highcharts chart:', error);
             container.innerHTML = `
                 <div class="chart-placeholder">
                     <p class="error">Error rendering chart: ${error.message}</p>
+                    <p>Please check the browser console for more details.</p>
                 </div>
             `;
         }
