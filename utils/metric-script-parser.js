@@ -228,21 +228,21 @@ function parse(tokens) {
         }
         
         // Function call
-        if (token.type === 'IDENTIFIER' && index + 1 < tokens.length && tokens[index + 1].type === '(') {
+        if (token.type === 'IDENTIFIER' && index + 1 < tokens.length && tokens[index + 1] && tokens[index + 1].type === '(') {
             const funcName = token.value.toUpperCase();
             index++; // consume identifier
             index++; // consume (
             
             const args = [];
-            if (tokens[index].type !== ')') {
+            if (index < tokens.length && tokens[index] && tokens[index].type !== ')') {
                 args.push(parseExpression());
-                while (tokens[index].type === ',') {
+                while (index < tokens.length && tokens[index] && tokens[index].type === ',') {
                     index++; // consume ,
                     args.push(parseExpression());
                 }
             }
             
-            if (tokens[index].type !== ')') {
+            if (index >= tokens.length || !tokens[index] || tokens[index].type !== ')') {
                 throw new Error('Expected ) after function arguments');
             }
             index++; // consume )
@@ -260,14 +260,14 @@ function parse(tokens) {
         if (token.type === '(') {
             index++; // consume (
             const expr = parseExpression();
-            if (tokens[index].type !== ')') {
+            if (index >= tokens.length || !tokens[index] || tokens[index].type !== ')') {
                 throw new Error('Expected )');
             }
             index++; // consume )
             return expr;
         }
         
-        throw new Error(`Unexpected token: ${token.type}`);
+        throw new Error(`Unexpected token: ${token.type || 'unknown'}`);
     }
     
     const ast = parseExpression();
@@ -294,10 +294,9 @@ function evaluate(node, dataset) {
             return node.value;
             
         case 'COLUMN':
-            // For text comparisons, we need to get the column value
-            // But we can't evaluate a column directly - it needs context
-            // For now, throw an error and suggest using a function
-            throw new Error(`Column "${node.name}" must be used within a function (e.g., SUM(${node.name})) or for text comparison use a function that returns text`);
+            // For text comparisons, automatically get the first text value from the column
+            // This allows direct column references in comparisons like: status = "In Progress"
+            return getColumnTextValue(node.name, dataset);
             
         case 'FUNCTION':
             return evaluateFunction(node.name, node.args, dataset);
@@ -383,6 +382,37 @@ function evaluate(node, dataset) {
         default:
             throw new Error(`Unknown node type: ${node.type}`);
     }
+}
+
+/**
+ * Gets the first text value from a column for comparison
+ * Automatically detects if column is text-based
+ * @param {string} columnName - Column name
+ * @param {Object} dataset - Dataset object
+ * @returns {string} First non-null text value from the column
+ */
+function getColumnTextValue(columnName, dataset) {
+    // Check if column exists
+    if (!dataset.columns || !dataset.columns.includes(columnName)) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${dataset.columns ? dataset.columns.join(', ') : 'none'}`);
+    }
+    
+    // Get the column index
+    const columnIndex = dataset.columns.indexOf(columnName);
+    
+    // Return first non-null value as string, or empty string if no values
+    if (dataset.rows && dataset.rows.length > 0) {
+        for (let i = 0; i < dataset.rows.length; i++) {
+            if (dataset.rows[i] && columnIndex < dataset.rows[i].length) {
+                const value = dataset.rows[i][columnIndex];
+                if (value !== null && value !== undefined) {
+                    return String(value);
+                }
+            }
+        }
+    }
+    
+    return '';
 }
 
 /**
