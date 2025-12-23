@@ -358,6 +358,7 @@ export class VisualizationPanel {
         // Preserve and map existing selections to new chart type
         if (chartType === 'table') {
             // For table, preserve existing selections as table fields
+            // Only initialize if tableFields is empty
             if (this.tableFields.length === 0) {
                 // Map X and Y to first two table fields if they exist
                 if (this.xAxisSelection) {
@@ -367,17 +368,9 @@ export class VisualizationPanel {
                     this.tableFields.push(this.yAxisSelection);
                 }
             }
-            // Update table field displays
-            this.tableFields.forEach((field, idx) => {
-                if (field) {
-                    const fieldDisplay = container.querySelector(`[data-field-index="${idx}"]`);
-                    if (fieldDisplay) {
-                        const contentContainer = fieldDisplay.querySelector('.axis-selection-content');
-                        if (contentContainer) {
-                            contentContainer.innerHTML = this.renderFieldDisplay(field);
-                        }
-                    }
-                }
+            // Re-render to show updated fields
+            requestAnimationFrame(() => {
+                this.updateFieldSelectionUI('table');
             });
         } else {
             // For other chart types, preserve X, Y, Z as applicable
@@ -385,17 +378,11 @@ export class VisualizationPanel {
                 this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
             }
             if (this.yAxisSelection) {
-                // Y axis is used in all chart types except when switching away from scorecard
-                if (chartType !== 'scorecard' || this.yAxisSelection) {
-                    this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
-                }
+                // Y axis is used in all chart types
+                this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
             }
             if (this.zAxisSelection && chartType === 'scatter') {
                 this.updateAxisDisplay('z-axis-display', this.zAxisSelection);
-            }
-            // For scorecard, preserve Y axis
-            if (chartType === 'scorecard' && this.yAxisSelection) {
-                this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
             }
         }
     }
