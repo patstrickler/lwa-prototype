@@ -29,10 +29,26 @@ export class QueryBuilder {
                     <div id="sql-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
                 </div>
                 <div class="query-actions">
-                    <button id="run-query" class="btn btn-primary">Run Query</button>
-                    <button id="clear-query" class="btn btn-secondary">Clear</button>
+                    <div class="query-controls">
+                        <label for="record-limit" class="record-limit-label">Max Records:</label>
+                        <select id="record-limit" class="record-limit-select">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                            <option value="1000">1000</option>
+                            <option value="0">All</option>
+                        </select>
+                    </div>
+                    <div class="query-buttons">
+                        <button id="run-query" class="btn btn-primary">Run Query</button>
+                        <button id="clear-query" class="btn btn-secondary">Clear</button>
+                    </div>
                 </div>
                 <div id="query-results" class="query-results">
+                    <div id="results-metadata" class="results-metadata" style="display: none;"></div>
                     <div class="results-table-container">
                         <table id="results-table" class="results-table">
                             <thead id="results-thead"></thead>
@@ -245,11 +261,15 @@ export class QueryBuilder {
         const query = this.editor.value.trim();
         const saveBtn = this.container.querySelector('#save-dataset');
         const runBtn = this.container.querySelector('#run-query');
+        const limitSelect = this.container.querySelector('#record-limit');
         
         if (!query) {
             this.showError('Please enter a SQL query.');
             return;
         }
+        
+        // Get record limit from selector
+        const recordLimit = limitSelect ? parseInt(limitSelect.value, 10) : 25;
         
         // Show loading state
         runBtn.disabled = true;
@@ -258,7 +278,19 @@ export class QueryBuilder {
         
         try {
             // Execute SQL query with mock engine
-            const sqlResult = await executeSQL(query, 500);
+            // If query doesn't have LIMIT, add it based on selector
+            let queryToExecute = query;
+            const hasLimit = /limit\s+\d+/i.test(query);
+            if (!hasLimit && recordLimit > 0) {
+                // Add LIMIT to query (before semicolon if present, or at end)
+                if (query.trim().endsWith(';')) {
+                    queryToExecute = query.trim().slice(0, -1) + ` LIMIT ${recordLimit};`;
+                } else {
+                    queryToExecute = query + ` LIMIT ${recordLimit}`;
+                }
+            }
+            
+            const sqlResult = await executeSQL(queryToExecute, 500);
             
             // Check if result is empty
             if (!sqlResult || !sqlResult.columns || sqlResult.columns.length === 0) {
@@ -303,6 +335,7 @@ export class QueryBuilder {
             
             this.currentResult = result;
             this.displayResults(result);
+            this.displayMetadata(result);
             saveBtn.disabled = false;
         } catch (error) {
             // Provide user-friendly error messages
@@ -337,6 +370,7 @@ export class QueryBuilder {
     showLoading() {
         const thead = this.container.querySelector('#results-thead');
         const tbody = this.container.querySelector('#results-tbody');
+        const metadataDiv = this.container.querySelector('#results-metadata');
         
         thead.innerHTML = '';
         tbody.innerHTML = `
@@ -344,6 +378,9 @@ export class QueryBuilder {
                 <td colspan="100%" class="empty-placeholder">Executing query...</td>
             </tr>
         `;
+        if (metadataDiv) {
+            metadataDiv.style.display = 'none';
+        }
     }
     
     displayResults(result) {
@@ -398,6 +435,11 @@ export class QueryBuilder {
                         td.classList.add('numeric');
                     }
                     
+                    // Add class for null/empty values
+                    if (value === null || value === undefined || value === '') {
+                        td.classList.add('null-value');
+                    }
+                    
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
@@ -414,6 +456,135 @@ export class QueryBuilder {
         }
         
         saveBtn.disabled = false;
+    }
+    
+    /**
+     * Calculates and displays metadata about the query results
+     * @param {Object} result - Result object with data and columns
+     */
+    displayMetadata(result) {
+        const metadataDiv = this.container.querySelector('#results-metadata');
+        if (!metadataDiv || !result || !result.data || !result.columns) {
+            metadataDiv.style.display = 'none';
+            return;
+        }
+        
+        const data = result.data;
+        const columns = result.columns;
+        
+        if (data.length === 0) {
+            metadataDiv.style.display = 'none';
+            return;
+        }
+        
+        // Calculate metadata for each column
+        const columnMetadata = columns.map(column => {
+            const values = data.map(row => row[column]);
+            const nonNullValues = values.filter(v => v !== null && v !== undefined && v !== '');
+            const nullCount = values.length - nonNullValues.length;
+            const nullPercentage = ((nullCount / values.length) * 100).toFixed(1);
+            
+            // Calculate unique values
+            const uniqueValues = new Set(nonNullValues.map(v => String(v)));
+            const uniqueCount = uniqueValues.size;
+            const uniquePercentage = ((uniqueCount / nonNullValues.length) * 100).toFixed(1);
+            
+            // Calculate distribution (top 5 most common values)
+            const valueCounts = {};
+            nonNullValues.forEach(v => {
+                const key = String(v);
+                valueCounts[key] = (valueCounts[key] || 0) + 1;
+            });
+            
+            const sortedValues = Object.entries(valueCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([value, count]) => ({
+                    value: value.length > 30 ? value.substring(0, 30) + '...' : value,
+                    count: count,
+                    percentage: ((count / nonNullValues.length) * 100).toFixed(1)
+                }));
+            
+            // Determine data type
+            let dataType = 'mixed';
+            if (nonNullValues.length > 0) {
+                const firstValue = nonNullValues[0];
+                if (typeof firstValue === 'number') {
+                    dataType = 'numeric';
+                } else if (typeof firstValue === 'string') {
+                    if (/^\d{4}-\d{2}-\d{2}/.test(firstValue)) {
+                        dataType = 'date';
+                    } else {
+                        dataType = 'text';
+                    }
+                } else if (firstValue instanceof Date) {
+                    dataType = 'date';
+                }
+            }
+            
+            return {
+                column,
+                totalRows: values.length,
+                nonNullCount: nonNullValues.length,
+                nullCount,
+                nullPercentage,
+                uniqueCount,
+                uniquePercentage,
+                distribution: sortedValues,
+                dataType
+            };
+        });
+        
+        // Build metadata HTML
+        const metadataHtml = `
+            <div class="metadata-header">
+                <h3>Result Metadata</h3>
+                <div class="metadata-summary">
+                    <span class="metadata-stat">
+                        <strong>Total Rows:</strong> ${data.length.toLocaleString()}
+                    </span>
+                    <span class="metadata-stat">
+                        <strong>Columns:</strong> ${columns.length}
+                    </span>
+                </div>
+            </div>
+            <div class="metadata-columns">
+                ${columnMetadata.map(meta => `
+                    <div class="metadata-column-card">
+                        <div class="metadata-column-header">
+                            <strong>${this.escapeHtml(this.formatColumnName(meta.column))}</strong>
+                            <span class="metadata-type-badge type-${meta.dataType}">${meta.dataType}</span>
+                        </div>
+                        <div class="metadata-stats">
+                            <div class="metadata-stat-item">
+                                <span class="stat-label">Unique Values:</span>
+                                <span class="stat-value">${meta.uniqueCount} (${meta.uniquePercentage}%)</span>
+                            </div>
+                            <div class="metadata-stat-item">
+                                <span class="stat-label">Missing Values:</span>
+                                <span class="stat-value">${meta.nullCount} (${meta.nullPercentage}%)</span>
+                            </div>
+                            ${meta.distribution.length > 0 ? `
+                                <div class="metadata-distribution">
+                                    <span class="stat-label">Top Values:</span>
+                                    <div class="distribution-list">
+                                        ${meta.distribution.map(dist => `
+                                            <div class="distribution-item">
+                                                <span class="dist-value">${this.escapeHtml(dist.value)}</span>
+                                                <span class="dist-count">${dist.count} (${dist.percentage}%)</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        metadataDiv.innerHTML = metadataHtml;
+        metadataDiv.style.display = 'block';
     }
     
     /**
@@ -476,6 +647,7 @@ export class QueryBuilder {
         const thead = this.container.querySelector('#results-thead');
         const tbody = this.container.querySelector('#results-tbody');
         const saveBtn = this.container.querySelector('#save-dataset');
+        const metadataDiv = this.container.querySelector('#results-metadata');
         
         thead.innerHTML = '';
         tbody.innerHTML = `
@@ -487,6 +659,9 @@ export class QueryBuilder {
             </tr>
         `;
         saveBtn.disabled = true;
+        if (metadataDiv) {
+            metadataDiv.style.display = 'none';
+        }
     }
     
     /**
