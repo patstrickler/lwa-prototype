@@ -1,6 +1,8 @@
 // SQL Autocomplete Utility
 // Provides suggestions for SQL keywords, tables, and columns
 
+import { getAllTables } from './sql-engine.js';
+
 // SQL keywords
 const SQL_KEYWORDS = [
     'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN',
@@ -10,24 +12,20 @@ const SQL_KEYWORDS = [
     'IS NULL', 'IS NOT NULL', 'UNION', 'UNION ALL', 'INSERT', 'UPDATE', 'DELETE'
 ];
 
-// Available tables and their columns
-const TABLE_SCHEMA = {
-    // Lab-related tables
-    'samples': ['sample_id', 'sample_name', 'sample_type', 'collection_date', 'status', 'lab_id'],
-    'tests': ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
-    'results': ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
-    'labs': ['lab_id', 'lab_name', 'location', 'contact_email', 'phone'],
-    'technicians': ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
-    // Legacy tables
-    'users': ['id', 'name', 'email', 'created_at'],
-    'orders': ['order_id', 'user_id', 'total', 'order_date'],
-    'products': ['product_id', 'name', 'price', 'category'],
-    'sales': ['sale_id', 'product_id', 'quantity', 'sale_date', 'amount'],
-    'metrics': ['test_date', 'result_value', 'metric_name'],
-    'analytics': ['date', 'event', 'count', 'value']
-};
+// Get table schema dynamically
+function getTableSchema() {
+    const tables = getAllTables();
+    const schema = {};
+    tables.forEach(table => {
+        schema[table.name.toLowerCase()] = table.columns;
+    });
+    return schema;
+}
 
-const TABLE_NAMES = Object.keys(TABLE_SCHEMA);
+function getTableNames() {
+    const tables = getAllTables();
+    return tables.map(t => t.name);
+}
 
 /**
  * Gets suggestions based on current SQL context
@@ -48,6 +46,9 @@ export function getSuggestions(sql, cursorPosition) {
     
     let suggestions = [];
     
+    const TABLE_SCHEMA = getTableSchema();
+    const TABLE_NAMES = getTableNames();
+    
     // Suggest based on context
     if (context.expectingTable) {
         // After FROM, suggest table names
@@ -57,8 +58,8 @@ export function getSuggestions(sql, cursorPosition) {
     } else if (context.expectingColumn) {
         // After SELECT or in WHERE, suggest columns
         const tableName = context.currentTable;
-        if (tableName && TABLE_SCHEMA[tableName]) {
-            suggestions = TABLE_SCHEMA[tableName]
+        if (tableName && TABLE_SCHEMA[tableName.toLowerCase()]) {
+            suggestions = TABLE_SCHEMA[tableName.toLowerCase()]
                 .filter(col => col.toLowerCase().startsWith(wordLower))
                 .map(col => ({ text: col, type: 'column' }));
         }
