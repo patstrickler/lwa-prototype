@@ -635,35 +635,49 @@ export class QueryBuilder {
      * @param {string} datasetId - Dataset ID to load
      */
     async loadDataset(datasetId) {
-        const { datasetStore } = await import('../data/datasets.js');
-        const dataset = datasetStore.get(datasetId);
-        
-        if (!dataset) {
-            await Modal.alert('Dataset not found.');
-            return;
+        try {
+            const { datasetStore } = await import('../data/datasets.js');
+            const dataset = datasetStore.get(datasetId);
+            
+            if (!dataset) {
+                await Modal.alert('Dataset not found.');
+                return;
+            }
+            
+            if (!this.editor) {
+                console.warn('Monaco Editor not ready yet. Please wait a moment and try again.');
+                // Retry after a short delay
+                setTimeout(() => this.loadDataset(datasetId), 500);
+                return;
+            }
+            
+            const saveBtn = this.container.querySelector('#save-dataset');
+            const updateBtn = this.container.querySelector('#update-dataset');
+            
+            // Load SQL into editor
+            this.editor.setValue(dataset.sql || '');
+            
+            // Set current dataset ID for updating
+            this.currentDatasetId = datasetId;
+            
+            // Show update button, hide save button
+            if (saveBtn) {
+                saveBtn.style.display = 'none';
+            }
+            if (updateBtn) {
+                updateBtn.style.display = 'inline-block';
+                updateBtn.disabled = false;
+            }
+            
+            // Execute the query to show results
+            await this.executeQuery();
+            
+            // Focus editor
+            this.editor.focus();
+        } catch (error) {
+            console.error('Error loading dataset:', error);
+            await Modal.alert(`Failed to load dataset: ${error.message || 'Unknown error'}`);
         }
-        
-        if (!this.editor) return;
-        
-        const saveBtn = this.container.querySelector('#save-dataset');
-        const updateBtn = this.container.querySelector('#update-dataset');
-        
-        // Load SQL into editor
-        this.editor.setValue(dataset.sql);
-        
-        // Set current dataset ID for updating
-        this.currentDatasetId = datasetId;
-        
-        // Show update button, hide save button
-        saveBtn.style.display = 'none';
-        updateBtn.style.display = 'inline-block';
-        updateBtn.disabled = false;
-        
-        // Execute the query to show results
-        await this.executeQuery();
-        
-        // Focus editor
-        this.editor.focus();
     }
     
     /**

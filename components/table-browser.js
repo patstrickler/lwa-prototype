@@ -100,7 +100,12 @@ export class TableBrowser {
         editBtn.addEventListener('click', async () => {
             const datasetId = datasetSelect.value;
             if (datasetId) {
+                // Trigger the selection callback to load the dataset
                 this.notifyDatasetSelect(datasetId);
+            } else {
+                // If no dataset selected, disable buttons
+                editBtn.disabled = true;
+                deleteBtn.disabled = true;
             }
         });
         
