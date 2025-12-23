@@ -986,17 +986,19 @@ main {
 .autocomplete-suggestions {
     position: absolute;
     background-color: #fff;
-    border: 1px solid #ddd;
+    border: 1px solid #007bff;
     border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
     max-height: 250px;
     overflow-y: auto;
     z-index: 1000;
     min-width: 250px;
-    margin-top: 2px;
     font-size: 13px;
     /* Ensure it appears above other elements */
     pointer-events: auto;
+    /* Make it appear more integrated with the editor */
+    margin: 0;
+    padding: 4px 0;
 }
 
 .suggestion-item {
@@ -1042,6 +1044,19 @@ main {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 13px;
     color: #333;
+}
+
+/* Inline completion preview */
+.inline-completion {
+    position: absolute;
+    pointer-events: none;
+    color: #6c757d;
+    opacity: 0.6;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    z-index: 999;
+    white-space: pre;
+    user-select: none;
 }
 
 .query-actions {
