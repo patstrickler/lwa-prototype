@@ -249,10 +249,11 @@ main {
 
 /* Saved Datasets Dropdown Styles */
 .saved-datasets-dropdown-container {
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 15px;
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border-light);
+    padding: var(--spacing-lg);
 }
 
 .dropdown-label {
@@ -265,20 +266,21 @@ main {
 
 .saved-datasets-dropdown {
     width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    background-color: #fff;
-    color: #495057;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
+    font-family: var(--font-family);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text);
     cursor: pointer;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    margin-bottom: 10px;
+    transition: all var(--transition-base);
+    margin-bottom: var(--spacing-md);
 }
 
-.saved-queries-dropdown:focus {
+.saved-datasets-dropdown:focus {
     outline: none;
-    border-color: #007bff;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
@@ -304,9 +306,10 @@ main {
 
 /* Table Browser Styles */
 .table-browser {
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border-light);
     overflow: hidden;
     position: sticky;
     top: 20px;
