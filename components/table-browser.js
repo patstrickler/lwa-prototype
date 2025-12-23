@@ -190,6 +190,20 @@ export class TableBrowser {
             this.render();
             this.attachEventListeners();
             
+            // Reset dropdown selection
+            const datasetSelect = this.container.querySelector('#saved-datasets-select');
+            const editBtn = this.container.querySelector('#edit-dataset-btn');
+            const deleteBtn = this.container.querySelector('#delete-dataset-btn');
+            if (datasetSelect) {
+                datasetSelect.value = '';
+            }
+            if (editBtn) {
+                editBtn.disabled = true;
+            }
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+            }
+            
             // Notify all components about the deletion
             this.notifyDatasetDeleted(datasetId, dataset);
         } else {
