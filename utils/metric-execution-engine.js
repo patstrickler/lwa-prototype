@@ -1,0 +1,162 @@
+// Metric Execution Engine
+// Executes metric definitions on dataset rows and returns scalar values
+
+import { calculateMean, calculateSum, calculateMin, calculateMax, calculateStdev } from './metric-calculator.js';
+
+/**
+ * Metric Execution Engine
+ * Accepts dataset rows, applies aggregation functions, and returns scalar values
+ */
+export class MetricExecutionEngine {
+    constructor() {
+        // Registry of available aggregation functions
+        this.aggregationFunctions = {
+            'mean': calculateMean,
+            'sum': calculateSum,
+            'min': calculateMin,
+            'max': calculateMax,
+            'stdev': calculateStdev
+        };
+    }
+    
+    /**
+     * Executes a metric definition on dataset rows
+     * @param {Object} metricDefinition - Metric definition object
+     * @param {string} metricDefinition.operation - Aggregation operation (mean, sum, min, max, stdev)
+     * @param {string} metricDefinition.column - Column name to aggregate
+     * @param {any[][]} rows - Dataset rows (array of arrays)
+     * @param {string[]} columns - Dataset column names
+     * @returns {number|null} Scalar result value or null if execution fails
+     * @throws {Error} If metric definition is invalid or operation is not supported
+     */
+    execute(metricDefinition, rows, columns) {
+        // Validate inputs
+        if (!metricDefinition) {
+            throw new Error('Metric definition is required');
+        }
+        
+        if (!rows || !Array.isArray(rows)) {
+            throw new Error('Dataset rows must be an array');
+        }
+        
+        if (!columns || !Array.isArray(columns)) {
+            throw new Error('Dataset columns must be an array');
+        }
+        
+        const { operation, column } = metricDefinition;
+        
+        if (!operation) {
+            throw new Error('Metric operation is required');
+        }
+        
+        if (!column) {
+            throw new Error('Metric column is required');
+        }
+        
+        // Check if operation is supported
+        if (!this.aggregationFunctions[operation]) {
+            throw new Error(`Unsupported aggregation operation: ${operation}`);
+        }
+        
+        // Check if column exists in dataset
+        if (!columns.includes(column)) {
+            throw new Error(`Column "${column}" not found in dataset`);
+        }
+        
+        // Execute the aggregation function
+        try {
+            const aggregationFn = this.aggregationFunctions[operation];
+            const result = aggregationFn(rows, columns, column);
+            
+            // Return scalar value (null if calculation failed)
+            return result;
+        } catch (error) {
+            console.error('Error executing metric:', error);
+            throw new Error(`Failed to execute metric: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Executes a metric by ID using stored metric definition and dataset
+     * @param {string} metricId - Metric ID
+     * @param {Object} dataset - Dataset object with rows and columns
+     * @param {Object} metric - Metric object from store
+     * @returns {number|null} Scalar result value
+     */
+    executeMetric(metric, dataset) {
+        if (!metric) {
+            throw new Error('Metric is required');
+        }
+        
+        if (!dataset) {
+            throw new Error('Dataset is required');
+        }
+        
+        // Build metric definition from stored metric
+        const metricDefinition = {
+            operation: metric.operation,
+            column: metric.column
+        };
+        
+        // Execute using dataset rows and columns
+        return this.execute(metricDefinition, dataset.rows, dataset.columns);
+    }
+    
+    /**
+     * Validates a metric definition without executing it
+     * @param {Object} metricDefinition - Metric definition to validate
+     * @param {string[]} columns - Available column names
+     * @returns {Object} Validation result with isValid and errors
+     */
+    validate(metricDefinition, columns) {
+        const errors = [];
+        
+        if (!metricDefinition) {
+            errors.push('Metric definition is required');
+            return { isValid: false, errors };
+        }
+        
+        const { operation, column } = metricDefinition;
+        
+        if (!operation) {
+            errors.push('Operation is required');
+        } else if (!this.aggregationFunctions[operation]) {
+            errors.push(`Unsupported operation: ${operation}`);
+        }
+        
+        if (!column) {
+            errors.push('Column is required');
+        } else if (columns && !columns.includes(column)) {
+            errors.push(`Column "${column}" not found in dataset`);
+        }
+        
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+    
+    /**
+     * Gets list of supported aggregation operations
+     * @returns {string[]} Array of operation names
+     */
+    getSupportedOperations() {
+        return Object.keys(this.aggregationFunctions);
+    }
+    
+    /**
+     * Registers a custom aggregation function
+     * @param {string} name - Operation name
+     * @param {Function} fn - Aggregation function (rows, columns, columnName) => number|null
+     */
+    registerAggregationFunction(name, fn) {
+        if (typeof fn !== 'function') {
+            throw new Error('Aggregation function must be a function');
+        }
+        this.aggregationFunctions[name] = fn;
+    }
+}
+
+// Export singleton instance
+export const metricExecutionEngine = new MetricExecutionEngine();
+

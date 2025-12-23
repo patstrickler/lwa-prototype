@@ -81,6 +81,30 @@ class MetricsStore {
         return Array.from(this.metrics.values());
     }
     
+    /**
+     * Updates a metric's value (e.g., after re-execution)
+     * @param {string} id - Metric ID
+     * @param {number|null} value - New metric value
+     * @param {string} [executedAt] - Optional execution timestamp
+     * @returns {Object|null} Updated metric or null if not found
+     */
+    updateValue(id, value, executedAt = null) {
+        const metric = this.metrics.get(id);
+        if (!metric) {
+            return null;
+        }
+        
+        metric.value = value;
+        if (executedAt) {
+            metric.executedAt = executedAt;
+        } else {
+            metric.executedAt = new Date().toISOString();
+        }
+        
+        this.saveToStorage();
+        return metric;
+    }
+    
     delete(id) {
         const deleted = this.metrics.delete(id);
         if (deleted) {

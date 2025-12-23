@@ -3,7 +3,7 @@
 
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
-import { calculateMetric } from '../utils/metric-calculator.js';
+import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
 
 export class MetricDefinitionDialog {
     constructor() {
@@ -192,15 +192,34 @@ export class MetricDefinitionDialog {
             return;
         }
         
-        // Calculate the metric value
-        const value = calculateMetric(dataset.rows, dataset.columns, column, operation);
+        // Build metric definition
+        const metricDefinition = {
+            operation: operation,
+            column: column
+        };
+        
+        // Validate metric definition
+        const validation = metricExecutionEngine.validate(metricDefinition, dataset.columns);
+        if (!validation.isValid) {
+            alert(`Error: ${validation.errors.join(', ')}`);
+            return;
+        }
+        
+        // Execute metric using execution engine
+        let value;
+        try {
+            value = metricExecutionEngine.execute(metricDefinition, dataset.rows, dataset.columns);
+        } catch (error) {
+            alert(`Error executing metric: ${error.message}`);
+            return;
+        }
         
         if (value === null) {
             alert('Error: Could not calculate metric. Please ensure the column contains numeric values.');
             return;
         }
         
-        // Create the metric
+        // Create the metric (definition and result are stored)
         const metric = metricsStore.create(
             datasetId,
             name,

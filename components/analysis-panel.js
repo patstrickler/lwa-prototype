@@ -4,6 +4,8 @@
 import { DatasetSelector } from './dataset-selector.js';
 import { MetricDefinitionDialog } from './metric-definition-dialog.js';
 import { metricsStore } from '../data/metrics.js';
+import { datasetStore } from '../data/datasets.js';
+import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
 
 export class AnalysisPanel {
     constructor(containerSelector) {
@@ -29,7 +31,10 @@ export class AnalysisPanel {
                 <div id="dataset-selector-container"></div>
                 
                 <div class="metrics-section">
-                    <h3>Metrics</h3>
+                    <div class="metrics-header">
+                        <h3>Metrics</h3>
+                        <button id="refresh-metrics" class="btn btn-secondary" title="Re-execute all metrics">Refresh</button>
+                    </div>
                     <div id="metrics-list"></div>
                     <button id="add-metric" class="btn btn-primary">Add Metric</button>
                 </div>
@@ -61,9 +66,11 @@ export class AnalysisPanel {
     attachEventListeners() {
         const addMetricBtn = this.container.querySelector('#add-metric');
         const addScriptBtn = this.container.querySelector('#add-script');
+        const refreshMetricsBtn = this.container.querySelector('#refresh-metrics');
         
         addMetricBtn.addEventListener('click', () => this.showAddMetricDialog());
         addScriptBtn.addEventListener('click', () => this.showAddScriptDialog());
+        refreshMetricsBtn.addEventListener('click', () => this.reExecuteMetrics());
     }
     
     setDataset(dataset) {
@@ -71,8 +78,59 @@ export class AnalysisPanel {
         if (this.datasetSelector) {
             this.datasetSelector.setSelectedDataset(dataset);
         }
-        this.updateMetricsList();
+        // Re-execute metrics when dataset changes to ensure values are up-to-date
+        if (dataset) {
+            this.reExecuteMetrics();
+        } else {
+            this.updateMetricsList();
+        }
         this.notifyDatasetUpdated(dataset);
+    }
+    
+    /**
+     * Re-executes all metrics for the current dataset
+     * Updates metric values using the execution engine
+     */
+    reExecuteMetrics() {
+        if (!this.currentDataset) {
+            return;
+        }
+        
+        const metrics = metricsStore.getByDataset(this.currentDataset.id);
+        if (metrics.length === 0) {
+            this.updateMetricsList();
+            return;
+        }
+        
+        // Get fresh dataset data
+        const dataset = datasetStore.get(this.currentDataset.id);
+        if (!dataset) {
+            console.error('Dataset not found for re-execution');
+            this.updateMetricsList();
+            return;
+        }
+        
+        // Re-execute each metric
+        const updatedMetrics = [];
+        metrics.forEach(metric => {
+            try {
+                const newValue = metricExecutionEngine.executeMetric(metric, dataset);
+                const updated = metricsStore.updateValue(metric.id, newValue);
+                if (updated) {
+                    updatedMetrics.push(updated);
+                }
+            } catch (error) {
+                console.error(`Error re-executing metric ${metric.id}:`, error);
+                // Update with null value to indicate error
+                metricsStore.updateValue(metric.id, null);
+            }
+        });
+        
+        // Update display and notify
+        this.updateMetricsList();
+        if (updatedMetrics.length > 0) {
+            this.notifyMetricsUpdated(updatedMetrics);
+        }
     }
     
     refreshDatasetSelector() {
