@@ -2680,6 +2680,46 @@ main {
     border-radius: 4px;
 }
 
+/* Table Fields Selection */
+.table-fields-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.table-field-item {
+    position: relative;
+}
+
+.table-field-item .remove-field-btn {
+    position: absolute;
+    top: 8px;
+    right: 40px;
+    background: #dc3545;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    z-index: 10;
+    transition: background-color 0.2s;
+}
+
+.table-field-item .remove-field-btn:hover {
+    background: #c82333;
+}
+
+#add-table-field-btn {
+    margin-top: 8px;
+    align-self: flex-start;
+}
+
 .chart-placeholder {
     text-align: center;
     padding: 40px;

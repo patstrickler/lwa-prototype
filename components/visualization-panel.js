@@ -14,6 +14,8 @@ export class VisualizationPanel {
         this.charts = [];
         this.xAxisSelection = null; // { type: 'column'|'metric', value: string, datasetId: string }
         this.yAxisSelection = null;
+        this.zAxisSelection = null; // For scatter plots
+        this.tableFields = []; // For table visualizations
         this.init();
     }
     
@@ -31,34 +33,9 @@ export class VisualizationPanel {
                     <h3>Chart Builder</h3>
                     <div class="builder-form">
                         <div class="form-group">
-                            <label>X Axis Selection:</label>
-                            <div class="axis-selection-display droppable-axis" 
-                                 id="x-axis-display" 
-                                 data-axis="x"
-                                 draggable="false">
-                                <div class="axis-selection-content">
-                                    <span class="selection-placeholder">Drag & drop or click to select</span>
-                                </div>
-                                <button class="axis-select-btn" data-axis="x" title="Click to select field">▼</button>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Y Axis Selection:</label>
-                            <div class="axis-selection-display droppable-axis" 
-                                 id="y-axis-display" 
-                                 data-axis="y"
-                                 draggable="false">
-                                <div class="axis-selection-content">
-                                    <span class="selection-placeholder">Drag & drop or click to select</span>
-                                </div>
-                                <button class="axis-select-btn" data-axis="y" title="Click to select field">▼</button>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
                             <label for="chart-type-select">Chart Type:</label>
                             <select id="chart-type-select" class="form-control">
+                                <option value="">-- Select Chart Type --</option>
                                 <option value="line">Line Chart</option>
                                 <option value="bar">Bar Chart</option>
                                 <option value="scatter">Scatter Plot</option>
@@ -67,6 +44,10 @@ export class VisualizationPanel {
                                 <option value="table">Table</option>
                                 <option value="scorecard">Scorecard</option>
                             </select>
+                        </div>
+                        
+                        <div id="field-selection-container" style="display: none;">
+                            <!-- Dynamic field selection will be populated here -->
                         </div>
                         
                         <div class="form-group">
@@ -141,10 +122,16 @@ export class VisualizationPanel {
         const xLabelInput = this.container.querySelector('#x-axis-label-input');
         const yLabelInput = this.container.querySelector('#y-axis-label-input');
         
-        // Auto-render on selection changes (debounced)
+        // Chart type change - update field selection UI
         chartTypeSelect.addEventListener('change', () => {
-            // Small delay to debounce rapid changes
-            this.autoRender();
+            const chartType = chartTypeSelect.value;
+            this.updateFieldSelectionUI(chartType);
+            // Clear existing selections when chart type changes
+            this.xAxisSelection = null;
+            this.yAxisSelection = null;
+            this.zAxisSelection = null;
+            this.tableFields = [];
+            this.clearChart();
         });
         
         if (clearBtn) {
@@ -256,6 +243,357 @@ export class VisualizationPanel {
             panel.style.display = 'none';
             icon.textContent = '▼';
         }
+    }
+    
+    /**
+     * Updates the field selection UI based on the selected chart type
+     * @param {string} chartType - The selected chart type
+     */
+    updateFieldSelectionUI(chartType) {
+        const container = this.container.querySelector('#field-selection-container');
+        if (!container) return;
+        
+        if (!chartType) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+            return;
+        }
+        
+        container.style.display = 'block';
+        
+        let html = '';
+        
+        if (chartType === 'scatter') {
+            // Scatter plot: X, Y, Z
+            html = `
+                <div class="form-group">
+                    <label>X Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false">
+                        <div class="axis-selection-content">
+                            <span class="selection-placeholder">Drag & drop or click to select</span>
+                        </div>
+                        <button class="axis-select-btn" data-axis="x" title="Click to select field">▼</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Y Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false">
+                        <div class="axis-selection-content">
+                            <span class="selection-placeholder">Drag & drop or click to select</span>
+                        </div>
+                        <button class="axis-select-btn" data-axis="y" title="Click to select field">▼</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Z Axis (Size):</label>
+                    <div class="axis-selection-display droppable-axis" id="z-axis-display" data-axis="z" draggable="false">
+                        <div class="axis-selection-content">
+                            <span class="selection-placeholder">Drag & drop or click to select (optional)</span>
+                        </div>
+                        <button class="axis-select-btn" data-axis="z" title="Click to select field">▼</button>
+                    </div>
+                </div>
+            `;
+        } else if (chartType === 'table') {
+            // Table: Multiple fields
+            html = `
+                <div class="form-group">
+                    <label>Table Fields:</label>
+                    <div id="table-fields-list" class="table-fields-list">
+                        ${this.tableFields.length > 0 ? this.tableFields.map((field, idx) => `
+                            <div class="table-field-item">
+                                <div class="axis-selection-display droppable-axis" data-field-index="${idx}" draggable="false">
+                                    <div class="axis-selection-content">
+                                        ${field ? this.renderFieldDisplay(field) : '<span class="selection-placeholder">Drag & drop or click to select</span>'}
+                                    </div>
+                                    <button class="axis-select-btn" data-field-index="${idx}" title="Click to select field">▼</button>
+                                    <button class="remove-field-btn" data-field-index="${idx}" title="Remove field">×</button>
+                                </div>
+                            </div>
+                        `).join('') : ''}
+                        <button type="button" class="btn btn-sm btn-secondary" id="add-table-field-btn">+ Add Field</button>
+                    </div>
+                </div>
+            `;
+        } else if (chartType === 'scorecard') {
+            // Scorecard: Y only
+            html = `
+                <div class="form-group">
+                    <label>Value:</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false">
+                        <div class="axis-selection-content">
+                            <span class="selection-placeholder">Drag & drop or click to select</span>
+                        </div>
+                        <button class="axis-select-btn" data-axis="y" title="Click to select field">▼</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Bar, Line, Pie, Donut: X and Y
+            html = `
+                <div class="form-group">
+                    <label>X Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false">
+                        <div class="axis-selection-content">
+                            <span class="selection-placeholder">Drag & drop or click to select</span>
+                        </div>
+                        <button class="axis-select-btn" data-axis="x" title="Click to select field">▼</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Y Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false">
+                        <div class="axis-selection-content">
+                            <span class="selection-placeholder">Drag & drop or click to select</span>
+                        </div>
+                        <button class="axis-select-btn" data-axis="y" title="Click to select field">▼</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+        
+        // Re-attach event listeners
+        this.attachFieldSelectionListeners(chartType);
+        
+        // Update displays if selections exist
+        if (this.xAxisSelection) {
+            this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
+        }
+        if (this.yAxisSelection) {
+            this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+        }
+        if (this.zAxisSelection) {
+            this.updateAxisDisplay('z-axis-display', this.zAxisSelection);
+        }
+    }
+    
+    /**
+     * Renders a field display for table fields
+     * @param {Object} field - Field selection object
+     * @returns {string} HTML string
+     */
+    renderFieldDisplay(field) {
+        if (!field) return '';
+        
+        const dataset = datasetStore.get(field.datasetId);
+        if (!dataset) return '';
+        
+        if (field.type === 'column') {
+            return `
+                <div class="selected-item column-selected">
+                    <span class="item-icon">📊</span>
+                    <span class="item-name">${this.escapeHtml(this.formatColumnName(field.value))}</span>
+                    <span class="item-type">Column</span>
+                </div>
+            `;
+        } else {
+            const metric = metricsStore.get(field.value);
+            if (metric) {
+                return `
+                    <div class="selected-item metric-selected">
+                        <span class="item-icon">📈</span>
+                        <div class="item-info">
+                            <span class="item-name">${this.escapeHtml(metric.name)}</span>
+                            <span class="item-value">${this.formatMetricValue(metric.value)}</span>
+                        </div>
+                        <span class="item-type">Metric</span>
+                    </div>
+                `;
+            }
+        }
+        return '';
+    }
+    
+    /**
+     * Attaches event listeners for field selection
+     * @param {string} chartType - The chart type
+     */
+    attachFieldSelectionListeners(chartType) {
+        // Setup drag and drop for all axis displays
+        const axisDisplays = this.container.querySelectorAll('.axis-selection-display');
+        axisDisplays.forEach(display => {
+            const axis = display.getAttribute('data-axis');
+            if (axis) {
+                this.setupDragAndDrop(display, axis);
+            }
+        });
+        
+        // Click handlers for axis selection buttons
+        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
+        axisSelectBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const axis = btn.getAttribute('data-axis');
+                const fieldIndex = btn.getAttribute('data-field-index');
+                if (axis) {
+                    this.showAxisSelectionDropdown(axis, btn);
+                } else if (fieldIndex !== null) {
+                    this.showTableFieldDropdown(parseInt(fieldIndex), btn);
+                }
+            });
+        });
+        
+        // Click on axis display to show dropdown
+        axisDisplays.forEach(display => {
+            display.addEventListener('click', (e) => {
+                if (!e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item') && !e.target.closest('.remove-field-btn')) {
+                    const axis = display.getAttribute('data-axis');
+                    const fieldIndex = display.getAttribute('data-field-index');
+                    const btn = display.querySelector('.axis-select-btn');
+                    if (btn && axis) {
+                        this.showAxisSelectionDropdown(axis, btn);
+                    } else if (btn && fieldIndex !== null) {
+                        this.showTableFieldDropdown(parseInt(fieldIndex), btn);
+                    }
+                }
+            });
+        });
+        
+        // Add field button for tables
+        if (chartType === 'table') {
+            const addFieldBtn = this.container.querySelector('#add-table-field-btn');
+            if (addFieldBtn) {
+                addFieldBtn.addEventListener('click', () => {
+                    this.tableFields.push(null);
+                    this.updateFieldSelectionUI('table');
+                });
+            }
+            
+            // Remove field buttons
+            const removeBtns = this.container.querySelectorAll('.remove-field-btn');
+            removeBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(btn.getAttribute('data-field-index'));
+                    this.tableFields.splice(index, 1);
+                    this.updateFieldSelectionUI('table');
+                });
+            });
+        }
+    }
+    
+    /**
+     * Shows dropdown for table field selection
+     * @param {number} fieldIndex - Index of the field in tableFields array
+     * @param {HTMLElement} triggerElement - Element that triggered the dropdown
+     */
+    showTableFieldDropdown(fieldIndex, triggerElement) {
+        // Similar to showAxisSelectionDropdown but for table fields
+        this.closeAxisSelectionDropdown();
+        
+        // Get dataset from any existing selection
+        let dataset = null;
+        if (this.tableFields[fieldIndex]) {
+            dataset = datasetStore.get(this.tableFields[fieldIndex].datasetId);
+        } else if (this.xAxisSelection) {
+            dataset = datasetStore.get(this.xAxisSelection.datasetId);
+        } else if (this.yAxisSelection) {
+            dataset = datasetStore.get(this.yAxisSelection.datasetId);
+        }
+        
+        // Try to get from dataset browser
+        if (!dataset) {
+            const datasetBrowser = document.querySelector('#dataset-browser-visualization');
+            if (datasetBrowser) {
+                const select = datasetBrowser.querySelector('.dataset-browser-select');
+                if (select && select.value) {
+                    dataset = datasetStore.get(select.value);
+                }
+            }
+        }
+        
+        if (!dataset) {
+            alert('Please select a dataset first from the left panel.');
+            return;
+        }
+        
+        const fieldDisplay = triggerElement.closest('.axis-selection-display');
+        if (!fieldDisplay || !triggerElement) return;
+        
+        const rect = triggerElement.getBoundingClientRect();
+        const fieldRect = fieldDisplay.getBoundingClientRect();
+        
+        const columns = dataset.columns || [];
+        const metrics = metricsStore.getByDataset(dataset.id) || [];
+        
+        const dropdown = document.createElement('div');
+        dropdown.className = 'axis-selection-dropdown';
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = `${rect.bottom + 5}px`;
+        dropdown.style.left = `${fieldRect.left}px`;
+        dropdown.style.width = `${fieldRect.width}px`;
+        dropdown.style.zIndex = '1000';
+        
+        dropdown.innerHTML = `
+            <div class="dropdown-header">
+                <span>Select Field</span>
+                <button class="dropdown-close" onclick="this.closest('.axis-selection-dropdown').remove()">×</button>
+            </div>
+            <div class="dropdown-content">
+                ${columns.length > 0 ? `
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Columns</div>
+                        ${columns.map(col => `
+                            <div class="dropdown-item column-item" 
+                                 data-type="column" 
+                                 data-value="${this.escapeHtml(col)}"
+                                 data-dataset="${dataset.id}">
+                                <span class="item-icon">📊</span>
+                                <span class="item-name">${this.escapeHtml(this.formatColumnName(col))}</span>
+                                <span class="item-type">${this.inferColumnType(dataset, col)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                ${metrics.length > 0 ? `
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-title">Metrics</div>
+                        ${metrics.map(metric => `
+                            <div class="dropdown-item metric-item" 
+                                 data-type="metric" 
+                                 data-value="${metric.id}"
+                                 data-dataset="${dataset.id}">
+                                <span class="item-icon">📈</span>
+                                <div class="item-info">
+                                    <span class="item-name">${this.escapeHtml(metric.name)}</span>
+                                    <span class="item-value">${this.formatMetricValue(metric.value)}</span>
+                                </div>
+                                <span class="item-operation">${this.escapeHtml(metric.operation || '')}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        document.body.appendChild(dropdown);
+        
+        dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const type = item.getAttribute('data-type');
+                const value = item.getAttribute('data-value');
+                const datasetId = item.getAttribute('data-dataset');
+                this.selectTableField(fieldIndex, type, value, datasetId);
+                this.closeAxisSelectionDropdown();
+            });
+        });
+        
+        this.currentDropdown = dropdown;
+    }
+    
+    /**
+     * Selects a field for table visualization
+     * @param {number} fieldIndex - Index in tableFields array
+     * @param {string} type - 'column' or 'metric'
+     * @param {string} value - Column name or metric ID
+     * @param {string} datasetId - Dataset ID
+     */
+    selectTableField(fieldIndex, type, value, datasetId) {
+        this.tableFields[fieldIndex] = { type, value, datasetId };
+        this.updateFieldSelectionUI('table');
+        this.autoRender();
     }
     
     refreshDatasetList() {
@@ -570,14 +908,47 @@ export class VisualizationPanel {
     }
     
     renderChart() {
-        if (!this.xAxisSelection || !this.yAxisSelection) {
+        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        const chartType = chartTypeSelect ? chartTypeSelect.value : '';
+        
+        if (!chartType) {
             return;
         }
         
-        const chartTypeSelect = this.container.querySelector('#chart-type-select');
-        const chartType = chartTypeSelect ? chartTypeSelect.value : 'line';
+        // Check required fields based on chart type
+        if (chartType === 'scorecard') {
+            if (!this.yAxisSelection) {
+                return;
+            }
+        } else if (chartType === 'table') {
+            if (!this.tableFields || this.tableFields.length === 0 || this.tableFields.every(f => !f)) {
+                return;
+            }
+        } else if (chartType === 'scatter') {
+            if (!this.xAxisSelection || !this.yAxisSelection) {
+                return;
+            }
+        } else {
+            // Bar, Line, Pie, Donut require X and Y
+            if (!this.xAxisSelection || !this.yAxisSelection) {
+                return;
+            }
+        }
         
-        const datasetId = this.xAxisSelection.datasetId;
+        // Get dataset from first available selection
+        let datasetId = null;
+        if (this.xAxisSelection) {
+            datasetId = this.xAxisSelection.datasetId;
+        } else if (this.yAxisSelection) {
+            datasetId = this.yAxisSelection.datasetId;
+        } else if (this.tableFields && this.tableFields.length > 0 && this.tableFields[0]) {
+            datasetId = this.tableFields[0].datasetId;
+        }
+        
+        if (!datasetId) {
+            return;
+        }
+        
         const dataset = datasetStore.get(datasetId);
         if (!dataset) {
             return;
@@ -588,6 +959,7 @@ export class VisualizationPanel {
         
         const xAxis = this.xAxisSelection;
         const yAxis = this.yAxisSelection;
+        const zAxis = this.zAxisSelection;
         
         // Handle special case: both axes are metrics - show KPI cards
         if (xAxis.type === 'metric' && yAxis.type === 'metric') {
@@ -683,30 +1055,44 @@ export class VisualizationPanel {
         
         // Handle special chart types
         if (chartType === 'table') {
-            this.renderTable(dataset, xColumn, yColumn);
+            this.renderTableWithFields(dataset);
             return;
         }
         
         if (chartType === 'scorecard') {
             // Scorecard works best with just Y axis (metric or column)
-            if (yAxis.type === 'metric') {
+            if (yAxis && yAxis.type === 'metric') {
                 const metric = metricsStore.get(yAxis.value);
                 if (metric) {
                     this.renderScorecardFromMetric(metric);
                     return;
                 }
             }
-            this.renderScorecard(dataset, xColumn, yColumn);
+            if (yAxis && yAxis.type === 'column') {
+                this.renderScorecard(dataset, null, yAxis.value);
+                return;
+            }
             return;
         }
         
         if (chartType === 'pie' || chartType === 'donut') {
             // Pie/donut requires both X (categories) and Y (values)
-            if (xAxis.type === 'column' && yAxis.type === 'column') {
-                this.renderPieChart(dataset, xColumn, yColumn, chartType);
+            if (xAxis && xAxis.type === 'column' && yAxis && yAxis.type === 'column') {
+                this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType);
                 return;
             } else {
                 this.showError('Pie/Donut charts require both X and Y axes to be columns.');
+                return;
+            }
+        }
+        
+        if (chartType === 'scatter') {
+            // Scatter plot with optional Z axis
+            if (xAxis && xAxis.type === 'column' && yAxis && yAxis.type === 'column') {
+                this.renderScatterChart(dataset, xAxis.value, yAxis.value, zAxis ? zAxis.value : null);
+                return;
+            } else {
+                this.showError('Scatter plots require X and Y axes to be columns.');
                 return;
             }
         }
@@ -1556,12 +1942,12 @@ export class VisualizationPanel {
      * @param {string} type - 'column' or 'metric'
      * @param {string} value - Column name or metric ID
      * @param {string} datasetId - Dataset ID
-     * @param {string} axis - 'x' or 'y'
+     * @param {string} axis - 'x', 'y', or 'z'
      */
     selectAxis(type, value, datasetId, axis = null) {
         if (!axis) {
             // If no axis specified, use the one that's not set, or default to X
-            axis = !this.xAxisSelection ? 'x' : (!this.yAxisSelection ? 'y' : 'x');
+            axis = !this.xAxisSelection ? 'x' : (!this.yAxisSelection ? 'y' : (!this.zAxisSelection ? 'z' : 'x'));
         }
         
         const selection = { type, value, datasetId };
@@ -1569,9 +1955,12 @@ export class VisualizationPanel {
         if (axis === 'x') {
             this.xAxisSelection = selection;
             this.updateAxisDisplay('x-axis-display', selection);
-        } else {
+        } else if (axis === 'y') {
             this.yAxisSelection = selection;
             this.updateAxisDisplay('y-axis-display', selection);
+        } else if (axis === 'z') {
+            this.zAxisSelection = selection;
+            this.updateAxisDisplay('z-axis-display', selection);
         }
         
         this.autoRender();
@@ -1733,9 +2122,86 @@ export class VisualizationPanel {
     clearSelections() {
         this.xAxisSelection = null;
         this.yAxisSelection = null;
+        this.zAxisSelection = null;
+        this.tableFields = [];
         this.updateAxisDisplay('x-axis-display', null);
         this.updateAxisDisplay('y-axis-display', null);
+        this.updateAxisDisplay('z-axis-display', null);
         this.clearChart();
+        // Refresh field selection UI to clear table fields
+        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        if (chartTypeSelect && chartTypeSelect.value) {
+            this.updateFieldSelectionUI(chartTypeSelect.value);
+        }
+    }
+    
+    /**
+     * Renders a data table visualization with multiple fields
+     * @param {Object} dataset - Dataset object
+     */
+    renderTableWithFields(dataset) {
+        const data = this.getDatasetData(dataset);
+        if (!data || data.length === 0) return;
+        
+        // Filter out null fields
+        const validFields = this.tableFields.filter(f => f !== null && f !== undefined);
+        if (validFields.length === 0) return;
+        
+        const chartId = `chart_${Date.now()}`;
+        const chartContainer = document.createElement('div');
+        chartContainer.id = chartId;
+        chartContainer.className = 'chart-wrapper table-wrapper';
+        
+        const chartsContainer = this.container.querySelector('#charts-container');
+        chartsContainer.appendChild(chartContainer);
+        
+        const stylingOptions = this.getStylingOptions();
+        const title = stylingOptions.title || 'Data Table';
+        
+        // Build column headers
+        const headers = validFields.map(field => {
+            if (field.type === 'column') {
+                return this.formatColumnName(field.value);
+            } else {
+                const metric = metricsStore.get(field.value);
+                return metric ? metric.name : 'Unknown';
+            }
+        });
+        
+        // Build table HTML
+        const tableHTML = `
+            <div class="table-chart-header">
+                <h4>${this.escapeHtml(title)}</h4>
+            </div>
+            <div class="table-chart-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            ${headers.map(h => `<th>${this.escapeHtml(h)}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(row => `
+                            <tr>
+                                ${validFields.map(field => {
+                                    let value;
+                                    if (field.type === 'column') {
+                                        value = row[field.value];
+                                    } else {
+                                        const metric = metricsStore.get(field.value);
+                                        value = metric ? metric.value : '';
+                                    }
+                                    const isNumeric = typeof value === 'number' || !isNaN(parseFloat(value));
+                                    return `<td class="${isNumeric ? 'numeric' : ''}">${this.escapeHtml(String(value || ''))}</td>`;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        chartContainer.innerHTML = tableHTML;
     }
     
     /**
@@ -1976,6 +2442,119 @@ export class VisualizationPanel {
             chartContainer.innerHTML = `
                 <div class="chart-placeholder">
                     <p class="error">Error rendering ${isDonut ? 'donut' : 'pie'} chart: ${error.message}</p>
+                </div>
+            `;
+        }
+    }
+    
+    /**
+     * Renders a scatter plot with optional Z axis (bubble size)
+     * @param {Object} dataset - Dataset object
+     * @param {string} xColumn - X column name
+     * @param {string} yColumn - Y column name
+     * @param {string} zColumn - Z column name (optional, for bubble size)
+     */
+    renderScatterChart(dataset, xColumn, yColumn, zColumn = null) {
+        const data = this.getDatasetData(dataset);
+        if (!data || data.length === 0) return;
+        
+        // Prepare scatter data
+        const scatterData = data
+            .map(row => {
+                const x = parseFloat(row[xColumn]);
+                const y = parseFloat(row[yColumn]);
+                const z = zColumn ? parseFloat(row[zColumn]) : null;
+                
+                if (isNaN(x) || isNaN(y)) {
+                    return null;
+                }
+                
+                return {
+                    x: x,
+                    y: y,
+                    z: z && !isNaN(z) ? z : null
+                };
+            })
+            .filter(point => point !== null);
+        
+        if (scatterData.length === 0) return;
+        
+        const chartId = `chart_${Date.now()}`;
+        const chartContainer = document.createElement('div');
+        chartContainer.id = chartId;
+        chartContainer.className = 'chart-wrapper';
+        
+        const chartsContainer = this.container.querySelector('#charts-container');
+        chartsContainer.appendChild(chartContainer);
+        
+        const stylingOptions = this.getStylingOptions();
+        const title = stylingOptions.title || `${this.formatColumnName(yColumn)} vs ${this.formatColumnName(xColumn)}`;
+        
+        const chartConfig = {
+            chart: {
+                type: 'scatter',
+                renderTo: chartId,
+                height: 400
+            },
+            title: {
+                text: title
+            },
+            xAxis: {
+                title: {
+                    text: stylingOptions.xLabel || this.formatColumnName(xColumn)
+                },
+                type: 'linear'
+            },
+            yAxis: {
+                title: {
+                    text: stylingOptions.yLabel || this.formatColumnName(yColumn)
+                }
+            },
+            tooltip: {
+                pointFormat: `X: {point.x}<br/>Y: {point.y}${zColumn ? '<br/>Size: {point.z}' : ''}`
+            },
+            series: [{
+                name: `${this.formatColumnName(yColumn)} vs ${this.formatColumnName(xColumn)}`,
+                color: stylingOptions.color || '#007bff',
+                data: scatterData.map(point => zColumn && point.z !== null 
+                    ? [point.x, point.y, point.z] 
+                    : [point.x, point.y]
+                ),
+                marker: {
+                    radius: zColumn ? 5 : 4
+                }
+            }]
+        };
+        
+        // If Z axis is provided, use bubble chart
+        if (zColumn) {
+            chartConfig.chart.type = 'bubble';
+            chartConfig.plotOptions = {
+                bubble: {
+                    minSize: 5,
+                    maxSize: 50
+                }
+            };
+        }
+        
+        try {
+            requestAnimationFrame(() => {
+                try {
+                    Highcharts.chart(chartId, chartConfig);
+                } catch (error) {
+                    console.error('Error rendering scatter chart:', error);
+                    chartContainer.innerHTML = `
+                        <div class="chart-placeholder">
+                            <p class="error">Error rendering scatter chart: ${error.message}</p>
+                        </div>
+                    `;
+                }
+            });
+        } catch (error) {
+            console.error('Error setting up scatter chart:', error);
+            chartContainer.innerHTML = `
+                <div class="chart-placeholder">
+                    <p class="error">Error rendering scatter chart: ${error.message}</p>
                 </div>
             `;
         }
