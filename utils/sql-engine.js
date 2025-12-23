@@ -626,33 +626,38 @@ function evaluateSingleCondition(row, columnMap, condition, originalWhere) {
     }
     
     // Handle comparison operators: =, !=, <, >, <=, >=
+    // Extract value from original WHERE clause to preserve case
     const operators = ['!=', '<=', '>=', '=', '<', '>'];
     for (const op of operators) {
         if (condition.includes(op)) {
             const parts = condition.split(op);
             if (parts.length === 2) {
                 const colName = parts[0].trim().toLowerCase();
-                const valueStr = parts[1].trim();
                 const colIndex = columnMap[colName];
                 
                 if (colIndex !== undefined) {
-                    const rowValue = row[colIndex];
-                    const compareValue = parseValue(valueStr);
-                    
-                    if (compareValue !== null) {
-                        switch (op) {
-                            case '=':
-                                return compareValues(rowValue, compareValue) === 0;
-                            case '!=':
-                                return compareValues(rowValue, compareValue) !== 0;
-                            case '>':
-                                return compareValues(rowValue, compareValue) > 0;
-                            case '<':
-                                return compareValues(rowValue, compareValue) < 0;
-                            case '>=':
-                                return compareValues(rowValue, compareValue) >= 0;
-                            case '<=':
-                                return compareValues(rowValue, compareValue) <= 0;
+                    // Extract the value from the original WHERE clause (preserve case)
+                    const originalParts = extractConditionFromOriginal(originalWhere, condition, op);
+                    if (originalParts) {
+                        const valueStr = originalParts.value;
+                        const rowValue = row[colIndex];
+                        const compareValue = parseValue(valueStr);
+                        
+                        if (compareValue !== null) {
+                            switch (op) {
+                                case '=':
+                                    return compareValues(rowValue, compareValue) === 0;
+                                case '!=':
+                                    return compareValues(rowValue, compareValue) !== 0;
+                                case '>':
+                                    return compareValues(rowValue, compareValue) > 0;
+                                case '<':
+                                    return compareValues(rowValue, compareValue) < 0;
+                                case '>=':
+                                    return compareValues(rowValue, compareValue) >= 0;
+                                case '<=':
+                                    return compareValues(rowValue, compareValue) <= 0;
+                            }
                         }
                     }
                 }
@@ -660,20 +665,28 @@ function evaluateSingleCondition(row, columnMap, condition, originalWhere) {
         }
     }
     
-    // Handle LIKE
+    // Handle LIKE - extract pattern from original WHERE clause
     if (condition.includes(' like ')) {
         const likeMatch = condition.match(/(\w+)\s+like\s+(.+)/);
         if (likeMatch) {
             const colName = likeMatch[1].toLowerCase();
-            const pattern = likeMatch[2].trim().replace(/^['"]|['"]$/g, '').replace(/%/g, '.*').replace(/_/g, '.');
             const colIndex = columnMap[colName];
             if (colIndex !== undefined) {
-                const rowValue = String(row[colIndex] || '');
-                try {
-                    const regex = new RegExp(`^${pattern}$`, 'i');
-                    return regex.test(rowValue);
-                } catch (e) {
-                    return false;
+                // Extract pattern from original WHERE clause
+                const originalLikeMatch = originalWhere.match(new RegExp(`(\\w+)\\s+like\\s+(.+)`, 'i'));
+                if (originalLikeMatch) {
+                    let pattern = originalLikeMatch[2].trim();
+                    // Remove quotes but preserve case
+                    pattern = pattern.replace(/^['"]|['"]$/g, '');
+                    // Convert SQL wildcards to regex
+                    pattern = pattern.replace(/%/g, '.*').replace(/_/g, '.');
+                    const rowValue = String(row[colIndex] || '');
+                    try {
+                        const regex = new RegExp(`^${pattern}$`, 'i');
+                        return regex.test(rowValue);
+                    } catch (e) {
+                        return false;
+                    }
                 }
             }
         }
@@ -681,6 +694,59 @@ function evaluateSingleCondition(row, columnMap, condition, originalWhere) {
     
     // Default: return true (don't filter if we can't evaluate)
     return true;
+}
+
+/**
+ * Extracts the value from the original WHERE clause for a given condition
+ * @param {string} originalWhere - Original WHERE clause
+ * @param {string} normalizedCondition - Normalized (lowercase) condition
+ * @param {string} operator - The operator used (=, !=, etc.)
+ * @returns {{column: string, value: string}|null}
+ */
+function extractConditionFromOriginal(originalWhere, normalizedCondition, operator) {
+    // Find the corresponding condition in the original WHERE clause
+    // Match the column name and operator, then extract the value
+    
+    // Extract column name from normalized condition
+    const normalizedParts = normalizedCondition.split(operator);
+    if (normalizedParts.length !== 2) return null;
+    
+    const normalizedColName = normalizedParts[0].trim().toLowerCase();
+    
+    // Find the column in the original WHERE clause (case-insensitive)
+    const colNameRegex = new RegExp(`\\b${normalizedColName}\\b`, 'i');
+    const colMatch = originalWhere.match(colNameRegex);
+    if (!colMatch) return null;
+    
+    // Find the operator and value after the column name
+    const afterCol = originalWhere.substring(colMatch.index + colMatch[0].length);
+    const operatorRegex = operator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special chars
+    const valueMatch = afterCol.match(new RegExp(`\\s*${operatorRegex}\\s*(.+)`, 'i'));
+    
+    if (valueMatch) {
+        let value = valueMatch[1].trim();
+        // Handle quoted strings - extract until the closing quote
+        if (value.startsWith("'") || value.startsWith('"')) {
+            const quote = value[0];
+            const endQuote = value.indexOf(quote, 1);
+            if (endQuote > 0) {
+                value = value.substring(0, endQuote + 1);
+            }
+        } else {
+            // Unquoted value - extract until space, comma, or end
+            const spaceMatch = value.match(/^([^\s,]+)/);
+            if (spaceMatch) {
+                value = spaceMatch[1];
+            }
+        }
+        
+        return {
+            column: normalizedColName,
+            value: value.trim()
+        };
+    }
+    
+    return null;
 }
 
 /**
@@ -710,7 +776,7 @@ function parseValue(valueStr) {
 }
 
 /**
- * Compares two values
+ * Compares two values (case-insensitive for strings)
  * @param {any} a - First value
  * @param {any} b - Second value
  * @returns {number} - Negative if a < b, 0 if a == b, positive if a > b
@@ -723,7 +789,8 @@ function compareValues(a, b) {
         return a - b;
     }
     
-    return String(a).localeCompare(String(b));
+    // Case-insensitive string comparison
+    return String(a).toLowerCase().localeCompare(String(b).toLowerCase());
 }
 
 /**
@@ -785,7 +852,7 @@ function generateColumnValue(columnName, rowIndex, tableName) {
     }
     
     if (colLower === 'status') {
-        const statuses = ['pending', 'completed', 'in_progress', 'cancelled'];
+        const statuses = ['pending', 'completed', 'in_progress', 'cancelled', 'Approved', 'Rejected', 'Pending Review'];
         return statuses[rowIndex % statuses.length];
     }
     
