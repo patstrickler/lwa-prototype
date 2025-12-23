@@ -6,6 +6,7 @@ import { metricsStore } from '../data/metrics.js';
 import { datasetStore } from '../data/datasets.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
 import { scriptsStore } from '../data/scripts.js';
+import { executeSQL } from '../utils/sql-engine.js';
 
 export class AnalysisPanel {
     constructor(containerSelector) {
@@ -59,6 +60,11 @@ export class AnalysisPanel {
     
     attachEventListeners() {
         // Event listeners are handled by unified builder
+        // Note: refresh metrics button was removed, but if it exists, handle it
+        const refreshBtn = this.container.querySelector('#refresh-metrics');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.reExecuteMetrics());
+        }
     }
     
     setDataset(dataset) {
@@ -129,7 +135,7 @@ export class AnalysisPanel {
      * Re-executes all metrics for the current dataset
      * Updates metric values using the execution engine
      */
-    reExecuteMetrics() {
+    async reExecuteMetrics() {
         if (!this.currentDataset) {
             return;
         }
@@ -149,28 +155,31 @@ export class AnalysisPanel {
         }
         
         // Get fresh dataset data
-        const dataset = datasetStore.get(this.currentDataset.id);
-        if (!dataset) {
+        const storedDataset = datasetStore.get(this.currentDataset.id);
+        if (!storedDataset) {
             console.error('Dataset not found for re-execution');
             this.updateMetricsList();
             return;
         }
+        
+        // Get full dataset (re-execute SQL without LIMIT if available)
+        const fullDataset = await this.getFullDataset(storedDataset);
         
         // Re-execute each metric
         const updatedMetrics = [];
         metrics.forEach(metric => {
             try {
                 // Check if dataset is empty
-                if (!dataset.rows || dataset.rows.length === 0) {
+                if (!fullDataset.rows || fullDataset.rows.length === 0) {
                     throw new Error('Dataset is empty. Cannot calculate metrics on an empty dataset.');
                 }
                 
                 // Check if dataset has columns
-                if (!dataset.columns || dataset.columns.length === 0) {
+                if (!fullDataset.columns || fullDataset.columns.length === 0) {
                     throw new Error('Dataset has no columns. Cannot calculate metrics.');
                 }
                 
-                const newValue = metricExecutionEngine.executeMetric(metric, dataset);
+                const newValue = metricExecutionEngine.executeMetric(metric, fullDataset);
                 const updated = metricsStore.updateValue(metric.id, newValue);
                 if (updated) {
                     updatedMetrics.push(updated);
@@ -269,6 +278,47 @@ export class AnalysisPanel {
     
     notifyDatasetUpdated(dataset) {
         this.datasetCallbacks.forEach(callback => callback(dataset));
+    }
+    
+    /**
+     * Gets the full dataset by re-executing SQL without LIMIT if available
+     * @param {Object} dataset - Dataset object (may have limited rows)
+     * @returns {Promise<Object>} Dataset with all rows
+     */
+    async getFullDataset(dataset) {
+        if (!dataset) {
+            return dataset;
+        }
+        
+        // If dataset has SQL query, re-execute it without LIMIT to get all rows
+        if (dataset.sql && dataset.sql.trim()) {
+            try {
+                // Remove any existing LIMIT clause
+                let sqlWithoutLimit = dataset.sql
+                    .replace(/;\s*$/, '') // Remove trailing semicolon
+                    .replace(/\s+limit\s+\d+/gi, '') // Remove LIMIT clause
+                    .trim();
+                
+                // Re-execute query without LIMIT to get all rows
+                // Use a large number for the mock engine's row generation
+                const sqlResult = await executeSQL(sqlWithoutLimit, 10000);
+                
+                if (sqlResult && sqlResult.rows && sqlResult.rows.length > 0) {
+                    // Return dataset with all rows
+                    return {
+                        ...dataset,
+                        rows: sqlResult.rows,
+                        columns: sqlResult.columns || dataset.columns
+                    };
+                }
+            } catch (error) {
+                console.warn('Could not re-execute SQL for full dataset, using stored dataset:', error);
+                // Fall through to return original dataset
+            }
+        }
+        
+        // Return original dataset if no SQL or re-execution failed
+        return dataset;
     }
 }
 

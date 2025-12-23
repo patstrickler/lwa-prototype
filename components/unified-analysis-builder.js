@@ -8,6 +8,7 @@ import { metricsStore } from '../data/metrics.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
 import { evaluateMetricScript } from '../utils/metric-script-parser.js';
 import { getColumnSuggestions, getWordStartPosition } from '../utils/script-autocomplete.js';
+import { executeSQL } from '../utils/sql-engine.js';
 
 export class UnifiedAnalysisBuilder {
     constructor(containerSelector) {
@@ -449,14 +450,15 @@ export class UnifiedAnalysisBuilder {
             return;
         }
         
-        const dataset = this.currentDataset;
+        // Get full dataset (re-execute SQL without LIMIT if available)
+        const fullDataset = await this.getFullDataset(this.currentDataset);
         
         // Show loading
         resultContainer.innerHTML = '<div class="loading">Calculating metric...</div>';
         
         try {
-            // Evaluate metric script expression
-            const value = evaluateMetricScript(expression, dataset);
+            // Evaluate metric script expression on full dataset
+            const value = evaluateMetricScript(expression, fullDataset);
             
             if (value === null || isNaN(value)) {
                 resultContainer.innerHTML = '<div class="error">Error: Could not calculate metric. Please check your expression.</div>';
@@ -626,6 +628,47 @@ export class UnifiedAnalysisBuilder {
         if (this.scriptPanel) {
             this.scriptPanel.loadScriptForEditing(scriptId);
         }
+    }
+    
+    /**
+     * Gets the full dataset by re-executing SQL without LIMIT if available
+     * @param {Object} dataset - Dataset object (may have limited rows)
+     * @returns {Promise<Object>} Dataset with all rows
+     */
+    async getFullDataset(dataset) {
+        if (!dataset) {
+            return dataset;
+        }
+        
+        // If dataset has SQL query, re-execute it without LIMIT to get all rows
+        if (dataset.sql && dataset.sql.trim()) {
+            try {
+                // Remove any existing LIMIT clause
+                let sqlWithoutLimit = dataset.sql
+                    .replace(/;\s*$/, '') // Remove trailing semicolon
+                    .replace(/\s+limit\s+\d+/gi, '') // Remove LIMIT clause
+                    .trim();
+                
+                // Re-execute query without LIMIT to get all rows
+                // Use a large number for the mock engine's row generation
+                const sqlResult = await executeSQL(sqlWithoutLimit, 10000);
+                
+                if (sqlResult && sqlResult.rows && sqlResult.rows.length > 0) {
+                    // Return dataset with all rows
+                    return {
+                        ...dataset,
+                        rows: sqlResult.rows,
+                        columns: sqlResult.columns || dataset.columns
+                    };
+                }
+            } catch (error) {
+                console.warn('Could not re-execute SQL for full dataset, using stored dataset:', error);
+                // Fall through to return original dataset
+            }
+        }
+        
+        // Return original dataset if no SQL or re-execution failed
+        return dataset;
     }
 }
 

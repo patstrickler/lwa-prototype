@@ -267,7 +267,7 @@ export class ScriptExecutionPanel {
         this.updateSuggestions();
     }
     
-    executeScript() {
+    async executeScript() {
         const language = this.container.querySelector('#script-language').value;
         const scriptText = this.container.querySelector('#script-editor').value.trim();
         const resultContainer = this.container.querySelector('#script-result');
@@ -285,7 +285,10 @@ export class ScriptExecutionPanel {
         }
         
         // Get current dataset (read-only)
-        const dataset = this.currentDataset ? datasetStore.get(this.currentDataset.id) : null;
+        const storedDataset = this.currentDataset ? datasetStore.get(this.currentDataset.id) : null;
+        
+        // Get full dataset (re-execute SQL without LIMIT if available)
+        const dataset = await this.getFullDataset(storedDataset);
         
         // Show loading state
         resultContainer.innerHTML = '<div class="script-loading">Executing script...</div>';
@@ -293,7 +296,7 @@ export class ScriptExecutionPanel {
         // Simulate execution delay
         setTimeout(() => {
             try {
-                // Execute script (mocked)
+                // Execute script (mocked) on full dataset
                 const result = scriptExecutionEngine.execute(language, scriptText, dataset);
                 
                 // Display result
@@ -437,7 +440,7 @@ export class ScriptExecutionPanel {
         return String(value);
     }
     
-    saveScript() {
+    async saveScript() {
         const language = this.container.querySelector('#script-language').value;
         const scriptText = this.container.querySelector('#script-editor').value.trim();
         const scriptName = this.container.querySelector('#script-name').value.trim();
@@ -456,8 +459,12 @@ export class ScriptExecutionPanel {
                               resultElement.classList.contains('result-series') ? 'series' : 'image';
             // For simplicity, we'll re-execute to get the result
             try {
-                const dataset = this.currentDataset ? datasetStore.get(this.currentDataset.id) : null;
-                result = scriptExecutionEngine.execute(language, scriptText, dataset);
+                const storedDataset = this.currentDataset ? datasetStore.get(this.currentDataset.id) : null;
+                if (storedDataset) {
+                    // Get full dataset for execution
+                    const fullDataset = await this.getFullDataset(storedDataset);
+                    result = scriptExecutionEngine.execute(language, scriptText, fullDataset);
+                }
             } catch (error) {
                 console.error('Error getting result for save:', error);
             }
@@ -537,6 +544,47 @@ export class ScriptExecutionPanel {
         if (scriptEditor) {
             scriptEditor.focus();
         }
+    }
+    
+    /**
+     * Gets the full dataset by re-executing SQL without LIMIT if available
+     * @param {Object} dataset - Dataset object (may have limited rows)
+     * @returns {Promise<Object>} Dataset with all rows
+     */
+    async getFullDataset(dataset) {
+        if (!dataset) {
+            return dataset;
+        }
+        
+        // If dataset has SQL query, re-execute it without LIMIT to get all rows
+        if (dataset.sql && dataset.sql.trim()) {
+            try {
+                // Remove any existing LIMIT clause
+                let sqlWithoutLimit = dataset.sql
+                    .replace(/;\s*$/, '') // Remove trailing semicolon
+                    .replace(/\s+limit\s+\d+/gi, '') // Remove LIMIT clause
+                    .trim();
+                
+                // Re-execute query without LIMIT to get all rows
+                // Use a large number for the mock engine's row generation
+                const sqlResult = await executeSQL(sqlWithoutLimit, 10000);
+                
+                if (sqlResult && sqlResult.rows && sqlResult.rows.length > 0) {
+                    // Return dataset with all rows
+                    return {
+                        ...dataset,
+                        rows: sqlResult.rows,
+                        columns: sqlResult.columns || dataset.columns
+                    };
+                }
+            } catch (error) {
+                console.warn('Could not re-execute SQL for full dataset, using stored dataset:', error);
+                // Fall through to return original dataset
+            }
+        }
+        
+        // Return original dataset if no SQL or re-execution failed
+        return dataset;
     }
 }
 

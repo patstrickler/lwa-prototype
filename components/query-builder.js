@@ -541,7 +541,7 @@ export class QueryBuilder {
                 <h3>Result Metadata</h3>
                 <div class="metadata-summary">
                     <span class="metadata-stat">
-                        <strong>Total Rows:</strong> ${data.length.toLocaleString()}
+                        <strong>Rows Returned:</strong> ${data.length.toLocaleString()}
                     </span>
                     <span class="metadata-stat">
                         <strong>Columns:</strong> ${columns.length}
