@@ -1934,6 +1934,46 @@ main {
     color: #dc3545;
 }
 
+.selected-item .aggregation-select {
+    font-size: 11px;
+    padding: 4px 8px;
+    border: 1px solid rgba(0, 123, 255, 0.3);
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #004085;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.selected-item.column-selected .aggregation-select {
+    border-color: rgba(0, 123, 255, 0.4);
+    background-color: rgba(255, 255, 255, 0.95);
+}
+
+.selected-item.column-selected .aggregation-select:hover {
+    border-color: #007bff;
+    background-color: #fff;
+}
+
+.selected-item.column-selected .aggregation-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
+
+.selected-item .item-aggregation {
+    font-size: 11px;
+    color: #004085;
+    padding: 2px 6px;
+    background-color: rgba(0, 123, 255, 0.15);
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-left: 4px;
+}
+
 /* Draggable Items */
 .draggable-item {
     cursor: grab;

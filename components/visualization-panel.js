@@ -12,7 +12,7 @@ export class VisualizationPanel {
         this.currentDataset = null;
         this.currentMetrics = [];
         this.charts = [];
-        this.xAxisSelection = null; // { type: 'column'|'metric', value: string, datasetId: string }
+        this.xAxisSelection = null; // { type: 'column'|'metric', value: string, datasetId: string, aggregation?: string }
         this.yAxisSelection = null;
         this.zAxisSelection = null; // For scatter plots
         this.tableFields = []; // For table visualizations
@@ -1051,7 +1051,45 @@ export class VisualizationPanel {
                 }
             }
             if (yAxis && yAxis.type === 'column') {
-                this.renderScorecard(dataset, null, yAxis.value);
+                // Apply aggregation if specified
+                const scorecardData = this.getDatasetData(dataset);
+                let aggregatedValue = null;
+                if (yAxis.aggregation && scorecardData.length > 0) {
+                    // For scorecard, aggregate all values
+                    const values = scorecardData.map(row => row[yAxis.value]).filter(v => v !== null && v !== undefined);
+                    if (values.length > 0) {
+                        switch (yAxis.aggregation) {
+                            case 'COUNT':
+                                aggregatedValue = values.length;
+                                break;
+                            case 'COUNT_DISTINCT':
+                                aggregatedValue = new Set(values).size;
+                                break;
+                            case 'SUM':
+                                aggregatedValue = values.reduce((sum, v) => {
+                                    const num = parseFloat(v);
+                                    return sum + (isNaN(num) ? 0 : num);
+                                }, 0);
+                                break;
+                            case 'AVG':
+                                const sum = values.reduce((s, v) => {
+                                    const num = parseFloat(v);
+                                    return s + (isNaN(num) ? 0 : num);
+                                }, 0);
+                                aggregatedValue = values.length > 0 ? sum / values.length : 0;
+                                break;
+                            case 'MIN':
+                                const nums = values.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                                aggregatedValue = nums.length > 0 ? Math.min(...nums) : null;
+                                break;
+                            case 'MAX':
+                                const nums2 = values.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                                aggregatedValue = nums2.length > 0 ? Math.max(...nums2) : null;
+                                break;
+                        }
+                    }
+                }
+                this.renderScorecard(dataset, null, yAxis.value, aggregatedValue, yAxis.aggregation);
                 return;
             }
             return;
@@ -1060,7 +1098,17 @@ export class VisualizationPanel {
         if (chartType === 'pie' || chartType === 'donut') {
             // Pie/donut requires both X (categories) and Y (values)
             if (xAxis && xAxis.type === 'column' && yAxis && yAxis.type === 'column') {
-                this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType);
+                // Apply aggregation if specified for Y axis
+                let pieData = this.getDatasetData(dataset);
+                if (yAxis.aggregation) {
+                    pieData = this.applyAggregation(pieData, xAxis.value, yAxis.value, yAxis.aggregation);
+                    // Convert aggregated data back to row format for pie chart
+                    pieData = pieData.map(item => ({
+                        [xAxis.value]: item.x,
+                        [yAxis.value]: item.y
+                    }));
+                }
+                this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType, pieData);
                 return;
             } else {
                 this.showError('Pie/Donut charts require both X and Y axes to be columns.');
@@ -1071,6 +1119,7 @@ export class VisualizationPanel {
         if (chartType === 'scatter') {
             // Scatter plot with optional Z axis
             if (xAxis && xAxis.type === 'column' && yAxis && yAxis.type === 'column') {
+                // Note: Scatter plots typically don't use aggregation, but we could support it
                 this.renderScatterChart(dataset, xAxis.value, yAxis.value, zAxis ? zAxis.value : null);
                 return;
             } else {
@@ -1101,7 +1150,14 @@ export class VisualizationPanel {
                 this.showError(`Column "${yColumn}" not found in dataset "${dataset.name}"`);
                 return;
             }
-            yLabel = this.formatColumnName(yColumn);
+            
+            // If aggregation is specified, apply it
+            if (yAxis.aggregation) {
+                data = this.applyAggregation(data, xColumn, yColumn, yAxis.aggregation);
+                yLabel = `${yAxis.aggregation}(${this.formatColumnName(yColumn)})`;
+            } else {
+                yLabel = this.formatColumnName(yColumn);
+            }
         } else {
             // Y is metric - create constant value series
             const metric = metricsStore.get(yAxis.value);
@@ -1137,22 +1193,51 @@ export class VisualizationPanel {
         }
         
         // Both are columns - standard chart (line, bar)
-        // Verify columns exist in data
-        if (data.length > 0) {
-            const firstRow = data[0];
-            if (!(xColumn in firstRow)) {
-                this.showError(`Column "${xColumn}" not found in data. Available columns: ${Object.keys(firstRow).join(', ')}`);
-                return;
-            }
-            if (!(yColumn in firstRow)) {
-                this.showError(`Column "${yColumn}" not found in data. Available columns: ${Object.keys(firstRow).join(', ')}`);
-                return;
-            }
-        }
-        
+        // If aggregation was applied, data is already in {x, y} format
         let seriesData;
         try {
-            seriesData = this.convertToHighchartsSeries(data, xColumn, yColumn, chartType);
+            if (yAxis.aggregation) {
+                // Data is already aggregated, convert to Highcharts format
+                const points = data.map(row => ({
+                    x: row.x,
+                    y: row.y,
+                    name: String(row.x)
+                }));
+                
+                const isXNumeric = typeof points[0]?.x === 'number';
+                let chartData, categories;
+                
+                if (chartType === 'line') {
+                    if (isXNumeric) {
+                        chartData = points.map(p => [parseFloat(p.x) || 0, p.y]);
+                    } else {
+                        categories = points.map(p => String(p.x));
+                        chartData = points.map(p => p.y);
+                    }
+                } else if (chartType === 'bar') {
+                    categories = points.map(p => String(p.x));
+                    chartData = points.map(p => p.y);
+                } else {
+                    chartData = points.map(p => p.y);
+                }
+                
+                seriesData = { chartData, isXNumeric, categories };
+            } else {
+                // No aggregation, use standard conversion
+                // Verify columns exist in data
+                if (data.length > 0) {
+                    const firstRow = data[0];
+                    if (!(xColumn in firstRow)) {
+                        this.showError(`Column "${xColumn}" not found in data. Available columns: ${Object.keys(firstRow).join(', ')}`);
+                        return;
+                    }
+                    if (!(yColumn in firstRow)) {
+                        this.showError(`Column "${yColumn}" not found in data. Available columns: ${Object.keys(firstRow).join(', ')}`);
+                        return;
+                    }
+                }
+                seriesData = this.convertToHighchartsSeries(data, xColumn, yColumn, chartType);
+            }
         } catch (error) {
             console.error('Error preparing chart data:', error);
             this.showError(`Error preparing chart data: ${error.message}`);
@@ -2008,14 +2093,34 @@ export class VisualizationPanel {
      * @param {string} value - Column name or metric ID
      * @param {string} datasetId - Dataset ID
      * @param {string} axis - 'x', 'y', or 'z'
+     * @param {string} aggregation - Optional aggregation function (COUNT, COUNT_DISTINCT, SUM, AVG, etc.)
      */
-    selectAxis(type, value, datasetId, axis = null) {
+    selectAxis(type, value, datasetId, axis = null, aggregation = null) {
         if (!axis) {
             // If no axis specified, use the one that's not set, or default to X
             axis = !this.xAxisSelection ? 'x' : (!this.yAxisSelection ? 'y' : (!this.zAxisSelection ? 'z' : 'x'));
         }
         
         const selection = { type, value, datasetId };
+        
+        // If it's a column on Y axis (metric slot), check if aggregation is needed
+        if (type === 'column' && axis === 'y') {
+            const dataset = datasetStore.get(datasetId);
+            if (dataset) {
+                const columnType = this.inferColumnType(dataset, value);
+                const availableAggregations = this.getAvailableAggregations(columnType);
+                
+                // If aggregation is not provided and column is not numeric, prompt for aggregation
+                if (!aggregation && availableAggregations.length > 0) {
+                    // Default to first available aggregation
+                    aggregation = availableAggregations[0].value;
+                }
+                
+                if (aggregation) {
+                    selection.aggregation = aggregation;
+                }
+            }
+        }
         
         if (axis === 'x') {
             this.xAxisSelection = selection;
@@ -2029,6 +2134,34 @@ export class VisualizationPanel {
         }
         
         this.autoRender();
+    }
+    
+    /**
+     * Gets available aggregation functions for a column type
+     * @param {string} columnType - 'numeric', 'text', 'date', or 'unknown'
+     * @returns {Array} Array of { value: string, label: string } objects
+     */
+    getAvailableAggregations(columnType) {
+        if (columnType === 'numeric') {
+            return [
+                { value: 'SUM', label: 'Sum' },
+                { value: 'AVG', label: 'Average' },
+                { value: 'MIN', label: 'Min' },
+                { value: 'MAX', label: 'Max' },
+                { value: 'COUNT', label: 'Count' },
+                { value: 'COUNT_DISTINCT', label: 'Count Distinct' }
+            ];
+        } else if (columnType === 'text' || columnType === 'date') {
+            return [
+                { value: 'COUNT', label: 'Count' },
+                { value: 'COUNT_DISTINCT', label: 'Count Distinct' }
+            ];
+        }
+        // For unknown type, provide basic options
+        return [
+            { value: 'COUNT', label: 'Count' },
+            { value: 'COUNT_DISTINCT', label: 'Count Distinct' }
+        ];
     }
     
     /**
@@ -2073,12 +2206,49 @@ export class VisualizationPanel {
         
         if (selection.type === 'column') {
             selectedItem.className = 'selected-item column-selected';
+            
+            // Check if this is Y axis (metric slot) and needs aggregation
+            const isYAxis = displayId === 'y-axis-display';
+            const columnType = this.inferColumnType(dataset, selection.value);
+            const availableAggregations = isYAxis ? this.getAvailableAggregations(columnType) : [];
+            const hasAggregation = selection.aggregation && availableAggregations.length > 0;
+            
+            let aggregationSelector = '';
+            if (isYAxis && availableAggregations.length > 0) {
+                aggregationSelector = `
+                    <select class="aggregation-select" data-axis="${displayId}">
+                        ${availableAggregations.map(agg => `
+                            <option value="${agg.value}" ${selection.aggregation === agg.value ? 'selected' : ''}>
+                                ${agg.label}
+                            </option>
+                        `).join('')}
+                    </select>
+                `;
+            }
+            
             selectedItem.innerHTML = `
                 <span class="item-icon">📊</span>
                 <span class="item-name">${this.escapeHtml(this.formatColumnName(selection.value))}</span>
+                ${hasAggregation ? `<span class="item-aggregation">${this.escapeHtml(selection.aggregation)}</span>` : ''}
                 <span class="item-type">Column</span>
+                ${aggregationSelector}
                 <button class="remove-selection" title="Remove selection">×</button>
             `;
+            
+            // Add aggregation change handler
+            if (isYAxis && availableAggregations.length > 0) {
+                const aggSelect = selectedItem.querySelector('.aggregation-select');
+                if (aggSelect) {
+                    aggSelect.addEventListener('change', (e) => {
+                        const newAggregation = e.target.value;
+                        if (displayId === 'y-axis-display' && this.yAxisSelection) {
+                            this.yAxisSelection.aggregation = newAggregation;
+                            this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+                            this.autoRender();
+                        }
+                    });
+                }
+            }
         } else {
             const metric = metricsStore.get(selection.value);
             if (metric) {
@@ -2355,25 +2525,35 @@ export class VisualizationPanel {
      * @param {string} xColumn - X column name (optional for scorecard)
      * @param {string} yColumn - Y column name (the value to display)
      */
-    renderScorecard(dataset, xColumn, yColumn) {
+    renderScorecard(dataset, xColumn, yColumn, aggregatedValue = null, aggregation = null) {
         const data = this.getDatasetData(dataset);
         if (!data || data.length === 0) return;
         
-        // Calculate aggregate value (sum, average, or single value)
-        const values = data.map(row => parseFloat(row[yColumn])).filter(v => !isNaN(v));
         let displayValue;
         let operation = 'Total';
         
-        if (values.length === 0) {
-            displayValue = 'N/A';
-        } else if (values.length === 1) {
-            displayValue = values[0];
-            operation = 'Value';
+        if (aggregatedValue !== null) {
+            // Use provided aggregated value
+            displayValue = aggregatedValue;
+            operation = aggregation || 'Aggregate';
         } else {
-            // Use average for multiple values
-            const sum = values.reduce((a, b) => a + b, 0);
-            displayValue = sum / values.length;
-            operation = 'Average';
+            // Calculate aggregate value (sum, average, or single value)
+            const values = data.map(row => {
+                const val = row[yColumn];
+                return val !== null && val !== undefined ? parseFloat(val) : null;
+            }).filter(v => v !== null && !isNaN(v));
+            
+            if (values.length === 0) {
+                displayValue = 'N/A';
+            } else if (values.length === 1) {
+                displayValue = values[0];
+                operation = 'Value';
+            } else {
+                // Use average for multiple values
+                const sum = values.reduce((a, b) => a + b, 0);
+                displayValue = sum / values.length;
+                operation = 'Average';
+            }
         }
         
         const chartId = `chart_${Date.now()}`;
@@ -2408,8 +2588,8 @@ export class VisualizationPanel {
      * @param {string} yColumn - Y column name (values)
      * @param {string} chartType - 'pie' or 'donut'
      */
-    renderPieChart(dataset, xColumn, yColumn, chartType) {
-        const data = this.getDatasetData(dataset);
+    renderPieChart(dataset, xColumn, yColumn, chartType, preAggregatedData = null) {
+        const data = preAggregatedData || this.getDatasetData(dataset);
         if (!data || data.length === 0) return;
         
         // Aggregate data by xColumn (sum yColumn values for each xColumn value)
