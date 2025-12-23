@@ -30,38 +30,73 @@ export class DatasetSelector {
     
     attachEventListeners() {
         const dropdown = this.container.querySelector('#dataset-dropdown');
-        dropdown.addEventListener('change', (e) => {
-            const selectedId = e.target.value;
-            if (selectedId) {
-                const dataset = datasetStore.get(selectedId);
-                this.selectedDataset = dataset;
-                this.notifySelection(dataset);
-            } else {
-                this.selectedDataset = null;
-                this.notifySelection(null);
+        if (!dropdown) return;
+        
+        // Remove existing listener if any (prevent duplicates)
+        if (this._changeHandler) {
+            dropdown.removeEventListener('change', this._changeHandler);
+        }
+        
+        // Create handler with debouncing
+        this._changeHandler = (e) => {
+            // Clear any pending updates
+            if (this._changeTimeout) {
+                clearTimeout(this._changeTimeout);
             }
-        });
+            
+            // Debounce to prevent jitter
+            this._changeTimeout = setTimeout(() => {
+                requestAnimationFrame(() => {
+                    const selectedId = e.target.value;
+                    if (selectedId) {
+                        const dataset = datasetStore.get(selectedId);
+                        this.selectedDataset = dataset;
+                        this.notifySelection(dataset);
+                    } else {
+                        this.selectedDataset = null;
+                        this.notifySelection(null);
+                    }
+                });
+            }, 150);
+        };
+        
+        dropdown.addEventListener('change', this._changeHandler);
     }
     
     refresh() {
         const dropdown = this.container.querySelector('#dataset-dropdown');
-        const datasets = datasetStore.getAll();
+        if (!dropdown) return;
         
-        // Clear existing options except the placeholder
-        dropdown.innerHTML = '<option value="">-- Select a dataset --</option>';
+        const datasets = datasetStore.getAll();
+        const currentValue = dropdown.value;
+        
+        // Use document fragment for better performance
+        const fragment = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- Select a dataset --';
+        fragment.appendChild(placeholder);
         
         // Add dataset options
         datasets.forEach(dataset => {
             const option = document.createElement('option');
             option.value = dataset.id;
             option.textContent = dataset.name;
-            dropdown.appendChild(option);
+            fragment.appendChild(option);
         });
         
-        // If there's a selected dataset, maintain the selection
-        if (this.selectedDataset) {
-            dropdown.value = this.selectedDataset.id;
-        }
+        // Batch DOM update
+        requestAnimationFrame(() => {
+            dropdown.innerHTML = '';
+            dropdown.appendChild(fragment);
+            
+            // If there's a selected dataset, maintain the selection
+            if (this.selectedDataset && datasets.find(d => d.id === this.selectedDataset.id)) {
+                dropdown.value = this.selectedDataset.id;
+            } else if (currentValue && datasets.find(d => d.id === currentValue)) {
+                dropdown.value = currentValue;
+            }
+        });
     }
     
     setSelectedDataset(dataset) {

@@ -229,20 +229,30 @@ export class DatasetBrowser {
         
         // Use event delegation - no need to remove/re-add listeners
         // Dataset dropdown selection - use class selector to handle dynamic IDs
+        // Debounce to prevent jitter from rapid changes
+        let changeTimeout;
         this.container.addEventListener('change', (e) => {
             if (e.target.classList.contains('dataset-browser-select')) {
-                const datasetId = e.target.value;
-                if (datasetId) {
-                    const dataset = datasetStore.get(datasetId);
-                    if (dataset) {
-                        this.selectedDataset = dataset;
-                        this.render();
-                        this.notifyDatasetSelected(dataset);
+                clearTimeout(changeTimeout);
+                changeTimeout = setTimeout(() => {
+                    const datasetId = e.target.value;
+                    if (datasetId) {
+                        const dataset = datasetStore.get(datasetId);
+                        if (dataset) {
+                            this.selectedDataset = dataset;
+                            // Use requestAnimationFrame for smooth updates
+                            requestAnimationFrame(() => {
+                                this.render();
+                                this.notifyDatasetSelected(dataset);
+                            });
+                        }
+                    } else {
+                        this.selectedDataset = null;
+                        requestAnimationFrame(() => {
+                            this.render();
+                        });
                     }
-                } else {
-                    this.selectedDataset = null;
-                    this.render();
-                }
+                }, 150); // Small delay to debounce rapid changes
             }
         });
         

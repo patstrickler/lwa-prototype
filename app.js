@@ -79,14 +79,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Dataset Browser (Analysis) → Edit Metric/Script
     datasetBrowserAnalysis.onEditMetric((metricId) => {
-        if (analysisPanel.metricDialog) {
-            analysisPanel.metricDialog.show(metricId);
+        if (analysisPanel.unifiedBuilder) {
+            analysisPanel.unifiedBuilder.editMetric(metricId);
         }
     });
     
     datasetBrowserAnalysis.onEditScript((scriptId) => {
-        if (analysisPanel.scriptPanel) {
-            analysisPanel.scriptPanel.loadScriptForEditing(scriptId);
+        if (analysisPanel.unifiedBuilder) {
+            analysisPanel.unifiedBuilder.editScript(scriptId);
         }
     });
     

@@ -101,18 +101,24 @@ export class MetricDefinitionDialog {
             }
         });
         
-        // Dataset selection
+        // Dataset selection (debounced to prevent jitter)
+        let datasetChangeTimeout;
         datasetSelect.addEventListener('change', (e) => {
-            const datasetId = e.target.value;
-            if (datasetId) {
-                this.selectedDataset = datasetStore.get(datasetId);
-                this.populateColumns(this.selectedDataset);
-            } else {
-                this.selectedDataset = null;
-                columnSelect.innerHTML = '<option value="">-- Select a column --</option>';
-                columnSelect.disabled = true;
-            }
-            this.updateCreateButtonState();
+            clearTimeout(datasetChangeTimeout);
+            datasetChangeTimeout = setTimeout(() => {
+                requestAnimationFrame(() => {
+                    const datasetId = e.target.value;
+                    if (datasetId) {
+                        this.selectedDataset = datasetStore.get(datasetId);
+                        this.populateColumns(this.selectedDataset);
+                    } else {
+                        this.selectedDataset = null;
+                        columnSelect.innerHTML = '<option value="">-- Select a column --</option>';
+                        columnSelect.disabled = true;
+                    }
+                    this.updateCreateButtonState();
+                });
+            }, 100);
         });
         
         // Column and operation selection

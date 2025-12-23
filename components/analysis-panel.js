@@ -1,9 +1,7 @@
 // Analysis Panel Component
 // Metrics & scripts on datasets
 
-import { DatasetSelector } from './dataset-selector.js';
-import { MetricDefinitionDialog } from './metric-definition-dialog.js';
-import { ScriptExecutionPanel } from './script-execution-panel.js';
+import { UnifiedAnalysisBuilder } from './unified-analysis-builder.js';
 import { metricsStore } from '../data/metrics.js';
 import { datasetStore } from '../data/datasets.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
@@ -15,9 +13,7 @@ export class AnalysisPanel {
         this.currentDataset = null;
         this.metricsCallbacks = [];
         this.datasetCallbacks = [];
-        this.datasetSelector = null;
-        this.metricDialog = null;
-        this.scriptPanel = null;
+        this.unifiedBuilder = null;
         this.init();
     }
     
@@ -25,25 +21,25 @@ export class AnalysisPanel {
         this.render();
         this.attachEventListeners();
         this.initDatasetSelector();
-        this.initMetricDialog();
-        this.initScriptPanel();
+        this.initUnifiedBuilder();
+        this.updateScriptsList();
     }
     
     render() {
         this.container.innerHTML = `
             <div class="analysis-panel">
-                <div class="metrics-section">
-                    <div class="metrics-header">
-                        <h3>Metrics</h3>
+                <div id="unified-analysis-builder-container"></div>
+                
+                <div class="results-section">
+                    <div class="results-header">
+                        <h3>Defined Metrics</h3>
                         <button id="refresh-metrics" class="btn btn-secondary" title="Re-execute all metrics">Refresh</button>
                     </div>
                     <div id="metrics-list"></div>
-                    <button id="add-metric" class="btn btn-primary">Add Metric</button>
                 </div>
                 
                 <div class="scripts-section">
-                    <h3>Analysis Scripts</h3>
-                    <div id="script-execution-container"></div>
+                    <h3>Saved Scripts</h3>
                     <div id="scripts-list"></div>
                 </div>
             </div>
@@ -56,27 +52,29 @@ export class AnalysisPanel {
     }
     
     initMetricDialog() {
-        this.metricDialog = new MetricDefinitionDialog();
-        this.metricDialog.onCreated((metric) => {
-            this.updateMetricsList();
-            this.notifyMetricsUpdated([metric]);
-        });
+        // Replaced by unified builder
     }
     
     initScriptPanel() {
-        this.scriptPanel = new ScriptExecutionPanel('#script-execution-container');
-        this.scriptPanel.onSaved(() => {
+        // Replaced by unified builder
+    }
+    
+    initUnifiedBuilder() {
+        this.unifiedBuilder = new UnifiedAnalysisBuilder('#unified-analysis-builder-container');
+        this.unifiedBuilder.onMetricCreated((metric) => {
+            this.updateMetricsList();
+            this.notifyMetricsUpdated([metric]);
+        });
+        this.unifiedBuilder.onScriptSaved(() => {
             this.updateScriptsList();
         });
-        this.updateScriptsList();
     }
     
     attachEventListeners() {
-        const addMetricBtn = this.container.querySelector('#add-metric');
         const refreshMetricsBtn = this.container.querySelector('#refresh-metrics');
-        
-        addMetricBtn.addEventListener('click', () => this.showAddMetricDialog());
-        refreshMetricsBtn.addEventListener('click', () => this.reExecuteMetrics());
+        if (refreshMetricsBtn) {
+            refreshMetricsBtn.addEventListener('click', () => this.reExecuteMetrics());
+        }
     }
     
     setDataset(dataset) {
@@ -104,10 +102,22 @@ export class AnalysisPanel {
             this.scriptPanel.setDataset(dataset);
         }
         // Re-execute metrics when dataset changes to ensure values are up-to-date
+        // Debounce to prevent jitter from rapid dataset changes
+        if (this._reExecuteTimeout) {
+            clearTimeout(this._reExecuteTimeout);
+        }
+        
         if (dataset) {
-            this.reExecuteMetrics();
+            // Small delay to batch updates
+            this._reExecuteTimeout = setTimeout(() => {
+                requestAnimationFrame(() => {
+                    this.reExecuteMetrics();
+                });
+            }, 100);
         } else {
-            this.updateMetricsList();
+            requestAnimationFrame(() => {
+                this.updateMetricsList();
+            });
         }
         this.notifyDatasetUpdated(dataset);
     }
@@ -294,9 +304,7 @@ export class AnalysisPanel {
     }
     
     showAddMetricDialog() {
-        if (this.metricDialog) {
-            this.metricDialog.show();
-        }
+        // Handled by unified builder now
     }
     
     updateScriptsList() {

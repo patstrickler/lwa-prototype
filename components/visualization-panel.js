@@ -3,6 +3,7 @@
 
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
+import { debounceRAF } from '../utils/debounce.js';
 import { Modal } from '../utils/modal.js';
 
 export class VisualizationPanel {
@@ -116,8 +117,11 @@ export class VisualizationPanel {
         const xLabelInput = this.container.querySelector('#x-axis-label-input');
         const yLabelInput = this.container.querySelector('#y-axis-label-input');
         
-        // Auto-render on selection changes
-        chartTypeSelect.addEventListener('change', () => this.autoRender());
+        // Auto-render on selection changes (debounced)
+        chartTypeSelect.addEventListener('change', () => {
+            // Small delay to debounce rapid changes
+            this.autoRender();
+        });
         
         if (clearBtn) {
             clearBtn.addEventListener('click', () => this.clearSelections());
@@ -196,51 +200,71 @@ export class VisualizationPanel {
         // Filter out deleted datasets
         const validDatasets = datasets.filter(ds => datasetStore.exists(ds.id));
         
-        // Clear and rebuild options
-        datasetSelect.innerHTML = '<option value="">-- Select Dataset --</option>';
+        // Use document fragment for better performance
+        const fragment = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- Select Dataset --';
+        fragment.appendChild(placeholder);
         
         validDatasets.forEach(dataset => {
             const option = document.createElement('option');
             option.value = dataset.id;
             option.textContent = dataset.name;
-            datasetSelect.appendChild(option);
+            fragment.appendChild(option);
         });
         
-        // Restore selection if it still exists
-        if (currentValue && datasets.find(d => d.id === currentValue)) {
-            datasetSelect.value = currentValue;
-            this.onDatasetSelected();
-        }
+        // Batch DOM update with requestAnimationFrame
+        requestAnimationFrame(() => {
+            datasetSelect.innerHTML = '';
+            datasetSelect.appendChild(fragment);
+            
+            // Restore selection if it still exists
+            if (currentValue && validDatasets.find(d => d.id === currentValue)) {
+                datasetSelect.value = currentValue;
+                // Debounce the selection handler
+                if (this._selectionTimeout) {
+                    clearTimeout(this._selectionTimeout);
+                }
+                this._selectionTimeout = setTimeout(() => {
+                    this.onDatasetSelected();
+                }, 50);
+            }
+        });
     }
     
     onDatasetSelected() {
-        const datasetSelect = this.container.querySelector('#dataset-select');
-        const datasetId = datasetSelect.value;
-        const xAxisSelect = this.container.querySelector('#x-axis-select');
-        const yAxisSelect = this.container.querySelector('#y-axis-select');
-        
-        if (!datasetId) {
-            xAxisSelect.disabled = true;
-            yAxisSelect.disabled = true;
-            xAxisSelect.innerHTML = '<option value="">-- Select X Axis --</option>';
-            yAxisSelect.innerHTML = '<option value="">-- Select Y Axis --</option>';
-            this.currentDataset = null;
-            return;
-        }
-        
-        const dataset = datasetStore.get(datasetId);
-        if (!dataset) {
-            return;
-        }
-        
-        this.currentDataset = dataset;
-        
-        // Populate both X and Y axis selectors with columns and metrics
-        this.populateAxisSelector(xAxisSelect, dataset);
-        this.populateAxisSelector(yAxisSelect, dataset);
-        
-        xAxisSelect.disabled = false;
-        yAxisSelect.disabled = false;
+        // Use requestAnimationFrame to batch DOM updates
+        requestAnimationFrame(() => {
+            const datasetSelect = this.container.querySelector('#dataset-select');
+            const datasetId = datasetSelect.value;
+            const xAxisSelect = this.container.querySelector('#x-axis-select');
+            const yAxisSelect = this.container.querySelector('#y-axis-select');
+            
+            if (!datasetId) {
+                xAxisSelect.disabled = true;
+                yAxisSelect.disabled = true;
+                xAxisSelect.innerHTML = '<option value="">-- Select X Axis --</option>';
+                yAxisSelect.innerHTML = '<option value="">-- Select Y Axis --</option>';
+                this.currentDataset = null;
+                return;
+            }
+            
+            const dataset = datasetStore.get(datasetId);
+            if (!dataset) {
+                return;
+            }
+            
+            this.currentDataset = dataset;
+            
+            // Populate both X and Y axis selectors with columns and metrics
+            // Use document fragment for better performance
+            this.populateAxisSelector(xAxisSelect, dataset);
+            this.populateAxisSelector(yAxisSelect, dataset);
+            
+            xAxisSelect.disabled = false;
+            yAxisSelect.disabled = false;
+        });
     }
     
     /**
@@ -296,8 +320,23 @@ export class VisualizationPanel {
     
     /**
      * Auto-renders the chart when selections change
+     * Debounced to prevent jitter from rapid changes
      */
     autoRender() {
+        // Clear any pending render
+        if (this._autoRenderTimeout) {
+            clearTimeout(this._autoRenderTimeout);
+        }
+        
+        // Debounce the render
+        this._autoRenderTimeout = setTimeout(() => {
+            requestAnimationFrame(() => {
+                this._performAutoRender();
+            });
+        }, 200);
+    }
+    
+    _performAutoRender() {
         if (!this.xAxisSelection || !this.yAxisSelection) {
             // Clear chart if not all required fields are selected
             this.clearChart();
