@@ -2327,9 +2327,20 @@ export class VisualizationPanel {
             
             // Check if this is Y axis (metric slot) and needs aggregation
             const isYAxis = displayId === 'y-axis-display';
+            const isXAxis = displayId === 'x-axis-display';
             const columnType = this.inferColumnType(dataset, selection.value);
             const availableAggregations = isYAxis ? this.getAvailableAggregations(columnType) : [];
             const hasAggregation = selection.aggregation && availableAggregations.length > 0;
+            
+            // Check if this is X axis with date column - show date grouping selector
+            const isDateColumn = columnType === 'date';
+            const dateGroupingOptions = [
+                { value: 'day', label: 'Day' },
+                { value: 'week', label: 'Week' },
+                { value: 'month', label: 'Month' },
+                { value: 'quarter', label: 'Quarter' },
+                { value: 'year', label: 'Year' }
+            ];
             
             let aggregationSelector = '';
             if (isYAxis && availableAggregations.length > 0) {
@@ -2344,12 +2355,28 @@ export class VisualizationPanel {
                 `;
             }
             
+            let dateGroupingSelector = '';
+            if (isXAxis && isDateColumn) {
+                const currentGrouping = selection.dateGrouping || 'day';
+                dateGroupingSelector = `
+                    <select class="date-grouping-select" data-axis="${displayId}">
+                        ${dateGroupingOptions.map(opt => `
+                            <option value="${opt.value}" ${currentGrouping === opt.value ? 'selected' : ''}>
+                                ${opt.label}
+                            </option>
+                        `).join('')}
+                    </select>
+                `;
+            }
+            
             selectedItem.innerHTML = `
                 <span class="item-icon">📊</span>
                 <span class="item-name">${this.escapeHtml(this.formatColumnName(selection.value))}</span>
                 ${hasAggregation ? `<span class="item-aggregation">${this.escapeHtml(selection.aggregation)}</span>` : ''}
+                ${isDateColumn && isXAxis && selection.dateGrouping ? `<span class="item-date-grouping">${this.escapeHtml(selection.dateGrouping)}</span>` : ''}
                 <span class="item-type">Column</span>
                 ${aggregationSelector}
+                ${dateGroupingSelector}
                 <button class="remove-selection" title="Remove selection">×</button>
             `;
             
@@ -2362,6 +2389,26 @@ export class VisualizationPanel {
                         if (displayId === 'y-axis-display' && this.yAxisSelection) {
                             this.yAxisSelection.aggregation = newAggregation;
                             this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+                            this.autoRender();
+                        }
+                    });
+                }
+            }
+            
+            // Add date grouping change handler
+            if (isXAxis && isDateColumn) {
+                const dateGroupingSelect = selectedItem.querySelector('.date-grouping-select');
+                if (dateGroupingSelect) {
+                    // Set default if not set
+                    if (!selection.dateGrouping) {
+                        selection.dateGrouping = 'day';
+                    }
+                    
+                    dateGroupingSelect.addEventListener('change', (e) => {
+                        const newDateGrouping = e.target.value;
+                        if (displayId === 'x-axis-display' && this.xAxisSelection) {
+                            this.xAxisSelection.dateGrouping = newDateGrouping;
+                            this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
                             this.autoRender();
                         }
                     });

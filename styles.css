@@ -2906,13 +2906,13 @@ main {
 .builder-form {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--spacing-xl);
 }
 
 .builder-form > .form-group:first-child {
-    margin-bottom: 10px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #dee2e6;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 2px solid var(--color-border-light);
 }
 
 #field-selection-container {
@@ -2978,7 +2978,8 @@ main {
 .charts-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 20px;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-xl);
 }
 
 .chart-wrapper {
