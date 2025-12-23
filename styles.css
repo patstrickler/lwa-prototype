@@ -1093,12 +1093,12 @@ main {
     transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.saved-query-item:hover {
+.saved-dataset-item:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border-color: #007bff;
 }
 
-.saved-query-item:last-child {
+.saved-dataset-item:last-child {
     margin-bottom: 0;
 }
 
@@ -1140,7 +1140,7 @@ main {
     color: #6c757d;
 }
 
-.saved-query-meta span:not(:last-child) {
+.saved-dataset-meta span:not(:last-child) {
     color: #adb5bd;
 }
 
