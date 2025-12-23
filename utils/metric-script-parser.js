@@ -6,9 +6,10 @@ import { calculateMean, calculateSum, calculateMin, calculateMax, calculateStdev
 
 /**
  * Parses and evaluates a metric script expression
- * Supports functions: SUM, MEAN, MIN, MAX, STDDEV, COUNT, COUNT_DISTINCT
+ * Supports functions: SUM, MEAN, MIN, MAX, STDDEV, COUNT, COUNT_DISTINCT, IF
  * Supports operators: +, -, *, /
- * @param {string} expression - Metric expression (e.g., "MEAN(sales) + SUM(revenue)")
+ * Supports comparisons: >, <, >=, <=, ==, !=
+ * @param {string} expression - Metric expression (e.g., "MEAN(sales) + SUM(revenue)" or "IF(MEAN(sales) > 100, SUM(revenue), 0)")
  * @param {Object} dataset - Dataset object with rows and columns
  * @returns {number} Calculated result
  */
@@ -70,6 +71,23 @@ function tokenize(expression) {
             continue;
         }
         
+        // Match comparison operators (>=, <=, ==, !=)
+        if (i + 1 < expression.length) {
+            const twoChar = expression.substring(i, i + 2);
+            if (['>=', '<=', '==', '!='].includes(twoChar)) {
+                tokens.push({ type: 'COMPARISON', value: twoChar });
+                i += 2;
+                continue;
+            }
+        }
+        
+        // Match single character comparison operators (>, <)
+        if (['>', '<'].includes(expression[i])) {
+            tokens.push({ type: 'COMPARISON', value: expression[i] });
+            i++;
+            continue;
+        }
+        
         // Match operators
         if (['+', '-', '*', '/', '(', ')', ','].includes(expression[i])) {
             tokens.push({ type: expression[i], value: expression[i] });
@@ -97,6 +115,7 @@ function tokenize(expression) {
 /**
  * Parses tokens into an AST using recursive descent
  * Supports: +, -, *, / with proper precedence
+ * Supports: >, <, >=, <=, ==, != for comparisons
  * @param {Array} tokens - Array of tokens
  * @returns {Object} AST node
  */
@@ -104,7 +123,25 @@ function parse(tokens) {
     let index = 0;
     
     function parseExpression() {
-        return parseAddition();
+        return parseConditional();
+    }
+    
+    function parseConditional() {
+        return parseComparison();
+    }
+    
+    function parseComparison() {
+        let left = parseAddition();
+        
+        // Check for comparison operators
+        if (index < tokens.length && tokens[index].type === 'COMPARISON') {
+            const op = tokens[index].value;
+            index++;
+            const right = parseAddition();
+            return { type: 'COMPARISON', operator: op, left, right };
+        }
+        
+        return left;
     }
     
     function parseAddition() {

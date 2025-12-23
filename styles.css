@@ -2560,6 +2560,142 @@ main {
     background-color: #fff;
     border-radius: 4px;
     border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Table Visualization */
+.table-wrapper {
+    min-height: auto;
+    padding: 0;
+    overflow: hidden;
+}
+
+.table-chart-header {
+    padding: 15px 20px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table-chart-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table-chart-container {
+    max-height: 600px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.data-table thead {
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table th {
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #333;
+}
+
+.data-table td.numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Scorecard Visualization */
+.scorecard-wrapper {
+    min-height: auto;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scorecard {
+    width: 100%;
+    padding: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    color: #fff;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.scorecard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.scorecard-header h4 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    flex: 1;
+    text-align: left;
+}
+
+.scorecard-operation {
+    font-size: 12px;
+    padding: 4px 12px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.scorecard-value {
+    font-size: 64px;
+    font-weight: 700;
+    line-height: 1;
+    margin: 30px 0;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    font-variant-numeric: tabular-nums;
+}
+
+.scorecard-meta {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 15px;
+    opacity: 0.9;
+}
+
+/* Pie/Donut Chart Styling */
+.chart-wrapper .highcharts-container {
+    border-radius: 4px;
+}
 }
 
 .chart-placeholder {

@@ -62,6 +62,10 @@ export class VisualizationPanel {
                                 <option value="line">Line Chart</option>
                                 <option value="bar">Bar Chart</option>
                                 <option value="scatter">Scatter Plot</option>
+                                <option value="pie">Pie Chart</option>
+                                <option value="donut">Donut Chart</option>
+                                <option value="table">Table</option>
+                                <option value="scorecard">Scorecard</option>
                             </select>
                         </div>
                         
@@ -675,6 +679,36 @@ export class VisualizationPanel {
                 showTrendline: stylingOptions.showTrendline
             });
             return;
+        }
+        
+        // Handle special chart types
+        if (chartType === 'table') {
+            this.renderTable(dataset, xColumn, yColumn);
+            return;
+        }
+        
+        if (chartType === 'scorecard') {
+            // Scorecard works best with just Y axis (metric or column)
+            if (yAxis.type === 'metric') {
+                const metric = metricsStore.get(yAxis.value);
+                if (metric) {
+                    this.renderScorecardFromMetric(metric);
+                    return;
+                }
+            }
+            this.renderScorecard(dataset, xColumn, yColumn);
+            return;
+        }
+        
+        if (chartType === 'pie' || chartType === 'donut') {
+            // Pie/donut requires both X (categories) and Y (values)
+            if (xAxis.type === 'column' && yAxis.type === 'column') {
+                this.renderPieChart(dataset, xColumn, yColumn, chartType);
+                return;
+            } else {
+                this.showError('Pie/Donut charts require both X and Y axes to be columns.');
+                return;
+            }
         }
         
         // Both are columns - standard chart
@@ -1702,6 +1736,253 @@ export class VisualizationPanel {
         this.updateAxisDisplay('x-axis-display', null);
         this.updateAxisDisplay('y-axis-display', null);
         this.clearChart();
+    }
+    
+    /**
+     * Renders a data table visualization
+     * @param {Object} dataset - Dataset object
+     * @param {string} xColumn - X column name
+     * @param {string} yColumn - Y column name
+     */
+    renderTable(dataset, xColumn, yColumn) {
+        const data = this.getDatasetData(dataset);
+        if (!data || data.length === 0) return;
+        
+        const chartId = `chart_${Date.now()}`;
+        const chartContainer = document.createElement('div');
+        chartContainer.id = chartId;
+        chartContainer.className = 'chart-wrapper table-wrapper';
+        
+        const chartsContainer = this.container.querySelector('#charts-container');
+        chartsContainer.appendChild(chartContainer);
+        
+        const stylingOptions = this.getStylingOptions();
+        const title = stylingOptions.title || `${this.formatColumnName(yColumn)} by ${this.formatColumnName(xColumn)}`;
+        
+        // Build table HTML
+        const tableHTML = `
+            <div class="table-chart-header">
+                <h4>${this.escapeHtml(title)}</h4>
+            </div>
+            <div class="table-chart-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>${this.escapeHtml(this.formatColumnName(xColumn))}</th>
+                            <th>${this.escapeHtml(this.formatColumnName(yColumn))}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(row => `
+                            <tr>
+                                <td>${this.escapeHtml(String(row[xColumn] || ''))}</td>
+                                <td class="numeric">${this.formatNumericValue(row[yColumn])}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        chartContainer.innerHTML = tableHTML;
+    }
+    
+    /**
+     * Renders a scorecard from a metric
+     * @param {Object} metric - Metric object
+     */
+    renderScorecardFromMetric(metric) {
+        const chartId = `chart_${Date.now()}`;
+        const chartContainer = document.createElement('div');
+        chartContainer.id = chartId;
+        chartContainer.className = 'chart-wrapper scorecard-wrapper';
+        
+        const chartsContainer = this.container.querySelector('#charts-container');
+        chartsContainer.appendChild(chartContainer);
+        
+        const stylingOptions = this.getStylingOptions();
+        const title = stylingOptions.title || metric.name;
+        
+        const scorecardHTML = `
+            <div class="scorecard">
+                <div class="scorecard-header">
+                    <h4>${this.escapeHtml(title)}</h4>
+                    <span class="scorecard-operation">${this.escapeHtml(metric.operation || 'Metric')}</span>
+                </div>
+                <div class="scorecard-value">${this.formatNumericValue(metric.value)}</div>
+            </div>
+        `;
+        
+        chartContainer.innerHTML = scorecardHTML;
+    }
+    
+    /**
+     * Renders a scorecard/KPI visualization
+     * @param {Object} dataset - Dataset object
+     * @param {string} xColumn - X column name (optional for scorecard)
+     * @param {string} yColumn - Y column name (the value to display)
+     */
+    renderScorecard(dataset, xColumn, yColumn) {
+        const data = this.getDatasetData(dataset);
+        if (!data || data.length === 0) return;
+        
+        // Calculate aggregate value (sum, average, or single value)
+        const values = data.map(row => parseFloat(row[yColumn])).filter(v => !isNaN(v));
+        let displayValue;
+        let operation = 'Total';
+        
+        if (values.length === 0) {
+            displayValue = 'N/A';
+        } else if (values.length === 1) {
+            displayValue = values[0];
+            operation = 'Value';
+        } else {
+            // Use average for multiple values
+            const sum = values.reduce((a, b) => a + b, 0);
+            displayValue = sum / values.length;
+            operation = 'Average';
+        }
+        
+        const chartId = `chart_${Date.now()}`;
+        const chartContainer = document.createElement('div');
+        chartContainer.id = chartId;
+        chartContainer.className = 'chart-wrapper scorecard-wrapper';
+        
+        const chartsContainer = this.container.querySelector('#charts-container');
+        chartsContainer.appendChild(chartContainer);
+        
+        const stylingOptions = this.getStylingOptions();
+        const title = stylingOptions.title || this.formatColumnName(yColumn);
+        
+        const scorecardHTML = `
+            <div class="scorecard">
+                <div class="scorecard-header">
+                    <h4>${this.escapeHtml(title)}</h4>
+                    <span class="scorecard-operation">${operation}</span>
+                </div>
+                <div class="scorecard-value">${this.formatNumericValue(displayValue)}</div>
+                ${xColumn ? `<div class="scorecard-meta">Grouped by: ${this.escapeHtml(this.formatColumnName(xColumn))}</div>` : ''}
+            </div>
+        `;
+        
+        chartContainer.innerHTML = scorecardHTML;
+    }
+    
+    /**
+     * Renders a pie or donut chart
+     * @param {Object} dataset - Dataset object
+     * @param {string} xColumn - X column name (categories)
+     * @param {string} yColumn - Y column name (values)
+     * @param {string} chartType - 'pie' or 'donut'
+     */
+    renderPieChart(dataset, xColumn, yColumn, chartType) {
+        const data = this.getDatasetData(dataset);
+        if (!data || data.length === 0) return;
+        
+        // Aggregate data by xColumn (sum yColumn values for each xColumn value)
+        const aggregated = {};
+        data.forEach(row => {
+            const category = String(row[xColumn] || 'Unknown');
+            const value = parseFloat(row[yColumn]) || 0;
+            if (!aggregated[category]) {
+                aggregated[category] = 0;
+            }
+            aggregated[category] += value;
+        });
+        
+        // Convert to array format for Highcharts
+        const pieData = Object.entries(aggregated).map(([name, value]) => ({
+            name: name,
+            y: value
+        }));
+        
+        if (pieData.length === 0) return;
+        
+        const chartId = `chart_${Date.now()}`;
+        const chartContainer = document.createElement('div');
+        chartContainer.id = chartId;
+        chartContainer.className = 'chart-wrapper';
+        
+        const chartsContainer = this.container.querySelector('#charts-container');
+        chartsContainer.appendChild(chartContainer);
+        
+        const stylingOptions = this.getStylingOptions();
+        const title = stylingOptions.title || `${this.formatColumnName(yColumn)} by ${this.formatColumnName(xColumn)}`;
+        
+        const isDonut = chartType === 'donut';
+        
+        const chartConfig = {
+            chart: {
+                type: 'pie',
+                renderTo: chartId,
+                height: 400
+            },
+            title: {
+                text: title
+            },
+            tooltip: {
+                pointFormat: '<b>{point.percentage:.1f}%</b><br/>Value: {point.y}'
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f} %'
+                    },
+                    innerSize: isDonut ? '50%' : '0%',
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: this.formatColumnName(yColumn),
+                colorByPoint: true,
+                data: pieData
+            }]
+        };
+        
+        // Apply custom color if specified
+        if (stylingOptions.color && !isDonut) {
+            chartConfig.series[0].colors = [stylingOptions.color];
+        }
+        
+        try {
+            Highcharts.chart(chartConfig);
+        } catch (error) {
+            console.error('Error rendering pie chart:', error);
+            chartContainer.innerHTML = `
+                <div class="chart-placeholder">
+                    <p class="error">Error rendering ${chartType} chart: ${error.message}</p>
+                </div>
+            `;
+        }
+    }
+    
+    /**
+     * Formats a numeric value for display
+     * @param {*} value - Value to format
+     * @returns {string} Formatted value
+     */
+    formatNumericValue(value) {
+        if (value === null || value === undefined || value === 'N/A') {
+            return 'N/A';
+        }
+        
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+            return String(value);
+        }
+        
+        if (num >= 1000000) {
+            return (num / 1000000).toFixed(2) + 'M';
+        } else if (num >= 1000) {
+            return (num / 1000).toFixed(2) + 'K';
+        } else if (num % 1 === 0) {
+            return num.toLocaleString();
+        } else {
+            return num.toFixed(2);
+        }
     }
 }
 
