@@ -94,12 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Dataset Browser item selection → Visualization Panel
-    datasetBrowser.onItemSelect((type, value, datasetId) => {
-        if (visualizationPanel.handleBrowserItemSelection) {
-            visualizationPanel.handleBrowserItemSelection(type, value, datasetId);
-        }
-    });
     
     // Handle dataset deletion - refresh all components
     tableBrowser.onDatasetDeleted((datasetId, dataset) => {

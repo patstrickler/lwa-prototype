@@ -25,8 +25,8 @@ export class DatasetBrowser {
         
         // Filter out any datasets that don't exist (safety check)
         const validDatasets = datasets.filter(ds => {
-            const exists = datasetStore.get(ds.id);
-            return exists !== undefined;
+            const dataset = datasetStore.get(ds.id);
+            return dataset !== undefined;
         });
         
         const selectedId = this.selectedDataset ? this.selectedDataset.id : '';
