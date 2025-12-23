@@ -1038,40 +1038,76 @@ export class VisualizationPanel {
                 });
                 
                 // Recalculate metric for each group
+                // Create a proper grouped dataframe: extract metric column values per group
                 const aggregated = [];
                 Object.entries(groups).forEach(([xKey, groupRows]) => {
-                    // Convert group rows to dataset format for metric calculation
-                    const groupRowsArray = groupRows.map(row => {
-                        return dataset.columns.map(col => row[col]);
-                    });
+                    if (groupRows.length === 0) return;
                     
-                    try {
-                        // Calculate metric for this group
-                        const metricValue = calculateMetric(
-                            groupRowsArray,
-                            dataset.columns,
-                            metric.column,
-                            metric.operation
-                        );
-                        
-                        console.log(`Group ${xKey}: ${groupRows.length} rows, COUNT_DISTINCT(${metric.column}) = ${metricValue}`);
-                        
-                        aggregated.push({
-                            x: groupRows[0][xAxis.value],
-                            y: metricValue !== null && metricValue !== undefined ? metricValue : 0
-                        });
-                    } catch (error) {
-                        console.error('Error calculating metric for group:', error, {
-                            xKey,
-                            groupSize: groupRows.length,
-                            operation: metric.operation,
-                            column: metric.column
-                        });
-                        aggregated.push({
-                            x: groupRows[0][xAxis.value],
-                            y: 0
-                        });
+                    // Extract the metric column values from this group
+                    const metricColumnValues = groupRows
+                        .map(row => row[metric.column])
+                        .filter(val => val !== null && val !== undefined);
+                    
+                    let metricValue = 0;
+                    
+                    // Apply the metric operation directly to the grouped values
+                    const operationLower = metric.operation.toLowerCase();
+                    switch (operationLower) {
+                        case 'count':
+                            metricValue = metricColumnValues.length;
+                            break;
+                        case 'count_distinct':
+                        case 'countdistinct':
+                            // Use Set to get distinct values, converting to string for comparison
+                            metricValue = new Set(metricColumnValues.map(v => String(v))).size;
+                            break;
+                        case 'sum':
+                            metricValue = metricColumnValues.reduce((sum, v) => {
+                                const num = parseFloat(v);
+                                return sum + (isNaN(num) ? 0 : num);
+                            }, 0);
+                            break;
+                        case 'mean':
+                        case 'avg':
+                            const sum = metricColumnValues.reduce((s, v) => {
+                                const num = parseFloat(v);
+                                return s + (isNaN(num) ? 0 : num);
+                            }, 0);
+                            metricValue = metricColumnValues.length > 0 ? sum / metricColumnValues.length : 0;
+                            break;
+                        case 'min':
+                            const nums = metricColumnValues.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                            metricValue = nums.length > 0 ? Math.min(...nums) : 0;
+                            break;
+                        case 'max':
+                            const nums2 = metricColumnValues.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                            metricValue = nums2.length > 0 ? Math.max(...nums2) : 0;
+                            break;
+                        default:
+                            // Fallback to using calculateMetric for complex operations
+                            try {
+                                const groupRowsArray = groupRows.map(row => {
+                                    return dataset.columns.map(col => {
+                                        const value = row[col];
+                                        return value !== undefined ? value : null;
+                                    });
+                                });
+                                metricValue = calculateMetric(
+                                    groupRowsArray,
+                                    dataset.columns,
+                                    metric.column,
+                                    metric.operation
+                                ) || 0;
+                            } catch (error) {
+                                console.error('Error calculating metric for group:', error);
+                                metricValue = 0;
+                            }
                     }
+                    
+                    aggregated.push({
+                        x: groupRows[0][xAxis.value],
+                        y: metricValue
+                    });
                 });
                 
                 // Sort by X value
