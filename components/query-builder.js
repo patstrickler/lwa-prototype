@@ -303,29 +303,22 @@ export class QueryBuilder {
             
             this.fullQuery = fullQuery;
             
-            // First, execute the full query to get total count (but don't load all data)
-            let totalCount = 0;
-            try {
-                // Execute full query with a high limit to get count
-                const countQuery = fullQuery + (fullQuery.trim().endsWith(';') ? '' : ' ') + 'LIMIT 10000';
-                const countResult = await executeSQL(countQuery, 300);
-                totalCount = countResult.rows ? countResult.rows.length : 0;
-                // If we got 10000 rows, the actual count might be higher
-                if (totalCount === 10000) {
-                    totalCount = '10000+';
-                }
-            } catch (countError) {
-                console.warn('Could not get total count:', countError);
-                totalCount = null;
-            }
+            // Check if query has LIMIT or TOP clause
+            const hasLimit = /\blimit\s+(\d+)\b/i.test(query);
+            const hasTop = /select\s+top\s+(\d+)\s+/i.test(query);
             
-            this.totalRecordCount = totalCount;
-            this.updateTotalRecordsIndicator();
+            // Extract the limit value if present
+            let queryLimit = null;
+            if (hasLimit) {
+                const limitMatch = query.match(/\blimit\s+(\d+)\b/i);
+                queryLimit = limitMatch ? parseInt(limitMatch[1], 10) : null;
+            } else if (hasTop) {
+                const topMatch = query.match(/select\s+top\s+(\d+)\s+/i);
+                queryLimit = topMatch ? parseInt(topMatch[1], 10) : null;
+            }
             
             // Now execute the limited query for preview
             let queryToExecute = query;
-            const hasLimit = /\blimit\s+\d+\b/i.test(query);
-            const hasTop = /select\s+top\s+\d+\s+/i.test(query);
             
             // Only add LIMIT if query doesn't already have LIMIT or TOP
             if (!hasLimit && !hasTop && recordLimit > 0) {
@@ -338,6 +331,32 @@ export class QueryBuilder {
             }
             
             const sqlResult = await executeSQL(queryToExecute, 500);
+            
+            // Calculate total count based on whether query has LIMIT/TOP
+            let totalCount = null;
+            if (queryLimit !== null) {
+                // If query has LIMIT/TOP, show the limited count (actual rows returned)
+                totalCount = sqlResult.rows ? sqlResult.rows.length : 0;
+            } else {
+                // If no LIMIT/TOP, get the full count
+                try {
+                    // Execute full query with a high limit to get count
+                    const countQuery = fullQuery + (fullQuery.trim().endsWith(';') ? '' : ' ') + 'LIMIT 10000';
+                    const countResult = await executeSQL(countQuery, 300);
+                    totalCount = countResult.rows ? countResult.rows.length : 0;
+                    // If we got 10000 rows, the actual count might be higher
+                    if (totalCount === 10000) {
+                        totalCount = '10000+';
+                    }
+                } catch (countError) {
+                    console.warn('Could not get total count:', countError);
+                    // Fallback to actual rows returned
+                    totalCount = sqlResult.rows ? sqlResult.rows.length : 0;
+                }
+            }
+            
+            this.totalRecordCount = totalCount;
+            this.updateTotalRecordsIndicator();
             
             // Check if result is empty
             if (!sqlResult || !sqlResult.columns || sqlResult.columns.length === 0) {
