@@ -531,7 +531,7 @@ export class VisualizationPanel {
         }
         
         if (!dataset) {
-            alert('Please select a dataset first from the left panel.');
+            await Modal.alert('Please select a dataset first from the left panel.');
             return;
         }
         
@@ -1879,7 +1879,7 @@ export class VisualizationPanel {
         }
         
         if (!dataset) {
-            alert('Please select a dataset first from the left panel.');
+            await Modal.alert('Please select a dataset first from the left panel.');
             return;
         }
         

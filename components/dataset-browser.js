@@ -4,6 +4,7 @@
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
 import { scriptsStore } from '../data/scripts.js';
+import { Modal } from '../utils/modal.js';
 
 export class DatasetBrowser {
     constructor(containerSelector) {
@@ -594,14 +595,17 @@ export class DatasetBrowser {
         }
     }
     
-    handleDeleteMetric(metricId, element) {
+    async handleDeleteMetric(metricId, element) {
         const metric = metricsStore.get(metricId);
         if (!metric) {
             return;
         }
         
         const metricName = metric.name || 'this metric';
-        if (confirm(`Are you sure you want to delete "${metricName}"? This action cannot be undone.`)) {
+        const confirmed = await Modal.confirm(
+            `Are you sure you want to delete "${metricName}"? This action cannot be undone.`
+        );
+        if (confirmed) {
             const deleted = metricsStore.delete(metricId);
             if (deleted) {
                 // Refresh the display
@@ -612,14 +616,17 @@ export class DatasetBrowser {
         }
     }
     
-    handleDeleteScript(scriptId, element) {
+    async handleDeleteScript(scriptId, element) {
         const script = scriptsStore.get(scriptId);
         if (!script) {
             return;
         }
         
         const scriptName = script.name || 'this script';
-        if (confirm(`Are you sure you want to delete "${scriptName}"? This action cannot be undone.`)) {
+        const confirmed = await Modal.confirm(
+            `Are you sure you want to delete "${scriptName}"? This action cannot be undone.`
+        );
+        if (confirmed) {
             const deleted = scriptsStore.delete(scriptId);
             if (deleted) {
                 // Refresh the display
