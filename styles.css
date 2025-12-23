@@ -501,13 +501,64 @@ main {
     font-size: 16px;
 }
 
-.columns-list,
 .items-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 400px;
+}
+
+.columns-list-scrollable {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
     overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 5px;
+}
+
+.columns-list-scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+
+.columns-list-scrollable::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.columns-list-scrollable::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.columns-list-scrollable::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.column-search-container {
+    padding: 8px 20px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.column-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 13px;
+    background-color: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.column-search-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.column-search-input::placeholder {
+    color: #6c757d;
 }
 
 .editable-items {

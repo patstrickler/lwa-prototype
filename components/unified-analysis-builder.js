@@ -26,6 +26,8 @@ export class UnifiedAnalysisBuilder {
         this.render();
         this.initComponents();
         this.attachEventListeners();
+        // Ensure metric mode is visible by default
+        this.setMode('metric');
     }
     
     render() {
@@ -90,7 +92,10 @@ export class UnifiedAnalysisBuilder {
         if (mode === 'metric') {
             metricContainer.style.display = 'block';
             scriptContainer.style.display = 'none';
-            this.renderMetricBuilder();
+            // Render metric builder if not already rendered
+            if (!metricContainer.querySelector('.metric-script-builder')) {
+                this.renderMetricBuilder();
+            }
         } else {
             metricContainer.style.display = 'none';
             scriptContainer.style.display = 'block';

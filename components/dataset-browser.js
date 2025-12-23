@@ -30,6 +30,31 @@ export class DatasetBrowser {
             return;
         }
         
+        // Check if dropdown is currently open before re-rendering
+        const existingSelect = this.container.querySelector('.dataset-browser-select');
+        const isDropdownOpen = existingSelect && document.activeElement === existingSelect;
+        const currentValue = existingSelect ? existingSelect.value : null;
+        
+        // If dropdown is open, don't re-render - defer until it closes
+        if (isDropdownOpen) {
+            if (this._pendingRender) {
+                return; // Already have a pending render
+            }
+            this._pendingRender = true;
+            const handleBlur = () => {
+                if (existingSelect) {
+                    existingSelect.removeEventListener('blur', handleBlur);
+                }
+                this._pendingRender = false;
+                // Render after a small delay to ensure dropdown is fully closed
+                setTimeout(() => this.render(), 100);
+            };
+            if (existingSelect) {
+                existingSelect.addEventListener('blur', handleBlur, { once: true });
+            }
+            return;
+        }
+        
         const datasets = datasetStore.getAll();
         
         // Filter out any datasets that don't exist (safety check)
@@ -41,7 +66,11 @@ export class DatasetBrowser {
         const selectedId = this.selectedDataset ? this.selectedDataset.id : '';
         
         // Use a unique ID for the select to avoid conflicts if multiple instances exist
-        const selectId = `dataset-browser-select-${Math.random().toString(36).substr(2, 9)}`;
+        // Store it so we can reference it later
+        if (!this._selectId) {
+            this._selectId = `dataset-browser-select-${Math.random().toString(36).substr(2, 9)}`;
+        }
+        const selectId = this._selectId;
         
         this.container.innerHTML = `
             <div class="dataset-browser">
@@ -88,22 +117,32 @@ export class DatasetBrowser {
                         <span>Columns</span>
                         <span class="toggle-icon">${this.columnsExpanded ? '▼' : '▶'}</span>
                     </div>
-                    <div class="items-list" style="display: ${this.columnsExpanded ? 'block' : 'none'};">
-                        ${dataset.columns && dataset.columns.length > 0
-                            ? dataset.columns.map(col => `
-                                <div class="selectable-item column-item draggable-item" 
-                                     data-type="column"
-                                     data-value="${this.escapeHtml(col)}"
-                                     data-dataset="${dataset.id}"
-                                     draggable="true">
-                                    <span class="item-icon">📊</span>
-                                    <span class="item-name">${this.escapeHtml(this.formatColumnName(col))}</span>
-                                    <span class="item-type">${this.inferColumnType(dataset, col)}</span>
-                                </div>
-                            `).join('')
-                            : '<div class="empty-state-small">No columns available</div>'
-                        }
-                    </div>
+                    ${this.columnsExpanded ? `
+                        <div class="column-search-container">
+                            <input type="text" 
+                                   id="column-search-input" 
+                                   class="column-search-input" 
+                                   placeholder="Search columns..."
+                                   data-dataset="${dataset.id}">
+                        </div>
+                        <div class="items-list columns-list-scrollable" style="display: block;">
+                            ${dataset.columns && dataset.columns.length > 0
+                                ? dataset.columns.map(col => `
+                                    <div class="selectable-item column-item draggable-item" 
+                                         data-type="column"
+                                         data-value="${this.escapeHtml(col)}"
+                                         data-dataset="${dataset.id}"
+                                         data-column-name="${this.escapeHtml(this.formatColumnName(col))}"
+                                         draggable="true">
+                                        <span class="item-icon">📊</span>
+                                        <span class="item-name">${this.escapeHtml(this.formatColumnName(col))}</span>
+                                        <span class="item-type">${this.inferColumnType(dataset, col)}</span>
+                                    </div>
+                                `).join('')
+                                : '<div class="empty-state-small">No columns available</div>'
+                            }
+                        </div>
+                    ` : ''}
                 </div>
                 
                 <div class="metrics-section">
@@ -286,19 +325,30 @@ export class DatasetBrowser {
             }
         });
         
+        // Column search functionality
+        this.container.addEventListener('input', (e) => {
+            if (e.target.id === 'column-search-input') {
+                this.filterColumns(e.target.value);
+            }
+        });
+        
         // Column/Metric click to select for axes
         this.container.addEventListener('click', (e) => {
             // Handle column expand/collapse
             const toggleTitle = e.target.closest('.section-title.clickable');
             if (toggleTitle && toggleTitle.getAttribute('data-toggle') === 'columns') {
                 this.columnsExpanded = !this.columnsExpanded;
-                const itemsList = toggleTitle.nextElementSibling;
-                if (itemsList) {
-                    itemsList.style.display = this.columnsExpanded ? 'block' : 'none';
-                }
-                const toggleIcon = toggleTitle.querySelector('.toggle-icon');
-                if (toggleIcon) {
-                    toggleIcon.textContent = this.columnsExpanded ? '▼' : '▶';
+                // Preserve search value when toggling
+                const searchInput = this.container.querySelector('#column-search-input');
+                const searchValue = searchInput ? searchInput.value : '';
+                this.render(); // Re-render to show/hide search and columns
+                // Restore search value if columns are expanded
+                if (this.columnsExpanded && searchValue) {
+                    const newSearchInput = this.container.querySelector('#column-search-input');
+                    if (newSearchInput) {
+                        newSearchInput.value = searchValue;
+                        this.filterColumns(searchValue);
+                    }
                 }
                 e.stopPropagation();
                 return;
@@ -444,6 +494,41 @@ export class DatasetBrowser {
             this.selectedDataset = dataset;
             this.render();
             this.notifyDatasetSelected(dataset);
+        }
+    }
+    
+    filterColumns(searchTerm) {
+        const columnsList = this.container.querySelector('.columns-list-scrollable');
+        if (!columnsList) return;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        const columnItems = columnsList.querySelectorAll('.column-item');
+        
+        columnItems.forEach(item => {
+            const columnName = item.getAttribute('data-column-name') || '';
+            const columnValue = item.getAttribute('data-value') || '';
+            
+            const matches = !searchLower || 
+                columnName.toLowerCase().includes(searchLower) ||
+                columnValue.toLowerCase().includes(searchLower);
+            
+            item.style.display = matches ? 'flex' : 'none';
+        });
+        
+        // Show empty state if no matches
+        const visibleItems = Array.from(columnItems).filter(item => item.style.display !== 'none');
+        let emptyState = columnsList.querySelector('.empty-state-small');
+        
+        if (visibleItems.length === 0 && searchLower) {
+            if (!emptyState) {
+                emptyState = document.createElement('div');
+                emptyState.className = 'empty-state-small';
+                columnsList.appendChild(emptyState);
+            }
+            emptyState.textContent = 'No columns match your search';
+            emptyState.style.display = 'block';
+        } else if (emptyState) {
+            emptyState.style.display = 'none';
         }
     }
 }
