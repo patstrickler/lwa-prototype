@@ -1,6 +1,8 @@
 // Query Builder Component
 // SQL editor → Dataset
 
+import { executeSQL } from '../utils/sql-engine.js';
+
 export class QueryBuilder {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
@@ -51,20 +53,44 @@ export class QueryBuilder {
         saveBtn.addEventListener('click', () => this.saveAsDataset());
     }
     
-    executeQuery() {
+    async executeQuery() {
         const sqlEditor = this.container.querySelector('#sql-editor');
         const query = sqlEditor.value.trim();
-        const resultsDiv = this.container.querySelector('#query-results');
         const saveBtn = this.container.querySelector('#save-dataset');
+        const runBtn = this.container.querySelector('#run-query');
         
         if (!query) {
             this.showError('Please enter a SQL query.');
             return;
         }
         
-        // Mock query execution - will be replaced with actual SQL parser/executor
+        // Show loading state
+        runBtn.disabled = true;
+        runBtn.textContent = 'Running...';
+        this.showLoading();
+        
         try {
-            const result = this.mockExecuteQuery(query);
+            // Execute SQL query with mock engine
+            const sqlResult = await executeSQL(query, 500);
+            
+            // Convert rows (array of arrays) to data (array of objects)
+            const data = sqlResult.rows.map(row => {
+                const rowObj = {};
+                sqlResult.columns.forEach((column, index) => {
+                    rowObj[column] = row[index];
+                });
+                return rowObj;
+            });
+            
+            // Create result object in expected format
+            const result = {
+                id: `result_${Date.now()}`,
+                name: 'Query Result',
+                data: data,
+                columns: sqlResult.columns,
+                query: query
+            };
+            
             this.currentResult = result;
             this.displayResults(result);
             saveBtn.disabled = false;
@@ -72,20 +98,23 @@ export class QueryBuilder {
             this.showError(`Error: ${error.message}`);
             this.currentResult = null;
             saveBtn.disabled = true;
+        } finally {
+            // Reset button state
+            runBtn.disabled = false;
+            runBtn.textContent = 'Run Query';
         }
     }
     
-    mockExecuteQuery(query) {
-        // Mock implementation - returns sample dataset
-        // This will be replaced with actual SQL execution logic
-        // For now, return empty result or sample data
-        return {
-            id: `result_${Date.now()}`,
-            name: 'Query Result',
-            data: [],
-            columns: [],
-            query: query
-        };
+    showLoading() {
+        const thead = this.container.querySelector('#results-thead');
+        const tbody = this.container.querySelector('#results-tbody');
+        
+        thead.innerHTML = '';
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="100%" class="empty-placeholder">Executing query...</td>
+            </tr>
+        `;
     }
     
     displayResults(result) {
