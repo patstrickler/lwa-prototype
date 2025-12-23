@@ -228,6 +228,7 @@ function getDefaultColumns(tableName) {
         // Lab-related tables
         'samples': ['sample_id', 'sample_name', 'sample_type', 'collection_date', 'status', 'lab_id'],
         'tests': ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
+        'test_types': ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'], // Alias for tests
         'test_results': ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
         'labs': ['lab_id', 'lab_name', 'location', 'contact_email', 'phone'],
         'technicians': ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
@@ -260,6 +261,11 @@ export function getAllTables() {
             name: 'tests',
             columns: ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
             description: 'Available test types and methods'
+        },
+        {
+            name: 'test_types',
+            columns: ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
+            description: 'Available test types and methods (alias for tests)'
         },
         {
             name: 'test_results',
@@ -307,8 +313,11 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
         
         for (let i = 0; i < tableRowCount; i++) {
             const row = {};
+            // Store columns with both qualified (alias.column) and unqualified names
             tableDef.columns.forEach(col => {
-                row[col] = generateColumnValue(col, i, tableName);
+                const value = generateColumnValue(col, i, tableName);
+                row[col] = value; // Unqualified
+                row[`${alias}.${col}`] = value; // Qualified with alias
             });
             tableRows.push(row);
         }
@@ -351,18 +360,22 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
                     const matchingRight = rightIndex[key] || [];
                     
                     if (matchingRight.length > 0) {
-                        matchingRight.forEach(rightIdx => {
-                            const merged = { ...leftRow };
-                            Object.assign(merged, rightTableData[rightIdx]);
-                            joined.push(merged);
+                    matchingRight.forEach(rightIdx => {
+                        const merged = { ...leftRow };
+                        // Merge right table data, preserving both qualified and unqualified keys
+                        Object.keys(rightTableData[rightIdx]).forEach(key => {
+                            merged[key] = rightTableData[rightIdx][key];
                         });
+                        joined.push(merged);
+                    });
                     } else {
                         // No match - add left row with NULLs for right columns
                         const merged = { ...leftRow };
                         const rightTableDef = tableMap[join.table];
                         if (rightTableDef) {
                             rightTableDef.columns.forEach(col => {
-                                merged[col] = null;
+                                merged[col] = null; // Unqualified
+                                merged[`${join.alias}.${col}`] = null; // Qualified
                             });
                         }
                         joined.push(merged);
@@ -376,7 +389,10 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
                     
                     matchingRight.forEach(rightIdx => {
                         const merged = { ...leftRow };
-                        Object.assign(merged, rightTableData[rightIdx]);
+                        // Merge right table data, preserving both qualified and unqualified keys
+                        Object.keys(rightTableData[rightIdx]).forEach(key => {
+                            merged[key] = rightTableData[rightIdx][key];
+                        });
                         joined.push(merged);
                     });
                 });
@@ -388,7 +404,10 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
                 for (let j = 0; j < Math.min(rightTableData.length, 3); j++) {
                     if (joined.length >= maxCartesian) break;
                     const merged = { ...joinedData[i] };
-                    Object.assign(merged, rightTableData[j]);
+                    // Merge right table data, preserving both qualified and unqualified keys
+                    Object.keys(rightTableData[j]).forEach(key => {
+                        merged[key] = rightTableData[j][key];
+                    });
                     joined.push(merged);
                 }
             }
@@ -401,37 +420,67 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
     joinedData = joinedData.slice(0, rowCount);
     
     // Map columns from joined data to result columns
-    for (const joinedRow of joinedData) {
+    for (let rowIdx = 0; rowIdx < joinedData.length; rowIdx++) {
+        const joinedRow = joinedData[rowIdx];
         const resultRow = columnSpecs.map(spec => {
             if (spec.columnName === '*') {
-                // Handle SELECT * - return all columns (this is simplified)
-                return null; // We'll handle this differently
+                // Handle SELECT * - return all columns from all tables
+                // This is a simplified implementation
+                const allCols = [];
+                for (const [alias, tableName] of Object.entries(tableInfo.tables)) {
+                    const tableDef = tableMap[tableName];
+                    if (tableDef) {
+                        tableDef.columns.forEach(col => {
+                            const qualifiedKey = `${alias}.${col}`;
+                            if (joinedRow[qualifiedKey] !== undefined) {
+                                allCols.push(joinedRow[qualifiedKey]);
+                            }
+                        });
+                    }
+                }
+                return allCols; // This won't work well with current structure, but handle gracefully
             }
             
             // Find the column value
             let value = null;
             
             if (spec.tableAlias) {
-                // Qualified column name (table.column)
-                // Try to find in the joined row
-                const tableDef = tableMap[tableInfo.tables[spec.tableAlias]];
-                if (tableDef && tableDef.columns.includes(spec.columnName)) {
+                // Qualified column name (table.column) - try qualified key first
+                const qualifiedKey = `${spec.tableAlias}.${spec.columnName}`;
+                value = joinedRow[qualifiedKey];
+                
+                // Fallback to unqualified if qualified not found
+                if (value === undefined) {
                     value = joinedRow[spec.columnName];
                 }
             } else {
-                // Unqualified column name - search in all tables
+                // Unqualified column name - try to find in joined row
+                // Prefer columns from tables in order
                 value = joinedRow[spec.columnName];
             }
             
-            // If still null, try to generate based on column name
+            // If still null/undefined, try to generate based on column name
             if (value === null || value === undefined) {
-                value = generateColumnValue(spec.columnName, 0, null);
+                value = generateColumnValue(spec.columnName, rowIdx, null);
             }
             
             return value;
         });
         
-        rows.push(resultRow);
+        // Flatten if SELECT * was used (though this is a simplified case)
+        if (resultRow.some(val => Array.isArray(val))) {
+            const flattened = [];
+            resultRow.forEach(val => {
+                if (Array.isArray(val)) {
+                    flattened.push(...val);
+                } else {
+                    flattened.push(val);
+                }
+            });
+            rows.push(flattened);
+        } else {
+            rows.push(resultRow);
+        }
     }
     
     return rows;
