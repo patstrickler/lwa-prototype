@@ -542,6 +542,20 @@ export class QueryBuilder {
         saveBtn.disabled = true;
     }
     
+    /**
+     * Escapes HTML special characters to prevent XSS
+     * @param {string} text - Text to escape
+     * @returns {string} Escaped HTML string
+     */
+    escapeHtml(text) {
+        if (text === null || text === undefined) {
+            return '';
+        }
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+    
     clearQuery() {
         if (this.editor) {
             this.editor.setValue('');
