@@ -65,8 +65,6 @@ function parseAndExecuteSQL(sql) {
     allTables.forEach(t => {
         tableMap[t.name.toLowerCase()] = t;
     });
-    // Add test_types as alias for tests
-    tableMap['test_types'] = tableMap['tests'];
     
     for (const tableAlias of Object.keys(tableInfo.tables)) {
         const tableName = tableInfo.tables[tableAlias];
@@ -263,11 +261,9 @@ function getDefaultColumns(tableName) {
         // Lab-related tables
         'samples': ['sample_id', 'sample_name', 'sample_type', 'collection_date', 'status', 'lab_id'],
         'tests': ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
-        'test_types': ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'], // Alias for tests
         'results': ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
         'labs': ['lab_id', 'lab_name', 'location', 'contact_email', 'phone'],
         'technicians': ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
-        'sample_types': ['type_id', 'type_name', 'description', 'storage_requirements'],
         // Legacy tables (keeping for compatibility)
         'users': ['id', 'name', 'email', 'created_at'],
         'orders': ['order_id', 'user_id', 'total', 'order_date'],
@@ -298,11 +294,6 @@ export function getAllTables() {
             description: 'Available test types and methods'
         },
         {
-            name: 'test_types',
-            columns: ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
-            description: 'Available test types and methods (alias for tests)'
-        },
-        {
             name: 'results',
             columns: ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
             description: 'Test results linked to samples'
@@ -317,11 +308,6 @@ export function getAllTables() {
             columns: ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
             description: 'Lab technician information'
         },
-        {
-            name: 'sample_types',
-            columns: ['type_id', 'type_name', 'description', 'storage_requirements'],
-            description: 'Sample type definitions'
-        }
     ];
 }
 

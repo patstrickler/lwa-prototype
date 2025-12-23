@@ -1911,10 +1911,10 @@ export class VisualizationPanel {
         
         const isDonut = chartType === 'donut';
         
+        // Always use 'pie' as the chart type - donut is just a pie with innerSize
         const chartConfig = {
             chart: {
-                type: 'pie',
-                renderTo: chartId,
+                type: 'pie',  // Always use 'pie' type (donut is just pie with innerSize)
                 height: 400
             },
             title: {
@@ -1931,7 +1931,7 @@ export class VisualizationPanel {
                         enabled: true,
                         format: '<b>{point.name}</b>: {point.percentage:.1f} %'
                     },
-                    innerSize: isDonut ? '50%' : '0%',
+                    innerSize: isDonut ? '50%' : '0%',  // Donut has inner hole, pie doesn't
                     showInLegend: true
                 }
             },
@@ -1942,18 +1942,24 @@ export class VisualizationPanel {
             }]
         };
         
-        // Apply custom color if specified
+        // Apply custom color if specified (only for pie, not donut)
         if (stylingOptions.color && !isDonut) {
             chartConfig.series[0].colors = [stylingOptions.color];
         }
         
         try {
-            Highcharts.chart(chartConfig);
+            // Ensure the container exists before rendering
+            if (!document.getElementById(chartId)) {
+                throw new Error('Chart container not found');
+            }
+            
+            // Use Highcharts.chart() with explicit pie type
+            Highcharts.chart(chartId, chartConfig);
         } catch (error) {
-            console.error('Error rendering pie chart:', error);
+            console.error('Error rendering pie/donut chart:', error);
             chartContainer.innerHTML = `
                 <div class="chart-placeholder">
-                    <p class="error">Error rendering ${chartType} chart: ${error.message}</p>
+                    <p class="error">Error rendering ${isDonut ? 'donut' : 'pie'} chart: ${error.message}</p>
                 </div>
             `;
         }

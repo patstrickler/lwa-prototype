@@ -60,7 +60,7 @@ export function getSamplesData() {
         
         const collectionDate = randomDate(baseDate, endDate);
         const status = randomChoice(statuses);
-        const labId = randomInt(1, 15); // 15 different labs
+        const labId = randomInt(1, 1000); // 1000 different labs
         
         samples.push([sampleId, sampleName, sampleType, collectionDate, status, labId]);
     }
@@ -346,7 +346,7 @@ export function getResultsData() {
         }
         
         const resultDate = randomDate(baseDate, endDate);
-        const technicianId = randomInt(1, 75); // 75 technicians across different labs
+        const technicianId = randomInt(1, 1000); // 1000 technicians across different labs
         const status = randomChoice(statuses);
         
         results.push([
@@ -363,10 +363,185 @@ export function getResultsData() {
     return results;
 }
 
+// Generate labs data (~1000 records)
+export function getLabsData() {
+    const labTypes = [
+        'Central Laboratory', 'Clinical Research Lab', 'Bioanalytical Laboratory', 
+        'Clinical Trial Lab', 'Reference Laboratory', 'Specialty Lab', 
+        'Clinical Chemistry Lab', 'Hematology Lab', 'Microbiology Lab',
+        'Molecular Diagnostics Lab', 'Immunology Lab', 'Pharmacokinetics Lab',
+        'Biomarker Laboratory', 'Safety Laboratory', 'Quality Control Lab'
+    ];
+    
+    const cities = [
+        'Boston', 'New York', 'Philadelphia', 'Baltimore', 'Washington', 'Atlanta',
+        'Miami', 'Chicago', 'Detroit', 'Minneapolis', 'Dallas', 'Houston',
+        'Phoenix', 'Los Angeles', 'San Diego', 'San Francisco', 'Seattle',
+        'Denver', 'Kansas City', 'Indianapolis', 'Cleveland', 'Pittsburgh',
+        'Charlotte', 'Nashville', 'Memphis', 'New Orleans', 'Portland',
+        'Salt Lake City', 'Las Vegas', 'Austin', 'Raleigh', 'Columbus'
+    ];
+    
+    const states = [
+        'MA', 'NY', 'PA', 'MD', 'DC', 'GA', 'FL', 'IL', 'MI', 'MN',
+        'TX', 'AZ', 'CA', 'WA', 'CO', 'MO', 'IN', 'OH', 'NC', 'TN',
+        'LA', 'OR', 'UT', 'NV', 'NC', 'OH'
+    ];
+    
+    const labs = [];
+    
+    for (let i = 1; i <= 1000; i++) {
+        const labId = i;
+        const labType = randomChoice(labTypes);
+        const city = randomChoice(cities);
+        const state = randomChoice(states);
+        const location = `${city}, ${state}`;
+        
+        // Create realistic lab names
+        const labName = i % 20 === 0 
+            ? `${labType} - ${city}`
+            : i % 15 === 0
+            ? `${city} ${labType}`
+            : `${labType} ${String(i).padStart(3, '0')}`;
+        
+        // Generate email
+        const labCode = labName.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15);
+        const contactEmail = `contact@${labCode}.lab.com`;
+        
+        // Generate phone number
+        const areaCode = randomInt(200, 999);
+        const exchange = randomInt(200, 999);
+        const number = randomInt(1000, 9999);
+        const phone = `${areaCode}-${exchange}-${number}`;
+        
+        labs.push([labId, labName, location, contactEmail, phone]);
+    }
+    
+    return labs;
+}
+
+// Generate technicians data (~1000 records)
+export function getTechniciansData() {
+    const firstNames = [
+        'James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda',
+        'William', 'Elizabeth', 'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica',
+        'Thomas', 'Sarah', 'Christopher', 'Karen', 'Charles', 'Nancy', 'Daniel', 'Lisa',
+        'Matthew', 'Betty', 'Anthony', 'Margaret', 'Mark', 'Sandra', 'Donald', 'Ashley',
+        'Steven', 'Kimberly', 'Paul', 'Emily', 'Andrew', 'Donna', 'Joshua', 'Michelle',
+        'Kenneth', 'Carol', 'Kevin', 'Amanda', 'Brian', 'Dorothy', 'George', 'Melissa',
+        'Edward', 'Deborah', 'Ronald', 'Stephanie', 'Timothy', 'Rebecca', 'Jason', 'Sharon',
+        'Jeffrey', 'Laura', 'Ryan', 'Cynthia', 'Jacob', 'Kathleen', 'Gary', 'Amy',
+        'Nicholas', 'Angela', 'Eric', 'Shirley', 'Jonathan', 'Anna', 'Stephen', 'Brenda',
+        'Larry', 'Pamela', 'Justin', 'Emma', 'Scott', 'Nicole', 'Brandon', 'Helen',
+        'Benjamin', 'Samantha', 'Samuel', 'Katherine', 'Frank', 'Christine', 'Gregory', 'Debra',
+        'Raymond', 'Rachel', 'Alexander', 'Carolyn', 'Patrick', 'Janet', 'Jack', 'Catherine',
+        'Dennis', 'Maria', 'Jerry', 'Heather', 'Tyler', 'Diane', 'Aaron', 'Julie',
+        'Jose', 'Joyce', 'Henry', 'Victoria', 'Adam', 'Kelly', 'Douglas', 'Christina',
+        'Nathan', 'Joan', 'Peter', 'Evelyn', 'Zachary', 'Lauren', 'Kyle', 'Judith',
+        'Noah', 'Megan', 'Ethan', 'Cheryl', 'Jeremy', 'Andrea', 'Walter', 'Hannah',
+        'Christian', 'Jacqueline', 'Keith', 'Martha', 'Roger', 'Gloria', 'Terry', 'Teresa',
+        'Austin', 'Sara', 'Sean', 'Janice', 'Gerald', 'Marie', 'Carl', 'Julia',
+        'Harold', 'Grace', 'Dylan', 'Judy', 'Jesse', 'Theresa', 'Jordan', 'Madison',
+        'Bryan', 'Beverly', 'Billy', 'Denise', 'Joe', 'Marilyn', 'Bruce', 'Amber',
+        'Albert', 'Danielle', 'Willie', 'Rose', 'Gabriel', 'Brittany', 'Logan', 'Diana',
+        'Alan', 'Abigail', 'Juan', 'Jane', 'Wayne', 'Lori', 'Roy', 'Olivia',
+        'Ralph', 'Jean', 'Eugene', 'Frances', 'Louis', 'Kathryn', 'Philip', 'Alice',
+        'Johnny', 'Jesse', 'Bobby', 'Geraldine', 'Howard', 'Marie', 'Randy', 'Jacqueline'
+    ];
+    
+    const lastNames = [
+        'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
+        'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Wilson', 'Anderson', 'Thomas', 'Taylor',
+        'Moore', 'Jackson', 'Martin', 'Lee', 'Thompson', 'White', 'Harris', 'Sanchez',
+        'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen', 'King',
+        'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green', 'Adams',
+        'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts',
+        'Gomez', 'Phillips', 'Evans', 'Turner', 'Diaz', 'Parker', 'Cruz', 'Edwards',
+        'Collins', 'Reyes', 'Stewart', 'Morris', 'Morales', 'Murphy', 'Cook', 'Rogers',
+        'Gutierrez', 'Ortiz', 'Morgan', 'Cooper', 'Peterson', 'Bailey', 'Reed', 'Kelly',
+        'Howard', 'Ramos', 'Kim', 'Cox', 'Ward', 'Richardson', 'Watson', 'Brooks',
+        'Chavez', 'Wood', 'James', 'Bennett', 'Gray', 'Mendoza', 'Ruiz', 'Hughes',
+        'Price', 'Alvarez', 'Castillo', 'Sanders', 'Patel', 'Myers', 'Long', 'Ross',
+        'Foster', 'Jimenez', 'Powell', 'Jenkins', 'Perry', 'Russell', 'Sullivan', 'Bell',
+        'Coleman', 'Butler', 'Henderson', 'Barnes', 'Gonzales', 'Fisher', 'Vasquez', 'Simmons',
+        'Romero', 'Jordan', 'Patterson', 'Alexander', 'Hamilton', 'Graham', 'Reynolds', 'Griffin',
+        'Wallace', 'Moreno', 'West', 'Cole', 'Hayes', 'Bryant', 'Herrera', 'Gibson',
+        'Ellis', 'Tran', 'Medina', 'Aguilar', 'Stevens', 'Murray', 'Ford', 'Castro',
+        'Marshall', 'Owens', 'Harrison', 'Fernandez', 'Mcdonald', 'Woods', 'Washington', 'Kennedy',
+        'Wells', 'Vargas', 'Henry', 'Chen', 'Freeman', 'Webb', 'Tucker', 'Guzman',
+        'Burns', 'Crawford', 'Olson', 'Simpson', 'Porter', 'Hunter', 'Gordon', 'Mendez',
+        'Silva', 'Shaw', 'Snyder', 'Mason', 'Dixon', 'Munoz', 'Hunt', 'Hicks',
+        'Holmes', 'Palmer', 'Wagner', 'Black', 'Robertson', 'Boyd', 'Rose', 'Stone',
+        'Salazar', 'Fox', 'Warren', 'Mills', 'Meyer', 'Rice', 'Schmidt', 'Garza',
+        'Daniels', 'Ferguson', 'Nichols', 'Stephens', 'Soto', 'Weaver', 'Ryan', 'Gardner',
+        'Payne', 'Grant', 'Dunn', 'Kelley', 'Spencer', 'Hawkins', 'Arnold', 'Pierce',
+        'Vazquez', 'Hansen', 'Peters', 'Santos', 'Hart', 'Bradley', 'Knight', 'Elliott',
+        'Cunningham', 'Duncan', 'Armstrong', 'Hudson', 'Carroll', 'Lane', 'Riley', 'Andrews',
+        'Alvarado', 'Ray', 'Delgado', 'Berry', 'Perkins', 'Hoffman', 'Johnston', 'Matthews',
+        'Pena', 'Richards', 'Contreras', 'Willis', 'Carpenter', 'Lawrence', 'Sandoval', 'Guerrero',
+        'George', 'Chapman', 'Rios', 'Estrada', 'Ortega', 'Watkins', 'Greene', 'Nunez',
+        'Wheeler', 'Valdez', 'Harper', 'Burke', 'Larson', 'Santiago', 'Maldonado', 'Morrison',
+        'Franklin', 'Carlson', 'Austin', 'Dominguez', 'Carr', 'Lawson', 'Jacobs', 'Obrien',
+        'Lynch', 'Singh', 'Vega', 'Bishop', 'Montgomery', 'Oliver', 'Jensen', 'Harvey',
+        'Williamson', 'Gilbert', 'Dean', 'Mason', 'Lowe', 'Fletcher', 'McCarthy', 'May',
+        'Fuller', 'Newman', 'Lucas', 'Holland', 'Wong', 'Terry', 'Barber', 'Reid',
+        'Horton', 'Reed', 'Schneider', 'Warner', 'Garrett', 'Newton', 'Hodges', 'Potter',
+        'Walton', 'Goodwin', 'Mullins', 'Molina', 'Webster', 'Fischer', 'Campos', 'Avila',
+        'Sherman', 'Todd', 'Chang', 'Blake', 'Malone', 'Wolf', 'Hodges', 'Juarez',
+        'Gill', 'Buck', 'Mcbride', 'Hogan', 'Mcgee', 'Brewer', 'Benson', 'Brock',
+        'Hardy', 'Dudley', 'Casey', 'Arnold', 'Mathis', 'Holloway', 'Briggs', 'Peck',
+        'Chan', 'Boyle', 'Bentley', 'Allison', 'Baldwin', 'Mcintosh', 'Tran', 'Roach',
+        'Horton', 'Serrano', 'Pollard', 'Hodge', 'Lamb', 'Henson', 'Conway', 'Wilkerson',
+        'Forbes', 'Good', 'Petty', 'Merritt', 'Keith', 'Morrow', 'Holt', 'Wade',
+        'Potts', 'Hurley', 'Hurley', 'Solis', 'Oconnor', 'Pace', 'Hoover', 'Bray',
+        'Pham', 'Rojas', 'Camacho', 'Avila', 'Mcdowell', 'Finley', 'Sloan', 'Mayer',
+        'Ayers', 'Herman', 'Mckay', 'Bridges', 'Mccann', 'Meadows', 'Walters', 'Rush',
+        'Gregory', 'Mueller', 'Rocha', 'Saunders', 'Barr', 'Cantu', 'Mercado', 'Farrell',
+        'Tapia', 'Leach', 'York', 'Dickson', 'Hammond', 'Gamble', 'Duffy', 'Blevins',
+        'Hobbs', 'Orr', 'Frye', 'Glass', 'Combs', 'Ware', 'Bolton', 'Norris',
+        'Oneal', 'Barnett', 'Melton', 'Haney', 'Hayden', 'Sampson', 'Brock', 'Morrow'
+    ];
+    
+    const specializations = [
+        'Pharmacokinetics', 'Pharmacodynamics', 'Bioanalytical Chemistry', 'Clinical Chemistry',
+        'Hematology', 'Microbiology', 'Immunology', 'Molecular Biology', 'Toxicology',
+        'Biomarker Analysis', 'Flow Cytometry', 'LC-MS/MS', 'ELISA', 'PCR',
+        'Cell Culture', 'Protein Analysis', 'Enzyme Assays', 'Metabolomics',
+        'Quality Control', 'Method Development', 'Data Analysis', 'Sample Preparation',
+        'Immunoassay', 'Mass Spectrometry', 'Chromatography', 'Genomics', 'Proteomics',
+        'Clinical Trials', 'Regulatory Affairs', 'Laboratory Operations', 'Quality Assurance'
+    ];
+    
+    const technicians = [];
+    
+    for (let i = 1; i <= 1000; i++) {
+        const technicianId = i;
+        const firstName = randomChoice(firstNames);
+        const lastName = randomChoice(lastNames);
+        const name = `${firstName} ${lastName}`;
+        
+        // Generate email
+        const emailBase = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`.substring(0, 20);
+        const email = `${emailBase}@labtech.com`;
+        
+        // Assign to a lab (1-1000)
+        const labId = randomInt(1, 1000);
+        
+        // Assign specialization
+        const specialization = randomChoice(specializations);
+        
+        technicians.push([technicianId, name, email, labId, specialization]);
+    }
+    
+    return technicians;
+}
+
 // Store the data
 let samplesData = null;
 let testsData = null;
 let resultsData = null;
+let labsData = null;
+let techniciansData = null;
 
 // Lazy load the data (generate once, return cached)
 export function getTableData(tableName) {
@@ -377,7 +552,7 @@ export function getTableData(tableName) {
             samplesData = getSamplesData();
         }
         return samplesData;
-    } else if (tableLower === 'tests' || tableLower === 'test_types') {
+    } else if (tableLower === 'tests') {
         if (!testsData) {
             testsData = getTestsData();
         }
@@ -387,6 +562,16 @@ export function getTableData(tableName) {
             resultsData = getResultsData();
         }
         return resultsData;
+    } else if (tableLower === 'labs') {
+        if (!labsData) {
+            labsData = getLabsData();
+        }
+        return labsData;
+    } else if (tableLower === 'technicians') {
+        if (!techniciansData) {
+            techniciansData = getTechniciansData();
+        }
+        return techniciansData;
     }
     
     return null;

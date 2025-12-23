@@ -18,7 +18,6 @@ const TABLE_SCHEMA = {
     'results': ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
     'labs': ['lab_id', 'lab_name', 'location', 'contact_email', 'phone'],
     'technicians': ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
-    'sample_types': ['type_id', 'type_name', 'description', 'storage_requirements'],
     // Legacy tables
     'users': ['id', 'name', 'email', 'created_at'],
     'orders': ['order_id', 'user_id', 'total', 'order_date'],
