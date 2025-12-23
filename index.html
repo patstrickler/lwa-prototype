@@ -11,22 +11,33 @@
     <div class="container">
         <header>
             <h1>Analytics Platform Prototype</h1>
+            <nav class="main-nav">
+                <a href="#" data-page="query-builder" class="nav-link active">Query Builder</a>
+                <a href="#" data-page="analysis" class="nav-link">Analysis Layer</a>
+                <a href="#" data-page="visualization" class="nav-link">Visualization Layer</a>
+            </nav>
         </header>
         
         <main>
-            <section id="query-builder-section" class="panel">
-                <h2>Query Builder</h2>
-                <div id="query-builder"></div>
+            <section id="query-builder-page" class="page active">
+                <div class="panel">
+                    <h2>Query Builder</h2>
+                    <div id="query-builder"></div>
+                </div>
             </section>
             
-            <section id="analysis-section" class="panel">
-                <h2>Analysis Layer</h2>
-                <div id="analysis-panel"></div>
+            <section id="analysis-page" class="page">
+                <div class="panel">
+                    <h2>Analysis Layer</h2>
+                    <div id="analysis-panel"></div>
+                </div>
             </section>
             
-            <section id="visualization-section" class="panel">
-                <h2>Visualization Layer</h2>
-                <div id="visualization-panel"></div>
+            <section id="visualization-page" class="page">
+                <div class="panel">
+                    <h2>Visualization Layer</h2>
+                    <div id="visualization-panel"></div>
+                </div>
             </section>
         </main>
     </div>

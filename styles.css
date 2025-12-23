@@ -22,17 +22,57 @@ header {
     border-radius: 8px;
     margin-bottom: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
 header h1 {
     font-size: 24px;
     font-weight: 600;
+    margin: 0;
+}
+
+.main-nav {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nav-link {
+    padding: 10px 20px;
+    text-decoration: none;
+    color: #495057;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.nav-link:hover {
+    background-color: #f8f9fa;
+    color: #007bff;
+}
+
+.nav-link.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
 }
 
 main {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 20px;
+    position: relative;
+}
+
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
 }
 
 .panel {
@@ -229,6 +269,66 @@ main {
 }
 
 /* Visualization Panel Styles */
+.visualization-builder {
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.visualization-builder h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #495057;
+}
+
+.builder-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-weight: 500;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #495057;
+}
+
+.form-control {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #fff;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.form-control:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.form-actions {
+    display: flex;
+    align-items: end;
+}
+
 .chart-controls {
     display: flex;
     gap: 10px;
@@ -250,9 +350,9 @@ main {
 }
 
 .chart-wrapper {
-    min-height: 300px;
+    min-height: 400px;
     padding: 15px;
-    background-color: #f8f9fa;
+    background-color: #fff;
     border-radius: 4px;
     border: 1px solid #ddd;
 }
@@ -261,5 +361,12 @@ main {
     text-align: center;
     padding: 40px;
     color: #6c757d;
+}
+
+.chart-placeholder .error {
+    color: #dc3545;
+    background-color: #f8d7da;
+    padding: 10px;
+    border-radius: 4px;
 }
 

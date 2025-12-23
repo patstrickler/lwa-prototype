@@ -85,7 +85,9 @@ export class VisualizationPanel {
         const renderBtn = this.container.querySelector('#render-chart-btn');
         
         datasetSelect.addEventListener('change', () => this.onDatasetSelected());
+        xColumnSelect.addEventListener('change', () => this.updateRenderButtonState());
         ySelectType.addEventListener('change', () => this.onYTypeChanged());
+        yColumnSelect.addEventListener('change', () => this.updateRenderButtonState());
         renderBtn.addEventListener('click', () => this.renderChart());
     }
     
@@ -322,6 +324,16 @@ export class VisualizationPanel {
         const container = document.getElementById(containerId);
         if (!container) return;
         
+        // Check if Highcharts is available
+        if (typeof Highcharts === 'undefined') {
+            container.innerHTML = `
+                <div class="chart-placeholder">
+                    <p class="error">Highcharts library not loaded. Please check that Highcharts is included in the page.</p>
+                </div>
+            `;
+            return;
+        }
+        
         // Sort data by x value for line and bar charts
         if (chartType === 'line' || chartType === 'bar') {
             data.sort((a, b) => {
@@ -332,6 +344,36 @@ export class VisualizationPanel {
             });
         }
         
+        // Determine if x values are numeric
+        const isXNumeric = data.length > 0 && typeof data[0].x === 'number';
+        
+        let chartData;
+        let xAxisConfig = {
+            title: {
+                text: options.xLabel || 'X Axis'
+            }
+        };
+        
+        if (chartType === 'scatter') {
+            // Scatter plot: data is array of [x, y] pairs
+            chartData = data.map(point => [parseFloat(point.x) || 0, parseFloat(point.y) || 0]);
+            xAxisConfig.type = 'linear';
+        } else if (chartType === 'line' || chartType === 'bar') {
+            if (isXNumeric) {
+                // Numeric x-axis: use [x, y] format
+                chartData = data.map(point => [parseFloat(point.x) || 0, parseFloat(point.y) || 0]);
+                xAxisConfig.type = 'linear';
+            } else {
+                // Categorical x-axis: use y values with categories
+                chartData = data.map(point => parseFloat(point.y) || 0);
+                xAxisConfig.type = 'category';
+                xAxisConfig.categories = data.map(point => String(point.x));
+            }
+        } else {
+            // Default: just y values
+            chartData = data.map(point => parseFloat(point.y) || 0);
+        }
+        
         const chartConfig = {
             chart: {
                 type: chartType === 'scatter' ? 'scatter' : chartType,
@@ -340,12 +382,7 @@ export class VisualizationPanel {
             title: {
                 text: options.title || 'Chart'
             },
-            xAxis: {
-                title: {
-                    text: options.xLabel || 'X Axis'
-                },
-                type: chartType === 'scatter' ? 'linear' : 'category'
-            },
+            xAxis: xAxisConfig,
             yAxis: {
                 title: {
                     text: options.yLabel || 'Y Axis'
@@ -353,7 +390,7 @@ export class VisualizationPanel {
             },
             series: [{
                 name: options.yLabel || 'Series 1',
-                data: data.map(point => chartType === 'scatter' ? [point.x, point.y] : point.y)
+                data: chartData
             }],
             legend: {
                 enabled: true
@@ -362,11 +399,6 @@ export class VisualizationPanel {
                 enabled: false
             }
         };
-        
-        // For line and bar charts, set categories from x values
-        if (chartType === 'line' || chartType === 'bar') {
-            chartConfig.xAxis.categories = data.map(point => String(point.x));
-        }
         
         try {
             new Highcharts.Chart(chartConfig);

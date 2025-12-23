@@ -3,8 +3,37 @@ import { QueryBuilder } from './components/query-builder.js';
 import { AnalysisPanel } from './components/analysis-panel.js';
 import { VisualizationPanel } from './components/visualization-panel.js';
 
+// Page routing/navigation functionality
+function initNavigation() {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const pages = document.querySelectorAll('.page');
+    
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Remove active class from all links and pages
+            navLinks.forEach(l => l.classList.remove('active'));
+            pages.forEach(p => p.classList.remove('active'));
+            
+            // Add active class to clicked link
+            link.classList.add('active');
+            
+            // Show corresponding page
+            const pageId = link.getAttribute('data-page');
+            const targetPage = document.getElementById(`${pageId}-page`);
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+        });
+    });
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize navigation
+    initNavigation();
+    
     // Initialize components
     const queryBuilder = new QueryBuilder('#query-builder');
     const analysisPanel = new AnalysisPanel('#analysis-panel');
