@@ -51,7 +51,9 @@ function parseAndExecuteSQL(sql) {
     const columnSpecs = parseSelectClause(selectClause);
     
     // Parse FROM and JOIN clauses
-    const fromJoinMatch = originalSQL.match(/from\s+(.+?)(?:\s+where|\s+order\s+by|\s+group\s+by|\s+having|\s+limit|$)/i);
+    // Match FROM clause - capture everything until WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or end of string
+    // Use a more robust pattern that handles multi-line queries
+    const fromJoinMatch = originalSQL.match(/from\s+((?:(?!\s+(?:where|order\s+by|group\s+by|having|limit)\b).)+)/is);
     if (!fromJoinMatch) {
         throw new Error('SQL query must include a FROM clause with a table name.');
     }

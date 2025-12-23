@@ -11,78 +11,20 @@ export class QueryBuilder {
         this.datasetCallbacks = [];
         this.currentResult = null;
         this.currentDatasetId = null; // Track if we're editing an existing dataset
-        this.editor = null;
+        this.editor = null; // Will be the textarea element
         this.init();
     }
     
-    async init() {
-        await this.loadMonaco();
+    init() {
         this.render();
         this.attachEventListeners();
-        this.initMonacoEditor();
-    }
-    
-    async loadMonaco() {
-        return new Promise((resolve, reject) => {
-            if (window.monaco) {
-                resolve();
-                return;
-            }
-            
-            // Wait for require to be available (from loader.js)
-            let attempts = 0;
-            const maxAttempts = 50; // 5 seconds total (50 * 100ms)
-            
-            const checkRequire = () => {
-                attempts++;
-                
-                if (typeof require !== 'undefined') {
-                    try {
-                        // Ensure require is configured
-                        if (!require.config || typeof require.config !== 'function') {
-                            reject(new Error('Monaco Editor require.config is not available'));
-                            return;
-                        }
-                        
-                        // Configure require with the correct base path
-                        require.config({ 
-                            paths: { vs: 'https://unpkg.com/monaco-editor@0.45.0/min/vs' } 
-                        });
-                        
-                        // Load the editor main module
-                        require(['vs/editor/editor.main'], () => {
-                            if (window.monaco) {
-                                resolve();
-                            } else {
-                                reject(new Error('Monaco Editor failed to initialize - window.monaco is undefined'));
-                            }
-                        }, (err) => {
-                            console.error('Monaco Editor load error:', err);
-                            const errorMsg = err && err.message ? err.message : (err && err.toString ? err.toString() : 'Unknown error');
-                            reject(new Error(`Failed to load Monaco Editor: ${errorMsg}`));
-                        });
-                    } catch (error) {
-                        console.error('Error configuring Monaco Editor:', error);
-                        reject(new Error(`Error configuring Monaco Editor: ${error.message || error}`));
-                    }
-                } else if (attempts < maxAttempts) {
-                    // Retry after a short delay
-                    setTimeout(checkRequire, 100);
-                } else {
-                    reject(new Error('Monaco Editor loader (require) not found after 5 seconds. Please ensure loader.js is loaded before app.js.'));
-                }
-            };
-            
-            // Start checking after a brief delay to ensure loader.js has loaded
-            setTimeout(checkRequire, 100);
-        });
     }
     
     render() {
         this.container.innerHTML = `
             <div class="query-builder">
                 <div class="sql-editor-wrapper">
-                    <div id="monaco-editor-container" class="monaco-editor-container"></div>
+                    <textarea id="sql-editor" class="sql-editor" placeholder="Enter your SQL query here..."></textarea>
                 </div>
                 <div class="query-actions">
                     <button id="run-query" class="btn btn-primary">Run Query</button>
@@ -108,194 +50,10 @@ export class QueryBuilder {
         `;
     }
     
-    initMonacoEditor() {
-        const container = this.container.querySelector('#monaco-editor-container');
-        if (!container || !window.monaco) {
-            console.error('Monaco Editor not loaded');
-            return;
-        }
-        
-        // Get table and column information for autocomplete
-        const tables = getAllTables();
-        const tableSchemas = {};
-        tables.forEach(table => {
-            tableSchemas[table.name] = table.columns;
-        });
-        
-        // Configure SQL language with custom autocomplete
-        monaco.languages.registerCompletionItemProvider('sql', {
-            provideCompletionItems: (model, position) => {
-                const textUntilPosition = model.getValueInRange({
-                    startLineNumber: 1,
-                    startColumn: 1,
-                    endLineNumber: position.lineNumber,
-                    endColumn: position.column
-                });
-                
-                const word = model.getWordUntilPosition(position);
-                const range = {
-                    startLineNumber: position.lineNumber,
-                    endLineNumber: position.lineNumber,
-                    startColumn: word.startColumn,
-                    endColumn: word.endColumn
-                };
-                
-                const suggestions = [];
-                const textLower = textUntilPosition.toLowerCase();
-                
-                // SQL Keywords
-                const sqlKeywords = [
-                    'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN',
-                    'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'OFFSET', 'JOIN', 'INNER JOIN',
-                    'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'ON', 'AS', 'DISTINCT', 'COUNT',
-                    'SUM', 'AVG', 'MAX', 'MIN', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
-                    'IS NULL', 'IS NOT NULL', 'UNION', 'UNION ALL'
-                ];
-                
-                // Context-aware suggestions
-                if (textLower.match(/from\s+(\w*)$/)) {
-                    // After FROM, suggest tables
-                    tables.forEach(table => {
-                        if (table.name.toLowerCase().startsWith(word.word.toLowerCase())) {
-                            suggestions.push({
-                                label: table.name,
-                                kind: monaco.languages.CompletionItemKind.Class,
-                                insertText: table.name,
-                                detail: table.description,
-                                range: range
-                            });
-                        }
-                    });
-                } else if (textLower.match(/select\s+(.*?)(?:\s+from|$)/i) || textLower.match(/where\s+(.*?)$/i)) {
-                    // In SELECT or WHERE, suggest columns
-                    const fromMatch = textLower.match(/from\s+(\w+)/);
-                    if (fromMatch) {
-                        const tableName = fromMatch[1];
-                        if (tableSchemas[tableName]) {
-                            tableSchemas[tableName].forEach(col => {
-                                if (col.toLowerCase().startsWith(word.word.toLowerCase())) {
-                                    suggestions.push({
-                                        label: col,
-                                        kind: monaco.languages.CompletionItemKind.Field,
-                                        insertText: col,
-                                        range: range
-                                    });
-                                }
-                            });
-                        }
-                    }
-                    // Also suggest all columns from all tables
-                    Object.entries(tableSchemas).forEach(([table, columns]) => {
-                        columns.forEach(col => {
-                            if (col.toLowerCase().startsWith(word.word.toLowerCase())) {
-                                suggestions.push({
-                                    label: `${table}.${col}`,
-                                    kind: monaco.languages.CompletionItemKind.Field,
-                                    insertText: `${table}.${col}`,
-                                    detail: `Column from ${table}`,
-                                    range: range
-                                });
-                            }
-                        });
-                    });
-                }
-                
-                // Always suggest SQL keywords
-                sqlKeywords.forEach(keyword => {
-                    if (keyword.toLowerCase().startsWith(word.word.toLowerCase())) {
-                        suggestions.push({
-                            label: keyword,
-                            kind: monaco.languages.CompletionItemKind.Keyword,
-                            insertText: keyword,
-                            range: range
-                        });
-                    }
-                });
-                
-                // Also suggest table names
-                tables.forEach(table => {
-                    if (table.name.toLowerCase().startsWith(word.word.toLowerCase())) {
-                        suggestions.push({
-                            label: table.name,
-                            kind: monaco.languages.CompletionItemKind.Class,
-                            insertText: table.name,
-                            detail: table.description,
-                            range: range
-                        });
-                    }
-                });
-                
-                return { suggestions: suggestions.slice(0, 50) };
-            },
-            triggerCharacters: ['.', ' ']
-        });
-        
-        // Create editor instance
-        this.editor = monaco.editor.create(container, {
-            value: '',
-            language: 'sql',
-            theme: 'vs',
-            automaticLayout: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            fontSize: 14,
-            fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
-            lineNumbers: 'on',
-            roundedSelection: false,
-            cursorStyle: 'line',
-            wordWrap: 'on',
-            formatOnPaste: true,
-            formatOnType: true,
-            suggestOnTriggerCharacters: true,
-            quickSuggestions: {
-                other: true,
-                comments: false,
-                strings: false
-            },
-            tabSize: 2,
-            insertSpaces: true,
-            padding: {
-                top: 12,
-                bottom: 12
-            },
-            scrollbar: {
-                vertical: 'auto',
-                horizontal: 'auto',
-                useShadows: false,
-                verticalHasArrows: false,
-                horizontalHasArrows: false,
-                verticalScrollbarSize: 12,
-                horizontalScrollbarSize: 12
-            }
-        });
-        
-        // Add placeholder
-        this.editor.onDidChangeModelContent(() => {
-            const value = this.editor.getValue();
-            if (value === '') {
-                container.classList.add('empty');
-            } else {
-                container.classList.remove('empty');
-            }
-        });
-    }
-    
-    attachEventListeners() {
-        const runBtn = this.container.querySelector('#run-query');
-        const clearBtn = this.container.querySelector('#clear-query');
-        const saveBtn = this.container.querySelector('#save-dataset');
-        const updateBtn = this.container.querySelector('#update-dataset');
-        
-        runBtn.addEventListener('click', () => this.executeQuery());
-        clearBtn.addEventListener('click', () => this.clearQuery());
-        saveBtn.addEventListener('click', () => this.saveAsDataset());
-        updateBtn.addEventListener('click', () => this.updateDataset());
-    }
-    
     async executeQuery() {
         if (!this.editor) return;
         
-        const query = this.editor.getValue().trim();
+        const query = this.editor.value.trim();
         const saveBtn = this.container.querySelector('#save-dataset');
         const runBtn = this.container.querySelector('#run-query');
         
@@ -351,7 +109,7 @@ export class QueryBuilder {
                 name: 'Query Result',
                 data: data,
                 columns: sqlResult.columns,
-                query: query || (this.editor ? this.editor.getValue().trim() : '')
+                query: query || (this.editor ? this.editor.value.trim() : '')
             };
             
             this.currentResult = result;
@@ -558,7 +316,7 @@ export class QueryBuilder {
     
     clearQuery() {
         if (this.editor) {
-            this.editor.setValue('');
+            this.editor.value = '';
         }
         
         const thead = this.container.querySelector('#results-thead');
@@ -618,7 +376,7 @@ export class QueryBuilder {
             });
             
             // Get the SQL query from currentResult or from the SQL editor
-            const sqlQuery = this.currentResult.query || (this.editor ? this.editor.getValue().trim() : '');
+            const sqlQuery = this.currentResult.query || (this.editor ? this.editor.value.trim() : '');
             
             // Create dataset with SQL, columns, and rows
             const dataset = datasetStore.create(
@@ -673,22 +431,18 @@ export class QueryBuilder {
     insertText(text) {
         if (!this.editor) return;
         
-        const selection = this.editor.getSelection();
-        const range = new monaco.Range(
-            selection.startLineNumber,
-            selection.startColumn,
-            selection.endLineNumber,
-            selection.endColumn
-        );
+        const textarea = this.editor;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentValue = textarea.value;
         
-        const op = {
-            range: range,
-            text: text,
-            forceMoveMarkers: true
-        };
+        // Insert text at cursor position
+        textarea.value = currentValue.substring(0, start) + text + currentValue.substring(end);
         
-        this.editor.executeEdits('insert-text', [op]);
-        this.editor.focus();
+        // Set cursor position after inserted text
+        const newPosition = start + text.length;
+        textarea.setSelectionRange(newPosition, newPosition);
+        textarea.focus();
     }
     
     
@@ -707,9 +461,11 @@ export class QueryBuilder {
             }
             
             if (!this.editor) {
-                console.warn('Monaco Editor not ready yet. Please wait a moment and try again.');
-                // Retry after a short delay
-                setTimeout(() => this.loadDataset(datasetId), 500);
+                this.editor = this.container.querySelector('#sql-editor');
+            }
+            
+            if (!this.editor) {
+                await Modal.alert('SQL editor not found.');
                 return;
             }
             
@@ -717,7 +473,7 @@ export class QueryBuilder {
             const updateBtn = this.container.querySelector('#update-dataset');
             
             // Load SQL into editor
-            this.editor.setValue(dataset.sql || '');
+            this.editor.value = dataset.sql || '';
             
             // Set current dataset ID for updating
             this.currentDatasetId = datasetId;
@@ -751,7 +507,7 @@ export class QueryBuilder {
         }
         
         const { datasetStore } = await import('../data/datasets.js');
-        const query = this.editor.getValue().trim();
+        const query = this.editor.value.trim();
         
         if (!query) {
             await Modal.alert('Please enter a SQL query.');

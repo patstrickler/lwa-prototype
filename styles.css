@@ -1206,41 +1206,24 @@ main {
     margin-bottom: 15px;
 }
 
-.monaco-editor-container {
+.sql-editor {
     width: 100%;
-    min-height: 300px;
+    min-height: 200px;
+    padding: 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    overflow: hidden;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    resize: vertical;
     background-color: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    line-height: 1.5;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.monaco-editor-container:focus-within {
+.sql-editor:focus {
+    outline: none;
     border-color: #007bff;
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.monaco-editor-container .monaco-editor {
-    padding-top: 12px;
-}
-
-.monaco-editor-container .monaco-editor .view-lines {
-    padding-top: 0;
-}
-
-.monaco-editor-container .monaco-editor .margin {
-    background-color: #f8f9fa;
-    border-right: 1px solid #e9ecef;
-}
-
-.monaco-editor-container .monaco-editor .current-line {
-    background-color: rgba(0, 123, 255, 0.05);
-}
-
-.monaco-editor-container .monaco-editor .selected-text {
-    background-color: rgba(0, 123, 255, 0.2);
 }
 
 .monaco-editor-container.empty::before {
@@ -2695,7 +2678,6 @@ main {
 /* Pie/Donut Chart Styling */
 .chart-wrapper .highcharts-container {
     border-radius: 4px;
-}
 }
 
 .chart-placeholder {
