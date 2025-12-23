@@ -2022,11 +2022,59 @@ export class VisualizationPanel {
             this.currentDataset = null;
             return;
         }
+        
+        // Check if dataset has changed
+        const previousDatasetId = this.currentDataset ? this.currentDataset.id : null;
+        const datasetChanged = previousDatasetId !== datasetId;
+        
         const datasetSelect = this.container.querySelector('#dataset-select');
         if (datasetSelect) {
             datasetSelect.value = datasetId;
+            this.currentDataset = datasetStore.get(datasetId);
+            
+            // If dataset changed, reset the visualization editor
+            if (datasetChanged) {
+                this.resetVisualizationEditor();
+            }
+            
             this.onDatasetSelected();
         }
+    }
+    
+    /**
+     * Resets the visualization editor to initial state
+     */
+    resetVisualizationEditor() {
+        // Clear all selections
+        this.clearSelections();
+        
+        // Clear chart type selection
+        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        if (chartTypeSelect) {
+            chartTypeSelect.value = '';
+        }
+        
+        // Clear chart
+        this.clearChart();
+        
+        // Hide field selection container
+        const fieldSelectionContainer = this.container.querySelector('#field-selection-container');
+        if (fieldSelectionContainer) {
+            fieldSelectionContainer.style.display = 'none';
+        }
+        
+        // Reset styling options
+        const titleInput = this.container.querySelector('#chart-title-input');
+        const xLabelInput = this.container.querySelector('#x-axis-label-input');
+        const yLabelInput = this.container.querySelector('#y-axis-label-input');
+        const colorInput = this.container.querySelector('#series-color-input');
+        const trendlineToggle = this.container.querySelector('#trendline-toggle');
+        
+        if (titleInput) titleInput.value = '';
+        if (xLabelInput) xLabelInput.value = '';
+        if (yLabelInput) yLabelInput.value = '';
+        if (colorInput) colorInput.value = '#007bff';
+        if (trendlineToggle) trendlineToggle.checked = false;
     }
     
     /**
