@@ -3,6 +3,7 @@ import { QueryBuilder } from './components/query-builder.js';
 import { AnalysisPanel } from './components/analysis-panel.js';
 import { VisualizationPanel } from './components/visualization-panel.js';
 import { TableBrowser } from './components/table-browser.js';
+import { DatasetBrowser } from './components/dataset-browser.js';
 
 // Page routing/navigation functionality
 function initNavigation() {
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize components
     const tableBrowser = new TableBrowser('#table-browser');
+    const datasetBrowser = new DatasetBrowser('#dataset-browser');
     const queryBuilder = new QueryBuilder('#query-builder');
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
@@ -51,10 +53,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Set up event listeners for component communication
-    // Query Builder → Analysis Panel
+    // Dataset Browser → Analysis Panel
+    datasetBrowser.onSelection((dataset) => {
+        analysisPanel.setDataset(dataset);
+        analysisPanel.refreshDatasetSelector();
+    });
+    
+    // Query Builder → Analysis Panel & Dataset Browser
     queryBuilder.onDatasetCreated((dataset) => {
         analysisPanel.setDataset(dataset);
         analysisPanel.refreshDatasetSelector();
+        datasetBrowser.refresh();
     });
     
     // Analysis Panel → Visualization Panel

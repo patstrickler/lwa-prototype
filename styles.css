@@ -65,6 +65,23 @@ header h1 {
 
 main {
     position: relative;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.dataset-browser-sidebar {
+    flex: 0 0 320px;
+    min-width: 320px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
 }
 
 .page {
@@ -241,6 +258,213 @@ main {
         top: 0;
         max-height: 400px;
     }
+    
+    .dataset-browser-sidebar {
+        position: relative;
+        top: 0;
+        max-height: 400px;
+        flex: 0 0 100%;
+        margin-bottom: 20px;
+    }
+}
+
+/* Dataset Browser Styles */
+.dataset-browser {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.browser-header {
+    padding: 15px 20px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.browser-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-icon:hover {
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+.datasets-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.datasets-list .loading,
+.datasets-list .empty-state {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.dataset-item {
+    margin-bottom: 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background-color: #fff;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.dataset-item:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dataset-header {
+    padding: 12px 15px;
+    background-color: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.dataset-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    flex: 1;
+    text-align: left;
+    font-size: 14px;
+}
+
+.toggle-icon {
+    font-size: 10px;
+    color: #6c757d;
+    transition: transform 0.2s;
+    display: inline-block;
+    width: 12px;
+}
+
+.dataset-name {
+    font-weight: 600;
+    color: #495057;
+    flex: 1;
+}
+
+.dataset-name:hover {
+    color: #007bff;
+}
+
+.dataset-meta {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.dataset-rows {
+    background-color: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.dataset-details {
+    padding: 12px 15px;
+    background-color: #fff;
+    border-top: 1px solid #dee2e6;
+}
+
+.dataset-info {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.info-value {
+    color: #495057;
+}
+
+.columns-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.columns-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.column-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: background-color 0.2s;
+}
+
+.column-item:hover {
+    background-color: #e9ecef;
+}
+
+.column-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.column-name {
+    flex: 1;
+    color: #495057;
+    font-weight: 500;
+}
+
+.column-original {
+    font-size: 11px;
+    color: #6c757d;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    opacity: 0.7;
 }
 
 /* Query Builder Styles */
