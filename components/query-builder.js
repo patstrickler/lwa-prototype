@@ -29,17 +29,37 @@ export class QueryBuilder {
                 return;
             }
             
-            // Check if require is available (from loader.js)
-            if (typeof require === 'undefined') {
-                reject(new Error('Monaco Editor loader not found. Please ensure loader.js is loaded.'));
-                return;
-            }
+            // Wait for require to be available (from loader.js)
+            const checkRequire = () => {
+                if (typeof require !== 'undefined') {
+                    // Configure require if not already configured
+                    if (!require.config.hasOwnProperty('vs')) {
+                        require.config({ 
+                            paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } 
+                        });
+                    }
+                    
+                    require(['vs/editor/editor.main'], () => {
+                        if (window.monaco) {
+                            resolve();
+                        } else {
+                            reject(new Error('Monaco Editor failed to load'));
+                        }
+                    }, (err) => {
+                        console.error('Monaco Editor load error:', err);
+                        reject(new Error(`Failed to load Monaco Editor: ${err.message || err}`));
+                    });
+                } else {
+                    // Retry after a short delay
+                    setTimeout(checkRequire, 100);
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        reject(new Error('Monaco Editor loader (require) not found after 5 seconds. Please ensure loader.js is loaded.'));
+                    }, 5000);
+                }
+            };
             
-            require(['vs/editor/editor.main'], () => {
-                resolve();
-            }, (err) => {
-                reject(err);
-            });
+            checkRequire();
         });
     }
     

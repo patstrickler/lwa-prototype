@@ -36,7 +36,9 @@ export class VisualizationPanel {
                                  id="x-axis-display" 
                                  data-axis="x"
                                  draggable="false">
-                                <span class="selection-placeholder">Drag & drop or click to select</span>
+                                <div class="axis-selection-content">
+                                    <span class="selection-placeholder">Drag & drop or click to select</span>
+                                </div>
                                 <button class="axis-select-btn" data-axis="x" title="Click to select field">▼</button>
                             </div>
                         </div>
@@ -47,7 +49,9 @@ export class VisualizationPanel {
                                  id="y-axis-display" 
                                  data-axis="y"
                                  draggable="false">
-                                <span class="selection-placeholder">Drag & drop or click to select</span>
+                                <div class="axis-selection-content">
+                                    <span class="selection-placeholder">Drag & drop or click to select</span>
+                                </div>
                                 <button class="axis-select-btn" data-axis="y" title="Click to select field">▼</button>
                             </div>
                         </div>
@@ -1328,23 +1332,50 @@ export class VisualizationPanel {
     setupDragAndDrop(axisDisplay, axis) {
         if (!axisDisplay) return;
         
+        // Store drag type for visual feedback
+        let currentDragType = null;
+        
+        // Listen for dragenter to detect type from source
+        document.addEventListener('dragstart', (e) => {
+            const draggableItem = e.target.closest('.draggable-item');
+            if (draggableItem) {
+                currentDragType = draggableItem.getAttribute('data-type');
+            }
+        });
+        
+        document.addEventListener('dragend', () => {
+            currentDragType = null;
+        });
+        
         // Allow dropping
         axisDisplay.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
             axisDisplay.classList.add('drag-over');
+            
+            // Add type-specific class for visual feedback
+            if (currentDragType === 'column') {
+                axisDisplay.classList.add('column-drop');
+                axisDisplay.classList.remove('metric-drop');
+            } else if (currentDragType === 'metric') {
+                axisDisplay.classList.add('metric-drop');
+                axisDisplay.classList.remove('column-drop');
+            }
         });
         
         axisDisplay.addEventListener('dragleave', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            axisDisplay.classList.remove('drag-over');
+            // Only remove classes if we're actually leaving the drop zone
+            if (!axisDisplay.contains(e.relatedTarget)) {
+                axisDisplay.classList.remove('drag-over', 'column-drop', 'metric-drop');
+            }
         });
         
         axisDisplay.addEventListener('drop', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            axisDisplay.classList.remove('drag-over');
+            axisDisplay.classList.remove('drag-over', 'column-drop', 'metric-drop');
             
             const dragData = e.dataTransfer.getData('application/json');
             if (dragData) {
@@ -1357,6 +1388,7 @@ export class VisualizationPanel {
                     console.error('Error parsing drag data:', error);
                 }
             }
+            currentDragType = null;
         });
     }
     
@@ -1520,16 +1552,26 @@ export class VisualizationPanel {
         const display = this.container.querySelector(`#${displayId}`);
         if (!display) return;
         
+        // Get or create content container
+        let contentContainer = display.querySelector('.axis-selection-content');
+        if (!contentContainer) {
+            contentContainer = document.createElement('div');
+            contentContainer.className = 'axis-selection-content';
+            const placeholder = display.querySelector('.selection-placeholder');
+            if (placeholder && placeholder.parentNode) {
+                placeholder.parentNode.insertBefore(contentContainer, placeholder);
+            } else {
+                display.insertBefore(contentContainer, display.querySelector('.axis-select-btn'));
+            }
+        }
+        
+        // Clear content container
+        contentContainer.innerHTML = '';
+        
         // Clear placeholder
         const placeholder = display.querySelector('.selection-placeholder');
         if (placeholder) {
             placeholder.style.display = selection ? 'none' : 'block';
-        }
-        
-        // Remove existing selected item
-        const existing = display.querySelector('.selected-item');
-        if (existing) {
-            existing.remove();
         }
         
         if (!selection) {
@@ -1580,7 +1622,7 @@ export class VisualizationPanel {
             });
         }
         
-        display.appendChild(selectedItem);
+        contentContainer.appendChild(selectedItem);
     }
     
     formatMetricValue(value) {
