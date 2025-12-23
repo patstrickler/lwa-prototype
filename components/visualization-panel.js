@@ -122,16 +122,14 @@ export class VisualizationPanel {
         const xLabelInput = this.container.querySelector('#x-axis-label-input');
         const yLabelInput = this.container.querySelector('#y-axis-label-input');
         
-        // Chart type change - update field selection UI
+        // Chart type change - update field selection UI and preserve selections
         chartTypeSelect.addEventListener('change', () => {
             const chartType = chartTypeSelect.value;
             this.updateFieldSelectionUI(chartType);
-            // Clear existing selections when chart type changes
-            this.xAxisSelection = null;
-            this.yAxisSelection = null;
-            this.zAxisSelection = null;
-            this.tableFields = [];
-            this.clearChart();
+            // Preserve selections and auto-render if valid
+            requestAnimationFrame(() => {
+                this.autoRender();
+            });
         });
         
         if (clearBtn) {
@@ -357,15 +355,48 @@ export class VisualizationPanel {
         // Re-attach event listeners
         this.attachFieldSelectionListeners(chartType);
         
-        // Update displays if selections exist
-        if (this.xAxisSelection) {
-            this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
-        }
-        if (this.yAxisSelection) {
-            this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
-        }
-        if (this.zAxisSelection) {
-            this.updateAxisDisplay('z-axis-display', this.zAxisSelection);
+        // Preserve and map existing selections to new chart type
+        if (chartType === 'table') {
+            // For table, preserve existing selections as table fields
+            if (this.tableFields.length === 0) {
+                // Map X and Y to first two table fields if they exist
+                if (this.xAxisSelection) {
+                    this.tableFields.push(this.xAxisSelection);
+                }
+                if (this.yAxisSelection) {
+                    this.tableFields.push(this.yAxisSelection);
+                }
+            }
+            // Update table field displays
+            this.tableFields.forEach((field, idx) => {
+                if (field) {
+                    const fieldDisplay = container.querySelector(`[data-field-index="${idx}"]`);
+                    if (fieldDisplay) {
+                        const contentContainer = fieldDisplay.querySelector('.axis-selection-content');
+                        if (contentContainer) {
+                            contentContainer.innerHTML = this.renderFieldDisplay(field);
+                        }
+                    }
+                }
+            });
+        } else {
+            // For other chart types, preserve X, Y, Z as applicable
+            if (this.xAxisSelection && (chartType === 'scatter' || chartType === 'line' || chartType === 'bar' || chartType === 'pie' || chartType === 'donut')) {
+                this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
+            }
+            if (this.yAxisSelection) {
+                // Y axis is used in all chart types except when switching away from scorecard
+                if (chartType !== 'scorecard' || this.yAxisSelection) {
+                    this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+                }
+            }
+            if (this.zAxisSelection && chartType === 'scatter') {
+                this.updateAxisDisplay('z-axis-display', this.zAxisSelection);
+            }
+            // For scorecard, preserve Y axis
+            if (chartType === 'scorecard' && this.yAxisSelection) {
+                this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+            }
         }
     }
     

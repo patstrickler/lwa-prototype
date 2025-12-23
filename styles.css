@@ -2490,10 +2490,21 @@ main {
 }
 
 .builder-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.builder-form > .form-group:first-child {
+    margin-bottom: 10px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+#field-selection-container {
+    display: flex;
+    flex-direction: column;
     gap: 15px;
-    align-items: end;
 }
 
 .form-group {
