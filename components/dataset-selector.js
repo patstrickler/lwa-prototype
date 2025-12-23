@@ -18,6 +18,11 @@ export class DatasetSelector {
     }
     
     render() {
+        // Check if dropdown is currently open before re-rendering
+        const existingDropdown = this.container.querySelector('#dataset-dropdown');
+        const isDropdownOpen = existingDropdown && document.activeElement === existingDropdown;
+        const currentValue = existingDropdown ? existingDropdown.value : null;
+        
         this.container.innerHTML = `
             <div class="dataset-selector">
                 <label for="dataset-dropdown">Select Dataset:</label>
@@ -26,6 +31,18 @@ export class DatasetSelector {
                 </select>
             </div>
         `;
+        
+        // If dropdown was open, restore focus and value after a brief delay
+        // This prevents the dropdown from closing if render is called while it's open
+        if (isDropdownOpen && currentValue !== null) {
+            requestAnimationFrame(() => {
+                const newDropdown = this.container.querySelector('#dataset-dropdown');
+                if (newDropdown) {
+                    newDropdown.value = currentValue;
+                    // Don't restore focus automatically as it might interfere with user interaction
+                }
+            });
+        }
     }
     
     attachEventListeners() {
@@ -67,6 +84,24 @@ export class DatasetSelector {
         const dropdown = this.container.querySelector('#dataset-dropdown');
         if (!dropdown) return;
         
+        // Don't refresh if dropdown is currently open (has focus)
+        // This prevents the dropdown from closing when user is trying to select
+        if (document.activeElement === dropdown) {
+            // Defer refresh until dropdown loses focus
+            if (this._pendingRefresh) {
+                return; // Already have a pending refresh
+            }
+            this._pendingRefresh = true;
+            const handleBlur = () => {
+                dropdown.removeEventListener('blur', handleBlur);
+                this._pendingRefresh = false;
+                // Refresh after a small delay to ensure dropdown is fully closed
+                setTimeout(() => this.refresh(), 100);
+            };
+            dropdown.addEventListener('blur', handleBlur, { once: true });
+            return;
+        }
+        
         const datasets = datasetStore.getAll();
         const currentValue = dropdown.value;
         
@@ -85,16 +120,19 @@ export class DatasetSelector {
             fragment.appendChild(option);
         });
         
-        // Batch DOM update
+        // Batch DOM update - but only if dropdown is not open
         requestAnimationFrame(() => {
-            dropdown.innerHTML = '';
-            dropdown.appendChild(fragment);
-            
-            // If there's a selected dataset, maintain the selection
-            if (this.selectedDataset && datasets.find(d => d.id === this.selectedDataset.id)) {
-                dropdown.value = this.selectedDataset.id;
-            } else if (currentValue && datasets.find(d => d.id === currentValue)) {
-                dropdown.value = currentValue;
+            // Double-check dropdown is not open before clearing
+            if (document.activeElement !== dropdown) {
+                dropdown.innerHTML = '';
+                dropdown.appendChild(fragment);
+                
+                // If there's a selected dataset, maintain the selection
+                if (this.selectedDataset && datasets.find(d => d.id === this.selectedDataset.id)) {
+                    dropdown.value = this.selectedDataset.id;
+                } else if (currentValue && datasets.find(d => d.id === currentValue)) {
+                    dropdown.value = currentValue;
+                }
             }
         });
     }
