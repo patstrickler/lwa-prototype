@@ -35,46 +35,26 @@ export class VisualizationPanel {
                         </div>
                         
                         <div class="form-group">
-                            <label for="x-column-select">X Axis:</label>
-                            <select id="x-column-select" class="form-control" disabled>
-                                <option value="">-- Select X Column --</option>
+                            <label for="x-axis-select">X Axis:</label>
+                            <select id="x-axis-select" class="form-control" disabled>
+                                <option value="">-- Select X Axis --</option>
                             </select>
                         </div>
                         
                         <div class="form-group">
-                            <label for="y-select-type">Y Axis Type:</label>
-                            <select id="y-select-type" class="form-control" disabled>
-                                <option value="column">Column</option>
-                                <option value="metric">Metric</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group" id="metric-display-mode-group" style="display: none;">
-                            <label for="metric-display-mode">Metric Display:</label>
-                            <select id="metric-display-mode" class="form-control">
-                                <option value="kpi">KPI Card</option>
-                                <option value="reference">Reference Line (Overlay)</option>
+                            <label for="y-axis-select">Y Axis:</label>
+                            <select id="y-axis-select" class="form-control" disabled>
+                                <option value="">-- Select Y Axis --</option>
                             </select>
                         </div>
                         
                         <div class="form-group">
-                            <label for="y-column-select">Y Axis:</label>
-                            <select id="y-column-select" class="form-control" disabled>
-                                <option value="">-- Select Y Column --</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group" id="chart-type-group">
                             <label for="chart-type-select">Chart Type:</label>
                             <select id="chart-type-select" class="form-control">
                                 <option value="line">Line Chart</option>
                                 <option value="bar">Bar Chart</option>
                                 <option value="scatter">Scatter Plot</option>
                             </select>
-                        </div>
-                        
-                        <div class="form-actions">
-                            <button id="render-chart-btn" class="btn btn-primary" disabled>Render Chart</button>
                         </div>
                     </div>
                     
@@ -128,37 +108,71 @@ export class VisualizationPanel {
     
     attachEventListeners() {
         const datasetSelect = this.container.querySelector('#dataset-select');
-        const xColumnSelect = this.container.querySelector('#x-column-select');
-        const ySelectType = this.container.querySelector('#y-select-type');
-        const yColumnSelect = this.container.querySelector('#y-column-select');
-        const metricDisplayMode = this.container.querySelector('#metric-display-mode');
-        const renderBtn = this.container.querySelector('#render-chart-btn');
+        const xAxisSelect = this.container.querySelector('#x-axis-select');
+        const yAxisSelect = this.container.querySelector('#y-axis-select');
+        const chartTypeSelect = this.container.querySelector('#chart-type-select');
         const stylingToggle = this.container.querySelector('#styling-toggle');
         const seriesColorInput = this.container.querySelector('#series-color-input');
         const seriesColorText = this.container.querySelector('#series-color-text');
+        const trendlineToggle = this.container.querySelector('#trendline-toggle');
+        const titleInput = this.container.querySelector('#chart-title-input');
+        const xLabelInput = this.container.querySelector('#x-axis-label-input');
+        const yLabelInput = this.container.querySelector('#y-axis-label-input');
         
-        datasetSelect.addEventListener('change', () => this.onDatasetSelected());
-        xColumnSelect.addEventListener('change', () => this.updateRenderButtonState());
-        ySelectType.addEventListener('change', () => this.onYTypeChanged());
-        yColumnSelect.addEventListener('change', () => this.updateRenderButtonState());
-        metricDisplayMode.addEventListener('change', () => this.onMetricDisplayModeChanged());
-        renderBtn.addEventListener('click', () => this.renderChart());
+        // Auto-render on selection changes
+        datasetSelect.addEventListener('change', () => {
+            this.onDatasetSelected();
+            this.autoRender();
+        });
+        xAxisSelect.addEventListener('change', () => this.autoRender());
+        yAxisSelect.addEventListener('change', () => this.autoRender());
+        chartTypeSelect.addEventListener('change', () => this.autoRender());
         
-        // Styling controls
+        // Styling controls - also trigger auto-render
         if (stylingToggle) {
             stylingToggle.addEventListener('click', () => this.toggleStylingPanel());
         }
         
-        // Sync color picker and text input
+        // Sync color picker and text input, trigger render
         if (seriesColorInput && seriesColorText) {
             seriesColorInput.addEventListener('input', (e) => {
                 seriesColorText.value = e.target.value;
+                this.autoRender();
             });
             seriesColorText.addEventListener('input', (e) => {
                 const color = e.target.value;
                 if (/^#[0-9A-F]{6}$/i.test(color)) {
                     seriesColorInput.value = color;
+                    this.autoRender();
                 }
+            });
+        }
+        
+        // Trendline toggle triggers render
+        if (trendlineToggle) {
+            trendlineToggle.addEventListener('change', () => this.autoRender());
+        }
+        
+        // Label inputs trigger render (with debounce)
+        if (titleInput) {
+            let titleTimeout;
+            titleInput.addEventListener('input', () => {
+                clearTimeout(titleTimeout);
+                titleTimeout = setTimeout(() => this.autoRender(), 500);
+            });
+        }
+        if (xLabelInput) {
+            let xLabelTimeout;
+            xLabelInput.addEventListener('input', () => {
+                clearTimeout(xLabelTimeout);
+                xLabelTimeout = setTimeout(() => this.autoRender(), 500);
+            });
+        }
+        if (yLabelInput) {
+            let yLabelTimeout;
+            yLabelInput.addEventListener('input', () => {
+                clearTimeout(yLabelTimeout);
+                yLabelTimeout = setTimeout(() => this.autoRender(), 500);
             });
         }
     }
@@ -204,18 +218,14 @@ export class VisualizationPanel {
     onDatasetSelected() {
         const datasetSelect = this.container.querySelector('#dataset-select');
         const datasetId = datasetSelect.value;
-        const xColumnSelect = this.container.querySelector('#x-column-select');
-        const yColumnSelect = this.container.querySelector('#y-column-select');
-        const ySelectType = this.container.querySelector('#y-select-type');
-        const renderBtn = this.container.querySelector('#render-chart-btn');
+        const xAxisSelect = this.container.querySelector('#x-axis-select');
+        const yAxisSelect = this.container.querySelector('#y-axis-select');
         
         if (!datasetId) {
-            xColumnSelect.disabled = true;
-            yColumnSelect.disabled = true;
-            ySelectType.disabled = true;
-            renderBtn.disabled = true;
-            xColumnSelect.innerHTML = '<option value="">-- Select X Column --</option>';
-            yColumnSelect.innerHTML = '<option value="">-- Select Y Column --</option>';
+            xAxisSelect.disabled = true;
+            yAxisSelect.disabled = true;
+            xAxisSelect.innerHTML = '<option value="">-- Select X Axis --</option>';
+            yAxisSelect.innerHTML = '<option value="">-- Select Y Axis --</option>';
             this.currentDataset = null;
             return;
         }
@@ -227,135 +237,92 @@ export class VisualizationPanel {
         
         this.currentDataset = dataset;
         
-        // Enable controls
-        ySelectType.disabled = false;
+        // Populate both X and Y axis selectors with columns and metrics
+        this.populateAxisSelector(xAxisSelect, dataset);
+        this.populateAxisSelector(yAxisSelect, dataset);
         
-        // Populate X column options
-        xColumnSelect.innerHTML = '<option value="">-- Select X Column --</option>';
+        xAxisSelect.disabled = false;
+        yAxisSelect.disabled = false;
+    }
+    
+    /**
+     * Populates an axis selector with columns and metrics from the dataset
+     * @param {HTMLElement} selector - The select element to populate
+     * @param {Object} dataset - The dataset object
+     */
+    populateAxisSelector(selector, dataset) {
+        selector.innerHTML = '<option value="">-- Select --</option>';
+        
+        // Add columns section
         if (dataset.columns && dataset.columns.length > 0) {
+            const columnGroup = document.createElement('optgroup');
+            columnGroup.label = 'Columns';
             dataset.columns.forEach(column => {
                 const option = document.createElement('option');
-                option.value = column;
-                option.textContent = this.formatColumnName(column);
-                xColumnSelect.appendChild(option);
+                option.value = `column:${column}`;
+                option.textContent = `📊 ${this.formatColumnName(column)}`;
+                columnGroup.appendChild(option);
             });
-            xColumnSelect.disabled = false;
+            selector.appendChild(columnGroup);
         }
         
-        // Populate Y column options
-        this.updateYColumnOptions();
-        
-        // Update render button state
-        this.updateRenderButtonState();
+        // Add metrics section
+        const metrics = metricsStore.getByDataset(dataset.id);
+        if (metrics && metrics.length > 0) {
+            const metricGroup = document.createElement('optgroup');
+            metricGroup.label = 'Metrics';
+            metrics.forEach(metric => {
+                const option = document.createElement('option');
+                option.value = `metric:${metric.id}`;
+                option.textContent = `📈 ${metric.name} (${this.formatMetricValue(metric.value)})`;
+                metricGroup.appendChild(option);
+            });
+            selector.appendChild(metricGroup);
+        }
     }
     
-    onYTypeChanged() {
-        const ySelectType = this.container.querySelector('#y-select-type');
-        const metricDisplayModeGroup = this.container.querySelector('#metric-display-mode-group');
-        const chartTypeGroup = this.container.querySelector('#chart-type-group');
-        const xColumnSelect = this.container.querySelector('#x-column-select');
+    formatMetricValue(value) {
+        const num = parseFloat(value);
+        if (isNaN(num)) return String(value);
         
-        if (ySelectType.value === 'metric') {
-            // Show metric display mode selector
-            metricDisplayModeGroup.style.display = 'block';
-            this.onMetricDisplayModeChanged();
+        if (num >= 1000000) {
+            return (num / 1000000).toFixed(2) + 'M';
+        } else if (num >= 1000) {
+            return (num / 1000).toFixed(2) + 'K';
+        } else if (num % 1 === 0) {
+            return num.toString();
         } else {
-            // Hide metric display mode selector
-            metricDisplayModeGroup.style.display = 'none';
-            chartTypeGroup.style.display = 'block';
-            xColumnSelect.disabled = false;
+            return num.toFixed(2);
         }
-        
-        this.updateYColumnOptions();
-        this.updateRenderButtonState();
     }
     
-    onMetricDisplayModeChanged() {
-        const metricDisplayMode = this.container.querySelector('#metric-display-mode');
-        const chartTypeGroup = this.container.querySelector('#chart-type-group');
-        const xColumnSelect = this.container.querySelector('#x-column-select');
+    /**
+     * Auto-renders the chart when selections change
+     */
+    autoRender() {
+        const datasetSelect = this.container.querySelector('#dataset-select');
+        const xAxisSelect = this.container.querySelector('#x-axis-select');
+        const yAxisSelect = this.container.querySelector('#y-axis-select');
         
-        if (metricDisplayMode.value === 'kpi') {
-            // KPI mode: hide chart type and X column (not needed for KPI)
-            chartTypeGroup.style.display = 'none';
-            xColumnSelect.disabled = true;
-        } else {
-            // Reference line mode: show chart type and enable X column
-            chartTypeGroup.style.display = 'block';
-            xColumnSelect.disabled = false;
-        }
-        
-        this.updateRenderButtonState();
-    }
-    
-    updateYColumnOptions() {
-        const ySelectType = this.container.querySelector('#y-select-type');
-        const yColumnSelect = this.container.querySelector('#y-column-select');
-        const yType = ySelectType ? ySelectType.value : 'column';
-        
-        if (!this.currentDataset) {
-            yColumnSelect.innerHTML = '<option value="">-- Select Y Column --</option>';
-            yColumnSelect.disabled = true;
+        if (!datasetSelect.value || !xAxisSelect.value || !yAxisSelect.value) {
+            // Clear chart if not all required fields are selected
+            this.clearChart();
             return;
         }
         
-        yColumnSelect.innerHTML = '<option value="">-- Select --</option>';
-        
-        if (yType === 'column') {
-            // Show dataset columns
-            if (this.currentDataset.columns && this.currentDataset.columns.length > 0) {
-                this.currentDataset.columns.forEach(column => {
-                    const option = document.createElement('option');
-                    option.value = column;
-                    option.textContent = this.formatColumnName(column);
-                    yColumnSelect.appendChild(option);
-                });
-            }
-            yColumnSelect.disabled = false;
-        } else if (yType === 'metric') {
-            // Show metrics for this dataset
-            const metrics = metricsStore.getByDataset(this.currentDataset.id);
-            if (metrics && metrics.length > 0) {
-                metrics.forEach(metric => {
-                    const option = document.createElement('option');
-                    option.value = metric.id;
-                    option.textContent = `${metric.name} (${metric.value})`;
-                    yColumnSelect.appendChild(option);
-                });
-            } else {
-                yColumnSelect.innerHTML = '<option value="">No metrics available</option>';
-            }
-            yColumnSelect.disabled = false;
-        }
+        // Render chart automatically
+        this.renderChart();
     }
     
-    updateRenderButtonState() {
-        const datasetSelect = this.container.querySelector('#dataset-select');
-        const xColumnSelect = this.container.querySelector('#x-column-select');
-        const yColumnSelect = this.container.querySelector('#y-column-select');
-        const ySelectType = this.container.querySelector('#y-select-type');
-        const metricDisplayMode = this.container.querySelector('#metric-display-mode');
-        const renderBtn = this.container.querySelector('#render-chart-btn');
-        
-        let canRender = false;
-        
-        if (datasetSelect.value && yColumnSelect.value) {
-            if (ySelectType.value === 'metric') {
-                const displayMode = metricDisplayMode ? metricDisplayMode.value : 'kpi';
-                if (displayMode === 'kpi') {
-                    // KPI mode: only needs dataset and metric
-                    canRender = true;
-                } else {
-                    // Reference line mode: needs X column too
-                    canRender = xColumnSelect.value && !xColumnSelect.disabled;
-                }
-            } else {
-                // Column mode: needs X and Y columns
-                canRender = xColumnSelect.value && !xColumnSelect.disabled;
-            }
+    /**
+     * Clears the current chart
+     */
+    clearChart() {
+        const chartsContainer = this.container.querySelector('#charts-container');
+        if (chartsContainer) {
+            chartsContainer.innerHTML = '';
         }
-        
-        renderBtn.disabled = !canRender;
+        this.charts = [];
     }
     
     formatColumnName(column) {
@@ -484,129 +451,145 @@ export class VisualizationPanel {
         };
     }
     
-    async renderChart() {
+    renderChart() {
         const datasetSelect = this.container.querySelector('#dataset-select');
-        const xColumnSelect = this.container.querySelector('#x-column-select');
-        const yColumnSelect = this.container.querySelector('#y-column-select');
-        const ySelectType = this.container.querySelector('#y-select-type');
+        const xAxisSelect = this.container.querySelector('#x-axis-select');
+        const yAxisSelect = this.container.querySelector('#y-axis-select');
         const chartTypeSelect = this.container.querySelector('#chart-type-select');
-        const metricDisplayMode = this.container.querySelector('#metric-display-mode');
         
         const datasetId = datasetSelect.value;
-        const xColumn = xColumnSelect.value;
-        const yValue = yColumnSelect.value;
-        const yType = ySelectType.value;
+        const xAxisValue = xAxisSelect.value;
+        const yAxisValue = yAxisSelect.value;
         const chartType = chartTypeSelect ? chartTypeSelect.value : 'line';
-        const displayMode = metricDisplayMode ? metricDisplayMode.value : 'kpi';
         
-        if (!datasetId || !yValue) {
-            this.showError('Please select a dataset and Y axis column or metric to create a chart.');
+        if (!datasetId || !xAxisValue || !yAxisValue) {
             return;
         }
         
-        // Handle metric-based visualizations
-        if (yType === 'metric') {
-            const metric = metricsStore.get(yValue);
-            if (!metric) {
-                this.showError('Cannot create chart: Selected metric not found. Please select a valid metric.');
-                return;
-            }
-            
-            // Check if metric has a valid value
-            if (metric.value === null || metric.value === undefined) {
-                this.showError(`Cannot create chart: Metric "${metric.name}" has no value. The metric calculation may have failed.`);
-                return;
-            }
-            
-            if (displayMode === 'kpi') {
-                // Render KPI card
-                this.renderKPICard(metric);
-                return;
-            } else {
-                // Reference line mode: need X column and dataset data
-                if (!xColumn) {
-                    this.showError('Please select an X axis column for the reference line overlay.');
-                    return;
-                }
-                
-                const dataset = datasetStore.get(datasetId);
-                if (!dataset) {
-                    this.showError('Cannot create chart: Dataset not found. Please select a valid dataset.');
-                    return;
-                }
-                
-                // Check if dataset is empty
-                if (!dataset.rows || dataset.rows.length === 0) {
-                    this.showError('Cannot create chart: The selected dataset is empty. Please select a dataset with data.');
-                    return;
-                }
-                
-                // Check if dataset has columns
-                if (!dataset.columns || dataset.columns.length === 0) {
-                    this.showError('Cannot create chart: The selected dataset has no columns.');
-                    return;
-                }
-                
-                // Validate that selected columns exist
-                if (!dataset.columns.includes(xColumn)) {
-                    this.showError(`Cannot create chart: Column "${xColumn}" not found in dataset. Available columns: ${dataset.columns.join(', ')}`);
-                    return;
-                }
-                
-                const data = this.getDatasetData(dataset);
-                if (!data || data.length === 0) {
-                    this.showError('Cannot create chart: The dataset contains no data rows.');
-                    return;
-                }
-                
-                // Render chart with metric as reference line
-                await this.renderChartWithReferenceLine(datasetId, xColumn, yValue, chartType, metric);
-                return;
-            }
-        }
-        
-        // Handle column-based charts (existing logic)
-        if (!xColumn) {
-            this.showError('Please select an X axis column to create a chart.');
-            return;
-        }
+        // Clear previous chart
+        this.clearChart();
         
         const dataset = datasetStore.get(datasetId);
         if (!dataset) {
-            this.showError('Cannot create chart: Dataset not found. Please select a valid dataset.');
             return;
         }
         
-        // Check if dataset is empty
-        if (!dataset.rows || dataset.rows.length === 0) {
-            this.showError('Cannot create chart: The selected dataset is empty. Please select a dataset with data.');
+        // Parse axis values (format: "column:name" or "metric:id")
+        const parseAxisValue = (value) => {
+            if (!value) return null;
+            const [type, ...rest] = value.split(':');
+            const id = rest.join(':'); // In case the ID contains colons
+            return { type, id };
+        };
+        
+        const xAxis = parseAxisValue(xAxisValue);
+        const yAxis = parseAxisValue(yAxisValue);
+        
+        if (!xAxis || !yAxis) {
             return;
         }
         
-        // Check if dataset has columns
-        if (!dataset.columns || dataset.columns.length === 0) {
-            this.showError('Cannot create chart: The selected dataset has no columns.');
+        // Handle special case: both axes are metrics - show KPI cards
+        if (xAxis.type === 'metric' && yAxis.type === 'metric') {
+            const xMetric = metricsStore.get(xAxis.id);
+            const yMetric = metricsStore.get(yAxis.id);
+            if (xMetric) this.renderKPICard(xMetric);
+            if (yMetric) this.renderKPICard(yMetric);
             return;
         }
         
-        // Validate that selected columns exist
-        if (!dataset.columns.includes(xColumn)) {
-            this.showError(`Cannot create chart: Column "${xColumn}" not found in dataset. Available columns: ${dataset.columns.join(', ')}`);
+        // Handle case where Y is a metric but X is a column - show reference line
+        if (yAxis.type === 'metric' && xAxis.type === 'column') {
+            const metric = metricsStore.get(yAxis.id);
+            if (!metric) return;
+            
+            const data = this.getDatasetData(dataset);
+            if (!data || data.length === 0) return;
+            
+            // Find a numeric column for the main series
+            const numericColumns = dataset.columns.filter(col => {
+                const sampleValue = data[0] && data[0][col];
+                return sampleValue !== null && sampleValue !== undefined && 
+                       (typeof sampleValue === 'number' || !isNaN(parseFloat(sampleValue)));
+            });
+            
+            if (numericColumns.length === 0) {
+                // No numeric columns, just show the metric as reference line with X column
+                this.renderChartWithReferenceLine(datasetId, xAxis.id, yAxis.id, chartType, metric);
+                return;
+            }
+            
+            // Use first numeric column as main series
+            const mainColumn = numericColumns[0];
+            this.renderChartWithReferenceLine(datasetId, xAxis.id, yAxis.id, chartType, metric, mainColumn);
             return;
         }
         
-        if (yType === 'column' && !dataset.columns.includes(yValue)) {
-            this.showError(`Cannot create chart: Column "${yValue}" not found in dataset. Available columns: ${dataset.columns.join(', ')}`);
+        // Standard case: both axes are columns, or X is metric and Y is column
+        // For now, we'll require at least one column for the chart
+        if (xAxis.type !== 'column' && yAxis.type !== 'column') {
             return;
         }
         
         const data = this.getDatasetData(dataset);
-        if (!data || data.length === 0) {
-            this.showError('Cannot create chart: The dataset contains no data rows.');
+        if (!data || data.length === 0) return;
+        
+        // Determine X and Y columns/values
+        let xColumn, yColumn, yLabel;
+        
+        if (xAxis.type === 'column') {
+            xColumn = xAxis.id;
+        } else {
+            // X is metric - use index or first column
+            xColumn = dataset.columns[0] || 'index';
+        }
+        
+        if (yAxis.type === 'column') {
+            yColumn = yAxis.id;
+            yLabel = this.formatColumnName(yColumn);
+        } else {
+            // Y is metric - create constant value series
+            const metric = metricsStore.get(yAxis.id);
+            if (!metric) return;
+            
+            // Create data with metric value
+            const metricData = data.map(row => ({
+                x: row[xColumn],
+                y: parseFloat(metric.value) || 0
+            }));
+            
+            const seriesData = this.convertToHighchartsSeries(metricData, 'x', 'y', chartType);
+            yLabel = metric.name;
+            
+            const chartId = `chart_${Date.now()}`;
+            const chartContainer = document.createElement('div');
+            chartContainer.id = chartId;
+            chartContainer.className = 'chart-wrapper';
+            
+            const chartsContainer = this.container.querySelector('#charts-container');
+            chartsContainer.appendChild(chartContainer);
+            
+            const stylingOptions = this.getStylingOptions();
+            
+            this.renderHighchart(chartId, chartType, seriesData, {
+                xLabel: stylingOptions.xLabel || this.formatColumnName(xColumn),
+                yLabel: stylingOptions.yLabel || yLabel,
+                title: stylingOptions.title || `${yLabel} vs ${this.formatColumnName(xColumn)}`,
+                color: stylingOptions.color,
+                showTrendline: stylingOptions.showTrendline
+            });
             return;
         }
         
-        // Create chart container div
+        // Both are columns - standard chart
+        let seriesData;
+        try {
+            seriesData = this.convertToHighchartsSeries(data, xColumn, yColumn, chartType);
+        } catch (error) {
+            console.error('Error preparing chart data:', error);
+            return;
+        }
+        
         const chartId = `chart_${Date.now()}`;
         const chartContainer = document.createElement('div');
         chartContainer.id = chartId;
@@ -615,22 +598,8 @@ export class VisualizationPanel {
         const chartsContainer = this.container.querySelector('#charts-container');
         chartsContainer.appendChild(chartContainer);
         
-        // Use Y column from dataset - convert rows to Highcharts series format
-        let seriesData;
-        let yLabel;
-        try {
-            seriesData = this.convertToHighchartsSeries(data, xColumn, yValue, chartType);
-            yLabel = this.formatColumnName(yValue);
-        } catch (error) {
-            this.showError(error.message || 'Error preparing chart data');
-            chartContainer.remove();
-            return;
-        }
-        
-        // Collect styling options
         const stylingOptions = this.getStylingOptions();
         
-        // Render with Highcharts
         this.renderHighchart(chartId, chartType, seriesData, {
             xLabel: stylingOptions.xLabel || this.formatColumnName(xColumn),
             yLabel: stylingOptions.yLabel || yLabel,
@@ -703,34 +672,40 @@ export class VisualizationPanel {
      * @param {string} chartType - Chart type (line, bar)
      * @param {Object} metric - Metric object
      */
-    async renderChartWithReferenceLine(datasetId, xColumn, metricId, chartType, metric) {
+    renderChartWithReferenceLine(datasetId, xColumn, metricId, chartType, metric, mainColumn = null) {
         const dataset = datasetStore.get(datasetId);
         if (!dataset) {
-            await Modal.alert('Dataset not found.');
             return;
         }
         
         const data = this.getDatasetData(dataset);
         if (!data || data.length === 0) {
-            await Modal.alert('Dataset has no data.');
             return;
         }
         
         // For reference line, we need a Y column to plot
-        // Let's use the first numeric column as the main series
-        const numericColumns = dataset.columns.filter(col => {
-            const sampleValue = data[0] && data[0][col];
-            return sampleValue !== null && sampleValue !== undefined && 
-                   (typeof sampleValue === 'number' || !isNaN(parseFloat(sampleValue)));
-        });
+        let yColumn = mainColumn;
         
-        if (numericColumns.length === 0) {
-            await Modal.alert('No numeric columns found in dataset for reference line chart.');
-            return;
+        if (!yColumn) {
+            // Use the first numeric column as the main series
+            const numericColumns = dataset.columns.filter(col => {
+                const sampleValue = data[0] && data[0][col];
+                return sampleValue !== null && sampleValue !== undefined && 
+                       (typeof sampleValue === 'number' || !isNaN(parseFloat(sampleValue)));
+            });
+            
+            if (numericColumns.length === 0) {
+                // No numeric columns - just show the reference line
+                yColumn = null;
+            } else {
+                yColumn = numericColumns[0];
+            }
         }
         
-        // Use the first numeric column (or allow user to select - for now use first)
-        const yColumn = numericColumns[0];
+        if (!yColumn) {
+            // Can't render without a Y column
+            return;
+        }
         
         // Create chart container div
         const chartId = `chart_${Date.now()}`;
