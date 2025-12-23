@@ -150,7 +150,7 @@ export class VisualizationPanel {
         }
         
         // Click handlers for axis selection dropdown
-        const axisSelectBtns = this.querySelectorAll('.axis-select-btn');
+        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
         axisSelectBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -449,7 +449,7 @@ export class VisualizationPanel {
         });
         
         // Click handlers for axis selection buttons
-        const axisSelectBtns = this.querySelectorAll('.axis-select-btn');
+        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
         axisSelectBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
