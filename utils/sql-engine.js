@@ -108,16 +108,37 @@ function parseAndExecuteSQL(sql) {
         }
     }
     
-    // Generate mock rows with JOIN support
-    const rowCount = limit || (whereMatch ? 5 : 10);
-    const rows = generateJoinedRows(expandedColumnSpecs, tableInfo, tableMap, rowCount);
+    // Parse WHERE clause if present
+    let whereClause = null;
+    if (whereMatch) {
+        // Extract WHERE clause - everything after WHERE until ORDER BY, GROUP BY, HAVING, LIMIT, or end
+        const whereMatchFull = originalSQL.match(/where\s+((?:(?!\s+(?:order\s+by|group\s+by|having|limit)\b).)+)/is);
+        if (whereMatchFull) {
+            whereClause = whereMatchFull[1].trim();
+        }
+    }
+    
+    // Generate mock rows with JOIN support (generate more rows so we can filter)
+    const baseRowCount = limit || (whereMatch ? 20 : 10);
+    const rows = generateJoinedRows(expandedColumnSpecs, tableInfo, tableMap, baseRowCount);
+    
+    // Apply WHERE clause filtering if present
+    let filteredRows = rows;
+    if (whereClause && rows.length > 0) {
+        filteredRows = applyWhereClause(rows, expandedColumnSpecs, whereClause);
+    }
+    
+    // Apply LIMIT after filtering
+    if (limit !== null && limit > 0) {
+        filteredRows = filteredRows.slice(0, limit);
+    }
     
     // Extract column names for output (use aliases if present, otherwise use column names)
     const columns = expandedColumnSpecs.map(spec => spec.alias || spec.columnName);
     
     return {
         columns,
-        rows
+        rows: filteredRows
     };
 }
 
@@ -497,6 +518,212 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
     }
     
     return rows;
+}
+
+/**
+ * Applies WHERE clause filtering to rows
+ * @param {any[][]} rows - Array of row arrays
+ * @param {Array} columnSpecs - Column specifications
+ * @param {string} whereClause - WHERE clause string
+ * @returns {any[][]}
+ */
+function applyWhereClause(rows, columnSpecs, whereClause) {
+    if (!rows || rows.length === 0) return rows;
+    
+    // Create a map of column names to indices
+    const columnMap = {};
+    columnSpecs.forEach((spec, index) => {
+        const colName = spec.alias || spec.columnName;
+        columnMap[colName.toLowerCase()] = index;
+        // Also map unqualified column name
+        if (spec.tableAlias) {
+            columnMap[`${spec.tableAlias}.${spec.columnName}`.toLowerCase()] = index;
+        }
+    });
+    
+    const normalizedWhere = whereClause.toLowerCase().trim();
+    const filteredRows = [];
+    
+    for (const row of rows) {
+        if (evaluateWhereCondition(row, columnMap, normalizedWhere, whereClause)) {
+            filteredRows.push(row);
+        }
+    }
+    
+    return filteredRows;
+}
+
+/**
+ * Evaluates a WHERE condition for a single row
+ * @param {any[]} row - Row data array
+ * @param {Object} columnMap - Map of column names to indices
+ * @param {string} normalizedWhere - Lowercase WHERE clause
+ * @param {string} originalWhere - Original WHERE clause (for value extraction)
+ * @returns {boolean}
+ */
+function evaluateWhereCondition(row, columnMap, normalizedWhere, originalWhere) {
+    // Simple WHERE clause evaluation
+    // Supports: column = value, column > value, column < value, column >= value, column <= value, column != value
+    // Also supports: column LIKE 'pattern', column IN (value1, value2), column IS NULL, column IS NOT NULL
+    // Supports AND, OR operators
+    
+    // Split by AND/OR (simple approach)
+    const andParts = normalizedWhere.split(/\s+and\s+/);
+    
+    // All AND conditions must be true
+    for (const andPart of andParts) {
+        const orParts = andPart.split(/\s+or\s+/);
+        
+        // At least one OR condition must be true
+        let orResult = false;
+        for (const condition of orParts) {
+            if (evaluateSingleCondition(row, columnMap, condition.trim(), originalWhere)) {
+                orResult = true;
+                break;
+            }
+        }
+        
+        if (!orResult) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * Evaluates a single WHERE condition
+ * @param {any[]} row - Row data array
+ * @param {Object} columnMap - Map of column names to indices
+ * @param {string} condition - Single condition (lowercase)
+ * @param {string} originalWhere - Original WHERE clause for value extraction
+ * @returns {boolean}
+ */
+function evaluateSingleCondition(row, columnMap, condition, originalWhere) {
+    // Handle IS NULL / IS NOT NULL
+    if (condition.includes('is null')) {
+        const colMatch = condition.match(/(\w+)\s+is\s+null/);
+        if (colMatch) {
+            const colName = colMatch[1].toLowerCase();
+            const colIndex = columnMap[colName];
+            if (colIndex !== undefined) {
+                return row[colIndex] === null || row[colIndex] === undefined;
+            }
+        }
+        return false;
+    }
+    
+    if (condition.includes('is not null')) {
+        const colMatch = condition.match(/(\w+)\s+is\s+not\s+null/);
+        if (colMatch) {
+            const colName = colMatch[1].toLowerCase();
+            const colIndex = columnMap[colName];
+            if (colIndex !== undefined) {
+                return row[colIndex] !== null && row[colIndex] !== undefined;
+            }
+        }
+        return false;
+    }
+    
+    // Handle comparison operators: =, !=, <, >, <=, >=
+    const operators = ['!=', '<=', '>=', '=', '<', '>'];
+    for (const op of operators) {
+        if (condition.includes(op)) {
+            const parts = condition.split(op);
+            if (parts.length === 2) {
+                const colName = parts[0].trim().toLowerCase();
+                const valueStr = parts[1].trim();
+                const colIndex = columnMap[colName];
+                
+                if (colIndex !== undefined) {
+                    const rowValue = row[colIndex];
+                    const compareValue = parseValue(valueStr);
+                    
+                    if (compareValue !== null) {
+                        switch (op) {
+                            case '=':
+                                return compareValues(rowValue, compareValue) === 0;
+                            case '!=':
+                                return compareValues(rowValue, compareValue) !== 0;
+                            case '>':
+                                return compareValues(rowValue, compareValue) > 0;
+                            case '<':
+                                return compareValues(rowValue, compareValue) < 0;
+                            case '>=':
+                                return compareValues(rowValue, compareValue) >= 0;
+                            case '<=':
+                                return compareValues(rowValue, compareValue) <= 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Handle LIKE
+    if (condition.includes(' like ')) {
+        const likeMatch = condition.match(/(\w+)\s+like\s+(.+)/);
+        if (likeMatch) {
+            const colName = likeMatch[1].toLowerCase();
+            const pattern = likeMatch[2].trim().replace(/^['"]|['"]$/g, '').replace(/%/g, '.*').replace(/_/g, '.');
+            const colIndex = columnMap[colName];
+            if (colIndex !== undefined) {
+                const rowValue = String(row[colIndex] || '');
+                try {
+                    const regex = new RegExp(`^${pattern}$`, 'i');
+                    return regex.test(rowValue);
+                } catch (e) {
+                    return false;
+                }
+            }
+        }
+    }
+    
+    // Default: return true (don't filter if we can't evaluate)
+    return true;
+}
+
+/**
+ * Parses a value from WHERE clause
+ * @param {string} valueStr - Value string (may be quoted)
+ * @returns {any}
+ */
+function parseValue(valueStr) {
+    valueStr = valueStr.trim();
+    
+    // Remove quotes
+    if ((valueStr.startsWith('"') && valueStr.endsWith('"')) ||
+        (valueStr.startsWith("'") && valueStr.endsWith("'"))) {
+        valueStr = valueStr.slice(1, -1);
+    }
+    
+    // Try to parse as number
+    if (/^-?\d+$/.test(valueStr)) {
+        return parseInt(valueStr, 10);
+    }
+    if (/^-?\d+\.\d+$/.test(valueStr)) {
+        return parseFloat(valueStr);
+    }
+    
+    // Return as string
+    return valueStr;
+}
+
+/**
+ * Compares two values
+ * @param {any} a - First value
+ * @param {any} b - Second value
+ * @returns {number} - Negative if a < b, 0 if a == b, positive if a > b
+ */
+function compareValues(a, b) {
+    if (a === null || a === undefined) return b === null || b === undefined ? 0 : -1;
+    if (b === null || b === undefined) return 1;
+    
+    if (typeof a === 'number' && typeof b === 'number') {
+        return a - b;
+    }
+    
+    return String(a).localeCompare(String(b));
 }
 
 /**

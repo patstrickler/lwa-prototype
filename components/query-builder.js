@@ -4,6 +4,7 @@
 import { executeSQL } from '../utils/sql-engine.js';
 import { getAllTables } from '../utils/sql-engine.js';
 import { Modal } from '../utils/modal.js';
+import { getSuggestions, getWordStartPosition } from '../utils/autocomplete.js';
 
 export class QueryBuilder {
     constructor(containerSelector) {
@@ -25,6 +26,7 @@ export class QueryBuilder {
             <div class="query-builder">
                 <div class="sql-editor-wrapper">
                     <textarea id="sql-editor" class="sql-editor" placeholder="Enter your SQL query here..."></textarea>
+                    <div id="sql-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
                 </div>
                 <div class="query-actions">
                     <button id="run-query" class="btn btn-primary">Run Query</button>
@@ -64,10 +66,177 @@ export class QueryBuilder {
             return;
         }
         
+        // Autocomplete state
+        this.suggestions = [];
+        this.selectedSuggestionIndex = -1;
+        this.autocompleteVisible = false;
+        
+        // Input handler for autocomplete
+        this.editor.addEventListener('input', (e) => this.handleInput(e));
+        this.editor.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.container.contains(e.target)) {
+                this.hideSuggestions();
+            }
+        });
+        
         runBtn.addEventListener('click', () => this.executeQuery());
         clearBtn.addEventListener('click', () => this.clearQuery());
         saveBtn.addEventListener('click', () => this.saveAsDataset());
         updateBtn.addEventListener('click', () => this.updateDataset());
+    }
+    
+    handleInput(e) {
+        this.updateSuggestions();
+    }
+    
+    handleKeyDown(e) {
+        const suggestionsDiv = this.container.querySelector('#sql-autocomplete-suggestions');
+        
+        if (!this.autocompleteVisible || this.suggestions.length === 0) {
+            return;
+        }
+        
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.selectedSuggestionIndex = Math.min(
+                    this.selectedSuggestionIndex + 1,
+                    this.suggestions.length - 1
+                );
+                this.highlightSuggestion();
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, -1);
+                this.highlightSuggestion();
+                break;
+                
+            case 'Enter':
+            case 'Tab':
+                if (this.selectedSuggestionIndex >= 0) {
+                    e.preventDefault();
+                    this.insertSuggestion(this.suggestions[this.selectedSuggestionIndex]);
+                }
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                this.hideSuggestions();
+                break;
+        }
+    }
+    
+    updateSuggestions() {
+        if (!this.editor) return;
+        
+        const sql = this.editor.value;
+        const cursorPosition = this.editor.selectionStart;
+        
+        this.suggestions = getSuggestions(sql, cursorPosition);
+        
+        if (this.suggestions.length > 0) {
+            this.selectedSuggestionIndex = -1;
+            this.showSuggestions();
+        } else {
+            this.hideSuggestions();
+        }
+    }
+    
+    showSuggestions() {
+        const suggestionsDiv = this.container.querySelector('#sql-autocomplete-suggestions');
+        if (!suggestionsDiv || !this.editor) return;
+        
+        this.autocompleteVisible = true;
+        suggestionsDiv.innerHTML = this.suggestions.map((suggestion, index) => {
+            const typeClass = `suggestion-type-${suggestion.type}`;
+            return `
+                <div class="suggestion-item ${index === this.selectedSuggestionIndex ? 'selected' : ''}" data-index="${index}">
+                    <span class="suggestion-text">${this.escapeHtml(suggestion.text)}</span>
+                    <span class="suggestion-type ${typeClass}">${suggestion.type}</span>
+                </div>
+            `;
+        }).join('');
+        
+        suggestionsDiv.style.display = 'block';
+        this.positionSuggestions();
+        
+        // Add click handlers
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                this.insertSuggestion(this.suggestions[index]);
+            });
+        });
+    }
+    
+    hideSuggestions() {
+        const suggestionsDiv = this.container.querySelector('#sql-autocomplete-suggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.style.display = 'none';
+        }
+        this.autocompleteVisible = false;
+        this.selectedSuggestionIndex = -1;
+    }
+    
+    highlightSuggestion() {
+        const suggestionsDiv = this.container.querySelector('#sql-autocomplete-suggestions');
+        if (!suggestionsDiv) return;
+        
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item, index) => {
+            if (index === this.selectedSuggestionIndex) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    insertSuggestion(suggestion) {
+        if (!this.editor || !suggestion) return;
+        
+        const textarea = this.editor;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const sql = textarea.value;
+        const textBeforeCursor = sql.substring(0, start);
+        
+        // Find the current word to replace
+        const wordStart = getWordStartPosition(textBeforeCursor);
+        const wordEnd = start;
+        
+        // Replace the word with the suggestion
+        const newValue = sql.substring(0, wordStart) + suggestion.text + sql.substring(wordEnd);
+        textarea.value = newValue;
+        
+        // Set cursor position after inserted text
+        const newPosition = wordStart + suggestion.text.length;
+        textarea.setSelectionRange(newPosition, newPosition);
+        textarea.focus();
+        
+        this.hideSuggestions();
+    }
+    
+    positionSuggestions() {
+        const suggestionsDiv = this.container.querySelector('#sql-autocomplete-suggestions');
+        const editor = this.editor;
+        if (!suggestionsDiv || !editor) return;
+        
+        // Position below the cursor
+        const rect = editor.getBoundingClientRect();
+        const scrollTop = editor.scrollTop;
+        const lineHeight = 20; // Approximate line height
+        
+        // Calculate cursor position (simplified)
+        const textBeforeCursor = editor.value.substring(0, editor.selectionStart);
+        const lines = textBeforeCursor.split('\n');
+        const lineNumber = lines.length - 1;
+        const column = lines[lines.length - 1].length;
+        
+        suggestionsDiv.style.top = `${(lineNumber + 1) * lineHeight + 12}px`;
+        suggestionsDiv.style.left = `${column * 8 + 12}px`; // Approximate character width
     }
     
     async executeQuery() {

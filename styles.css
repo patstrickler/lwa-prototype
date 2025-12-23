@@ -1206,6 +1206,12 @@ main {
     margin-bottom: 15px;
 }
 
+#sql-autocomplete-suggestions {
+    position: absolute;
+    z-index: 1000;
+    max-width: 400px;
+}
+
 .sql-editor {
     width: 100%;
     min-height: 200px;
