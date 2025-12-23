@@ -14,6 +14,8 @@ export class QueryBuilder {
         this.currentDatasetId = null; // Track if we're editing an existing dataset
         this.editor = null; // Will be the textarea element
         this.columnMetadata = {}; // Store metadata for hover tooltips
+        this.fullQuery = null; // Store the full query without LIMIT
+        this.totalRecordCount = null; // Store total record count
         this.init();
     }
     
@@ -42,6 +44,7 @@ export class QueryBuilder {
                             <option value="1000">1000</option>
                             <option value="0">All</option>
                         </select>
+                        <span id="total-records-indicator" class="total-records-indicator" style="display: none;"></span>
                     </div>
                     <div class="query-buttons">
                         <button id="save-dataset" class="btn btn-primary" disabled>Save as Dataset</button>
@@ -276,8 +279,40 @@ export class QueryBuilder {
         this.showLoading();
         
         try {
-            // Execute SQL query with mock engine
-            // If query doesn't have LIMIT, add it based on selector
+            // Store the full query (without LIMIT) for saving datasets
+            // Remove any existing LIMIT from the query
+            let fullQuery = query;
+            const existingLimitMatch = /limit\s+\d+/i.exec(fullQuery);
+            if (existingLimitMatch) {
+                // Remove LIMIT clause from query
+                fullQuery = fullQuery.substring(0, existingLimitMatch.index).trim();
+                // Remove trailing semicolon if present
+                if (fullQuery.endsWith(';')) {
+                    fullQuery = fullQuery.slice(0, -1).trim();
+                }
+            }
+            this.fullQuery = fullQuery;
+            
+            // First, execute the full query to get total count (but don't load all data)
+            let totalCount = 0;
+            try {
+                // Execute full query with a high limit to get count
+                const countQuery = fullQuery + (fullQuery.trim().endsWith(';') ? '' : ' ') + 'LIMIT 10000';
+                const countResult = await executeSQL(countQuery, 300);
+                totalCount = countResult.rows ? countResult.rows.length : 0;
+                // If we got 10000 rows, the actual count might be higher
+                if (totalCount === 10000) {
+                    totalCount = '10000+';
+                }
+            } catch (countError) {
+                console.warn('Could not get total count:', countError);
+                totalCount = null;
+            }
+            
+            this.totalRecordCount = totalCount;
+            this.updateTotalRecordsIndicator();
+            
+            // Now execute the limited query for preview
             let queryToExecute = query;
             const hasLimit = /limit\s+\d+/i.test(query);
             if (!hasLimit && recordLimit > 0) {
@@ -306,7 +341,7 @@ export class QueryBuilder {
                     name: 'Query Result',
                     data: [],
                     columns: sqlResult.columns,
-                    query: query
+                    query: this.fullQuery || query
                 };
                 this.currentResult = result;
                 this.displayResults(result);
@@ -324,12 +359,13 @@ export class QueryBuilder {
             });
             
             // Create result object in expected format
+            // Store the full query (without LIMIT) for saving datasets
             const result = {
                 id: `result_${Date.now()}`,
                 name: 'Query Result',
                 data: data,
                 columns: sqlResult.columns,
-                query: query || (this.editor ? this.editor.value.trim() : '')
+                query: this.fullQuery || query || (this.editor ? this.editor.value.trim() : '')
             };
             
             this.currentResult = result;
@@ -721,6 +757,27 @@ export class QueryBuilder {
         updateBtn.disabled = true;
         this.currentResult = null;
         this.currentDatasetId = null;
+        this.fullQuery = null;
+        this.totalRecordCount = null;
+        this.updateTotalRecordsIndicator();
+    }
+    
+    /**
+     * Updates the total records indicator next to the max records selector
+     */
+    updateTotalRecordsIndicator() {
+        const indicator = this.container.querySelector('#total-records-indicator');
+        if (!indicator) return;
+        
+        if (this.totalRecordCount !== null && this.totalRecordCount !== undefined) {
+            const countText = typeof this.totalRecordCount === 'number' 
+                ? this.totalRecordCount.toLocaleString() 
+                : this.totalRecordCount;
+            indicator.textContent = `(Total: ${countText} records)`;
+            indicator.style.display = 'inline-block';
+        } else {
+            indicator.style.display = 'none';
+        }
     }
     
     async saveAsDataset() {
@@ -760,8 +817,8 @@ export class QueryBuilder {
                 });
             });
             
-            // Get the SQL query from currentResult or from the SQL editor
-            const sqlQuery = this.currentResult.query || (this.editor ? this.editor.value.trim() : '');
+            // Get the SQL query - use full query (without LIMIT) for saving
+            const sqlQuery = this.fullQuery || this.currentResult.query || (this.editor ? this.editor.value.trim() : '');
             
             // Create dataset with SQL, columns, and rows
             const dataset = datasetStore.create(
@@ -892,7 +949,9 @@ export class QueryBuilder {
         }
         
         const { datasetStore } = await import('../data/datasets.js');
-        const query = this.editor.value.trim();
+        
+        // Use the full query (without LIMIT) for updating
+        const query = this.fullQuery || this.editor.value.trim();
         
         if (!query) {
             await Modal.alert('Please enter a SQL query.');
