@@ -185,6 +185,27 @@ main {
     margin-right: 10px;
 }
 
+.dataset-dropdown {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #fff;
+    cursor: pointer;
+    min-width: 200px;
+    transition: border-color 0.2s;
+}
+
+.dataset-dropdown:hover {
+    border-color: #007bff;
+}
+
+.dataset-dropdown:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
 .metrics-section,
 .scripts-section {
     margin-top: 20px;

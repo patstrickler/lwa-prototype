@@ -1,27 +1,28 @@
 // Analysis Panel Component
 // Metrics & scripts on datasets
 
+import { DatasetSelector } from './dataset-selector.js';
+
 export class AnalysisPanel {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
         this.currentDataset = null;
         this.metricsCallbacks = [];
         this.datasetCallbacks = [];
+        this.datasetSelector = null;
         this.init();
     }
     
     init() {
         this.render();
         this.attachEventListeners();
+        this.initDatasetSelector();
     }
     
     render() {
         this.container.innerHTML = `
             <div class="analysis-panel">
-                <div class="dataset-selector">
-                    <label>Current Dataset:</label>
-                    <span id="current-dataset-name">None</span>
-                </div>
+                <div id="dataset-selector-container"></div>
                 
                 <div class="metrics-section">
                     <h3>Metrics</h3>
@@ -38,6 +39,13 @@ export class AnalysisPanel {
         `;
     }
     
+    initDatasetSelector() {
+        this.datasetSelector = new DatasetSelector('#dataset-selector-container');
+        this.datasetSelector.onSelection((dataset) => {
+            this.setDataset(dataset);
+        });
+    }
+    
     attachEventListeners() {
         const addMetricBtn = this.container.querySelector('#add-metric');
         const addScriptBtn = this.container.querySelector('#add-script');
@@ -48,10 +56,17 @@ export class AnalysisPanel {
     
     setDataset(dataset) {
         this.currentDataset = dataset;
-        const datasetNameEl = this.container.querySelector('#current-dataset-name');
-        datasetNameEl.textContent = dataset ? dataset.name : 'None';
+        if (this.datasetSelector) {
+            this.datasetSelector.setSelectedDataset(dataset);
+        }
         this.updateMetricsList();
         this.notifyDatasetUpdated(dataset);
+    }
+    
+    refreshDatasetSelector() {
+        if (this.datasetSelector) {
+            this.datasetSelector.refresh();
+        }
     }
     
     updateMetricsList() {

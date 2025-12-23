@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Query Builder → Analysis Panel
     queryBuilder.onDatasetCreated((dataset) => {
         analysisPanel.setDataset(dataset);
+        analysisPanel.refreshDatasetSelector();
     });
     
     // Analysis Panel → Visualization Panel
