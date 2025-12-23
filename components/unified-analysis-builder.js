@@ -134,9 +134,11 @@ export class UnifiedAnalysisBuilder {
                         <div id="metric-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
                     </div>
                     <div class="metric-help">
-                        <strong>Available Functions:</strong> SUM(), MEAN(), MIN(), MAX(), STDDEV(), COUNT(), COUNT_DISTINCT()<br>
+                        <strong>Available Functions:</strong> SUM(), MEAN(), MIN(), MAX(), STDDEV(), COUNT(), COUNT_DISTINCT(), IF()<br>
                         <strong>Operators:</strong> +, -, *, /<br>
-                        <strong>Example:</strong> MEAN(sales) + SUM(revenue) / COUNT(orders)
+                        <strong>Comparisons:</strong> &gt;, &lt;, &gt;=, &lt;=, ==, !=<br>
+                        <strong>Examples:</strong> MEAN(sales) + SUM(revenue) / COUNT(orders)<br>
+                        IF(MEAN(sales) &gt; 100, SUM(revenue), 0)
                     </div>
                 </div>
                 
@@ -260,10 +262,14 @@ export class UnifiedAnalysisBuilder {
         const wordLower = currentWord.toLowerCase();
         
         // Function suggestions
-        const functions = ['SUM', 'MEAN', 'AVG', 'MIN', 'MAX', 'STDDEV', 'COUNT', 'COUNT_DISTINCT'];
+        const functions = ['SUM', 'MEAN', 'AVG', 'MIN', 'MAX', 'STDDEV', 'COUNT', 'COUNT_DISTINCT', 'IF'];
         functions.forEach(func => {
             if (func.toLowerCase().startsWith(wordLower)) {
-                suggestions.push({ text: func, type: 'function', display: func });
+                let display = func;
+                if (func === 'IF') {
+                    display = 'IF(condition, value_if_true, value_if_false)';
+                }
+                suggestions.push({ text: func, type: 'function', display: display });
             }
         });
         

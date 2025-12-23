@@ -274,6 +274,27 @@ function evaluate(node, dataset) {
                     throw new Error(`Unknown operator: ${node.operator}`);
             }
             
+        case 'COMPARISON':
+            const compLeft = evaluate(node.left, dataset);
+            const compRight = evaluate(node.right, dataset);
+            
+            switch (node.operator) {
+                case '>':
+                    return compLeft > compRight ? 1 : 0;
+                case '<':
+                    return compLeft < compRight ? 1 : 0;
+                case '>=':
+                    return compLeft >= compRight ? 1 : 0;
+                case '<=':
+                    return compLeft <= compRight ? 1 : 0;
+                case '==':
+                    return compLeft === compRight ? 1 : 0;
+                case '!=':
+                    return compLeft !== compRight ? 1 : 0;
+                default:
+                    throw new Error(`Unknown comparison operator: ${node.operator}`);
+            }
+            
         default:
             throw new Error(`Unknown node type: ${node.type}`);
     }
@@ -287,6 +308,24 @@ function evaluate(node, dataset) {
  * @returns {number} Function result
  */
 function evaluateFunction(funcName, args, dataset) {
+    // Handle IF function specially
+    if (funcName === 'IF') {
+        if (args.length !== 3) {
+            throw new Error('IF function expects exactly 3 arguments: IF(condition, value_if_true, value_if_false)');
+        }
+        
+        const condition = evaluate(args[0], dataset);
+        // Treat non-zero as true, zero as false
+        const isTrue = condition !== 0 && !isNaN(condition);
+        
+        if (isTrue) {
+            return evaluate(args[1], dataset);
+        } else {
+            return evaluate(args[2], dataset);
+        }
+    }
+    
+    // All other functions expect exactly 1 argument (column name)
     if (args.length !== 1) {
         throw new Error(`Function ${funcName} expects exactly 1 argument (column name)`);
     }
@@ -335,7 +374,7 @@ function evaluateFunction(funcName, args, dataset) {
             return calculateCountDistinct(dataset.rows, dataset.columns, columnName);
             
         default:
-            throw new Error(`Unknown function: ${funcName}. Supported functions: SUM, MEAN, MIN, MAX, STDDEV, COUNT, COUNT_DISTINCT`);
+            throw new Error(`Unknown function: ${funcName}. Supported functions: SUM, MEAN, MIN, MAX, STDDEV, COUNT, COUNT_DISTINCT, IF`);
     }
 }
 
