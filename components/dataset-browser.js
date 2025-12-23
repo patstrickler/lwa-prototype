@@ -28,35 +28,37 @@ export class DatasetBrowser {
         setInterval(() => this.refresh(), 2000);
     }
     
-    render() {
+    render(force = false) {
         if (!this.container) {
             console.warn('DatasetBrowser: Container not found');
             return;
         }
         
         // Check if dropdown is currently open before re-rendering
-        const existingSelect = this.container.querySelector('.dataset-browser-select');
-        const isDropdownOpen = existingSelect && document.activeElement === existingSelect;
-        const currentValue = existingSelect ? existingSelect.value : null;
-        
-        // If dropdown is open, don't re-render - defer until it closes
-        if (isDropdownOpen) {
-            if (this._pendingRender) {
-                return; // Already have a pending render
-            }
-            this._pendingRender = true;
-            const handleBlur = () => {
-                if (existingSelect) {
-                    existingSelect.removeEventListener('blur', handleBlur);
+        // But allow force render to bypass this check
+        if (!force) {
+            const existingSelect = this.container.querySelector('.dataset-browser-select');
+            const isDropdownOpen = existingSelect && document.activeElement === existingSelect;
+            
+            // If dropdown is open, don't re-render - defer until it closes
+            if (isDropdownOpen) {
+                if (this._pendingRender) {
+                    return; // Already have a pending render
                 }
-                this._pendingRender = false;
-                // Render after a small delay to ensure dropdown is fully closed
-                setTimeout(() => this.render(), 100);
-            };
-            if (existingSelect) {
-                existingSelect.addEventListener('blur', handleBlur, { once: true });
+                this._pendingRender = true;
+                const handleBlur = () => {
+                    if (existingSelect) {
+                        existingSelect.removeEventListener('blur', handleBlur);
+                    }
+                    this._pendingRender = false;
+                    // Render after a small delay to ensure dropdown is fully closed
+                    setTimeout(() => this.render(), 100);
+                };
+                if (existingSelect) {
+                    existingSelect.addEventListener('blur', handleBlur, { once: true });
+                }
+                return;
             }
-            return;
         }
         
         const datasets = datasetStore.getAll();
@@ -99,6 +101,11 @@ export class DatasetBrowser {
     }
     
     renderDatasetDetails(dataset) {
+        // Force columns to be expanded when rendering details
+        if (!this.columnsExpanded) {
+            this.columnsExpanded = true;
+        }
+        
         const metrics = metricsStore.getByDataset(dataset.id);
         // Get scripts for this dataset if method exists, otherwise show all
         const scripts = scriptsStore.getByDataset ? scriptsStore.getByDataset(dataset.id) : 
@@ -119,34 +126,32 @@ export class DatasetBrowser {
                     <div class="section-title clickable" data-toggle="columns">
                         <span class="section-icon">📊</span>
                         <span>Columns</span>
-                        <span class="toggle-icon">${this.columnsExpanded ? '▼' : '▶'}</span>
+                        <span class="toggle-icon">▼</span>
                     </div>
-                    ${this.columnsExpanded ? `
-                        <div class="column-search-container">
-                            <input type="text" 
-                                   id="column-search-input" 
-                                   class="column-search-input" 
-                                   placeholder="Search columns..."
-                                   data-dataset="${dataset.id}">
-                        </div>
-                        <div class="items-list columns-list-scrollable" style="display: block;">
-                            ${dataset.columns && dataset.columns.length > 0
-                                ? dataset.columns.map(col => `
-                                    <div class="selectable-item column-item draggable-item" 
-                                         data-type="column"
-                                         data-value="${this.escapeHtml(col)}"
-                                         data-dataset="${dataset.id}"
-                                         data-column-name="${this.escapeHtml(this.formatColumnName(col))}"
-                                         draggable="true">
-                                        <span class="item-icon">📊</span>
-                                        <span class="item-name">${this.escapeHtml(this.formatColumnName(col))}</span>
-                                        <span class="item-type">${this.inferColumnType(dataset, col)}</span>
-                                    </div>
-                                `).join('')
-                                : '<div class="empty-state-small">No columns available</div>'
-                            }
-                        </div>
-                    ` : ''}
+                    <div class="column-search-container">
+                        <input type="text" 
+                               id="column-search-input" 
+                               class="column-search-input" 
+                               placeholder="Search columns..."
+                               data-dataset="${dataset.id}">
+                    </div>
+                    <div class="items-list columns-list-scrollable" style="display: block;">
+                        ${dataset.columns && dataset.columns.length > 0
+                            ? dataset.columns.map(col => `
+                                <div class="selectable-item column-item draggable-item" 
+                                     data-type="column"
+                                     data-value="${this.escapeHtml(col)}"
+                                     data-dataset="${dataset.id}"
+                                     data-column-name="${this.escapeHtml(this.formatColumnName(col))}"
+                                     draggable="true">
+                                    <span class="item-icon">📊</span>
+                                    <span class="item-name">${this.escapeHtml(this.formatColumnName(col))}</span>
+                                    <span class="item-type">${this.inferColumnType(dataset, col)}</span>
+                                </div>
+                            `).join('')
+                            : '<div class="empty-state-small">No columns available</div>'
+                        }
+                    </div>
                 </div>
                 
                 <div class="metrics-section">
@@ -285,30 +290,26 @@ export class DatasetBrowser {
                     if (datasetId) {
                         const dataset = datasetStore.get(datasetId);
                         if (dataset) {
+                            // Set state before rendering
                             this.selectedDataset = dataset;
-                            // Ensure columns are expanded when dataset is selected
-                            this.columnsExpanded = true;
-                            // Use requestAnimationFrame for smooth updates
-                            // But only render if dropdown is not open (shouldn't be after change event)
-                            requestAnimationFrame(() => {
-                                // Double-check dropdown is not open before rendering
-                                const dropdown = this.container.querySelector('.dataset-browser-select');
-                                if (!dropdown || document.activeElement !== dropdown) {
-                                    this.render();
-                                    // Ensure all details are visible after render
-                                    this.ensureDetailsVisible();
-                                }
-                                this.notifyDatasetSelected(dataset);
-                            });
+                            this.columnsExpanded = true; // Ensure columns are expanded
+                            
+                            // Force render immediately - bypass dropdown check
+                            // The dropdown is closed by the time change event fires
+                            this.render(true);
+                            
+                            // Ensure all details are visible after render
+                            // Use setTimeout to ensure DOM is ready
+                            setTimeout(() => {
+                                this.ensureDetailsVisible();
+                            }, 0);
+                            
+                            // Notify listeners
+                            this.notifyDatasetSelected(dataset);
                         }
                     } else {
                         this.selectedDataset = null;
-                        requestAnimationFrame(() => {
-                            const dropdown = this.container.querySelector('.dataset-browser-select');
-                            if (!dropdown || document.activeElement !== dropdown) {
-                                this.render();
-                            }
-                        });
+                        this.render();
                     }
                 }, 150); // Small delay to debounce rapid changes
             }
