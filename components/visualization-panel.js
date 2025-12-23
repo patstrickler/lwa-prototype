@@ -1028,6 +1028,15 @@ export class VisualizationPanel {
                     groups[xKey].push(row);
                 });
                 
+                console.log('Metric grouping:', {
+                    totalRows: data.length,
+                    groupsCount: Object.keys(groups).length,
+                    groupSizes: Object.entries(groups).map(([key, rows]) => ({ key, size: rows.length })),
+                    metricOperation: metric.operation,
+                    metricColumn: metric.column,
+                    xAxisColumn: xAxis.value
+                });
+                
                 // Recalculate metric for each group
                 const aggregated = [];
                 Object.entries(groups).forEach(([xKey, groupRows]) => {
@@ -1045,12 +1054,19 @@ export class VisualizationPanel {
                             metric.operation
                         );
                         
+                        console.log(`Group ${xKey}: ${groupRows.length} rows, COUNT_DISTINCT(${metric.column}) = ${metricValue}`);
+                        
                         aggregated.push({
                             x: groupRows[0][xAxis.value],
                             y: metricValue !== null && metricValue !== undefined ? metricValue : 0
                         });
                     } catch (error) {
-                        console.error('Error calculating metric for group:', error);
+                        console.error('Error calculating metric for group:', error, {
+                            xKey,
+                            groupSize: groupRows.length,
+                            operation: metric.operation,
+                            column: metric.column
+                        });
                         aggregated.push({
                             x: groupRows[0][xAxis.value],
                             y: 0
