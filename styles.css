@@ -143,8 +143,8 @@ main {
     min-width: 0;
 }
 
-/* Saved Queries Dropdown Styles */
-.saved-queries-dropdown-container {
+/* Saved Datasets Dropdown Styles */
+.saved-datasets-dropdown-container {
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -160,7 +160,7 @@ main {
     margin-bottom: 8px;
 }
 
-.saved-queries-dropdown {
+.saved-datasets-dropdown {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid #ddd;
@@ -195,7 +195,7 @@ main {
     cursor: not-allowed;
 }
 
-.query-dropdown-actions .btn-icon:disabled:hover {
+.dataset-dropdown-actions .btn-icon:disabled:hover {
     background-color: transparent;
 }
 
@@ -1041,7 +1041,7 @@ main {
 }
 
 /* Query Builder Styles */
-.saved-queries-panel {
+.saved-datasets-panel {
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1049,7 +1049,7 @@ main {
     padding: 15px;
 }
 
-.saved-queries-header {
+.saved-datasets-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1079,12 +1079,12 @@ main {
     background-color: #f8f9fa;
 }
 
-.saved-queries-list {
+.saved-datasets-list {
     max-height: 300px;
     overflow-y: auto;
 }
 
-.saved-query-item {
+.saved-dataset-item {
     background-color: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 4px;
@@ -1102,26 +1102,26 @@ main {
     margin-bottom: 0;
 }
 
-.saved-query-header {
+.saved-dataset-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
 }
 
-.saved-query-name {
+.saved-dataset-name {
     font-weight: 600;
     font-size: 14px;
     color: #333;
     flex: 1;
 }
 
-.saved-query-actions {
+.saved-dataset-actions {
     display: flex;
     gap: 5px;
 }
 
-.saved-query-sql {
+.saved-dataset-sql {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 12px;
     color: #6c757d;
@@ -1132,7 +1132,7 @@ main {
     border: 1px solid #e9ecef;
 }
 
-.saved-query-meta {
+.saved-dataset-meta {
     display: flex;
     align-items: center;
     gap: 8px;

@@ -32,15 +32,23 @@ export class VisualizationPanel {
                     <div class="builder-form">
                         <div class="form-group">
                             <label>X Axis Selection:</label>
-                            <div class="axis-selection-display" id="x-axis-display">
-                                <span class="selection-placeholder">Click a column or metric from the left panel</span>
+                            <div class="axis-selection-display droppable-axis" 
+                                 id="x-axis-display" 
+                                 data-axis="x"
+                                 draggable="false">
+                                <span class="selection-placeholder">Drag & drop or click to select</span>
+                                <button class="axis-select-btn" data-axis="x" title="Click to select field">▼</button>
                             </div>
                         </div>
                         
                         <div class="form-group">
                             <label>Y Axis Selection:</label>
-                            <div class="axis-selection-display" id="y-axis-display">
-                                <span class="selection-placeholder">Click a column or metric from the left panel</span>
+                            <div class="axis-selection-display droppable-axis" 
+                                 id="y-axis-display" 
+                                 data-axis="y"
+                                 draggable="false">
+                                <span class="selection-placeholder">Drag & drop or click to select</span>
+                                <button class="axis-select-btn" data-axis="y" title="Click to select field">▼</button>
                             </div>
                         </div>
                         
@@ -126,6 +134,50 @@ export class VisualizationPanel {
         if (clearBtn) {
             clearBtn.addEventListener('click', () => this.clearSelections());
         }
+        
+        // Drag and drop handlers for axis selection
+        const xAxisDisplay = this.container.querySelector('#x-axis-display');
+        const yAxisDisplay = this.container.querySelector('#y-axis-display');
+        
+        if (xAxisDisplay) {
+            this.setupDragAndDrop(xAxisDisplay, 'x');
+        }
+        if (yAxisDisplay) {
+            this.setupDragAndDrop(yAxisDisplay, 'y');
+        }
+        
+        // Click handlers for axis selection dropdown
+        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
+        axisSelectBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const axis = btn.getAttribute('data-axis');
+                this.showAxisSelectionDropdown(axis, btn);
+            });
+        });
+        
+        // Click on axis display to show dropdown
+        if (xAxisDisplay) {
+            xAxisDisplay.addEventListener('click', (e) => {
+                if (!e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item')) {
+                    this.showAxisSelectionDropdown('x', xAxisDisplay.querySelector('.axis-select-btn'));
+                }
+            });
+        }
+        if (yAxisDisplay) {
+            yAxisDisplay.addEventListener('click', (e) => {
+                if (!e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item')) {
+                    this.showAxisSelectionDropdown('y', yAxisDisplay.querySelector('.axis-select-btn'));
+                }
+            });
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.axis-selection-dropdown') && !e.target.closest('.axis-select-btn') && !e.target.closest('.axis-selection-display')) {
+                this.closeAxisSelectionDropdown();
+            }
+        });
         
         // Styling controls - also trigger auto-render
         if (stylingToggle) {
