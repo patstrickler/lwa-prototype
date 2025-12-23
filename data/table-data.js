@@ -1,4 +1,4 @@
-// Pre-populated table data for samples, tests, and test_results
+// Pre-populated table data for samples, tests, and results
 // Contains ~1000 records each with realistic, varied data
 
 // Helper function to generate random date within range
@@ -197,8 +197,8 @@ export function getTestsData() {
     return tests;
 }
 
-// Generate test_results data (~1000 records)
-export function getTestResultsData() {
+// Generate results data (~1000 records)
+export function getResultsData() {
     const statuses = ['pending', 'completed', 'preliminary', 'final', 'corrected', 'cancelled'];
     
     const results = [];
@@ -271,7 +271,7 @@ export function getTestResultsData() {
 // Store the data
 let samplesData = null;
 let testsData = null;
-let testResultsData = null;
+let resultsData = null;
 
 // Lazy load the data (generate once, return cached)
 export function getTableData(tableName) {
@@ -287,11 +287,11 @@ export function getTableData(tableName) {
             testsData = getTestsData();
         }
         return testsData;
-    } else if (tableLower === 'test_results') {
-        if (!testResultsData) {
-            testResultsData = getTestResultsData();
+    } else if (tableLower === 'results') {
+        if (!resultsData) {
+            resultsData = getResultsData();
         }
-        return testResultsData;
+        return resultsData;
     }
     
     return null;

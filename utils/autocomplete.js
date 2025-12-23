@@ -15,7 +15,7 @@ const TABLE_SCHEMA = {
     // Lab-related tables
     'samples': ['sample_id', 'sample_name', 'sample_type', 'collection_date', 'status', 'lab_id'],
     'tests': ['test_id', 'test_name', 'test_type', 'method', 'unit', 'reference_range'],
-    'test_results': ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
+    'results': ['result_id', 'sample_id', 'test_id', 'result_value', 'result_date', 'technician_id', 'status'],
     'labs': ['lab_id', 'lab_name', 'location', 'contact_email', 'phone'],
     'technicians': ['technician_id', 'name', 'email', 'lab_id', 'specialization'],
     'sample_types': ['type_id', 'type_name', 'description', 'storage_requirements'],
