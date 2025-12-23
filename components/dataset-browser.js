@@ -24,15 +24,18 @@ export class DatasetBrowser {
         
         const datasets = datasetStore.getAll();
         
+        // Filter out any datasets that don't exist (safety check)
+        const validDatasets = datasets.filter(ds => datasetStore.exists(ds.id));
+        
         this.container.innerHTML = `
             <div class="dataset-browser">
                 <div class="browser-header">
                     <h3>Datasets</h3>
                 </div>
                 <div class="browser-content">
-                    ${datasets.length === 0 
+                    ${validDatasets.length === 0 
                         ? '<div class="empty-state">No datasets available. Create a dataset from the Query Builder.</div>'
-                        : datasets.map(dataset => this.renderDataset(dataset)).join('')
+                        : validDatasets.map(dataset => this.renderDataset(dataset)).join('')
                     }
                 </div>
             </div>
@@ -40,8 +43,16 @@ export class DatasetBrowser {
     }
     
     renderDataset(dataset) {
+        // Check if dataset still exists
+        if (!datasetStore.exists(dataset.id)) {
+            return ''; // Don't render deleted datasets
+        }
+        
         const metrics = metricsStore.getByDataset(dataset.id);
         const isSelected = this.selectedDataset && this.selectedDataset.id === dataset.id;
+        
+        // Filter metrics to only show those where dataset exists
+        const validMetrics = metrics.filter(metric => datasetStore.exists(metric.datasetId));
         
         const columnsHtml = dataset.columns && dataset.columns.length > 0
             ? dataset.columns.map(col => `
@@ -53,17 +64,33 @@ export class DatasetBrowser {
             `).join('')
             : '<div class="empty-state-small">No columns</div>';
         
-        const metricsHtml = metrics && metrics.length > 0
-            ? metrics.map(metric => `
-                <div class="dataset-metric" data-dataset="${dataset.id}" data-metric="${metric.id}">
-                    <span class="metric-icon">📈</span>
-                    <div class="metric-info">
-                        <span class="metric-name">${metric.name}</span>
-                        <span class="metric-value">${this.formatMetricValue(metric.value)}</span>
+        const metricsHtml = validMetrics && validMetrics.length > 0
+            ? validMetrics.map(metric => {
+                // Check if metric's dataset exists
+                const metricDataset = datasetStore.get(metric.datasetId);
+                if (!metricDataset) {
+                    return `
+                        <div class="dataset-metric metric-error" data-dataset="${dataset.id}" data-metric="${metric.id}">
+                            <span class="metric-icon">⚠️</span>
+                            <div class="metric-info">
+                                <span class="metric-name">${metric.name}</span>
+                                <span class="metric-value metric-value-error">Dataset Missing</span>
+                            </div>
+                            <span class="metric-operation">${metric.operation || ''}</span>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="dataset-metric" data-dataset="${dataset.id}" data-metric="${metric.id}">
+                        <span class="metric-icon">📈</span>
+                        <div class="metric-info">
+                            <span class="metric-name">${metric.name}</span>
+                            <span class="metric-value">${this.formatMetricValue(metric.value)}</span>
+                        </div>
+                        <span class="metric-operation">${metric.operation || ''}</span>
                     </div>
-                    <span class="metric-operation">${metric.operation || ''}</span>
-                </div>
-            `).join('')
+                `;
+            }).join('')
             : '<div class="empty-state-small">No metrics defined</div>';
         
         return `

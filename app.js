@@ -93,5 +93,36 @@ document.addEventListener('DOMContentLoaded', () => {
             visualizationPanel.selectDataset(dataset.id);
         }
     });
+    
+    // Handle dataset deletion - refresh all components
+    tableBrowser.onDatasetDeleted((datasetId, dataset) => {
+        // Refresh dataset browser
+        datasetBrowser.refresh();
+        
+        // Clear analysis panel if it was using the deleted dataset
+        if (analysisPanel.currentDataset && analysisPanel.currentDataset.id === datasetId) {
+            analysisPanel.setDataset(null);
+        }
+        
+        // Clear visualization panel if it was using the deleted dataset
+        if (visualizationPanel.currentDataset && visualizationPanel.currentDataset.id === datasetId) {
+            visualizationPanel.updateDataset(null);
+        }
+    });
+    
+    queryBuilder.onDatasetDeleted((datasetId, dataset) => {
+        // Refresh dataset browser
+        datasetBrowser.refresh();
+        
+        // Clear analysis panel if it was using the deleted dataset
+        if (analysisPanel.currentDataset && analysisPanel.currentDataset.id === datasetId) {
+            analysisPanel.setDataset(null);
+        }
+        
+        // Clear visualization panel if it was using the deleted dataset
+        if (visualizationPanel.currentDataset && visualizationPanel.currentDataset.id === datasetId) {
+            visualizationPanel.updateDataset(null);
+        }
+    });
 });
 

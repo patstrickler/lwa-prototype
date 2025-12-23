@@ -1065,6 +1065,22 @@ main {
     margin: 10px 0;
 }
 
+.dataset-missing-error {
+    margin: 15px 0;
+}
+
+.dataset-missing-error .error-message {
+    background-color: #fff5f5;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.dataset-missing-error .error-text p {
+    margin: 8px 0 0 0;
+    font-size: 13px;
+    opacity: 0.9;
+}
+
 .error-icon {
     font-size: 20px;
     flex-shrink: 0;

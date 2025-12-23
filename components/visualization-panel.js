@@ -198,10 +198,13 @@ export class VisualizationPanel {
         const currentValue = datasetSelect.value;
         const datasets = datasetStore.getAll();
         
+        // Filter out deleted datasets
+        const validDatasets = datasets.filter(ds => datasetStore.exists(ds.id));
+        
         // Clear and rebuild options
         datasetSelect.innerHTML = '<option value="">-- Select Dataset --</option>';
         
-        datasets.forEach(dataset => {
+        validDatasets.forEach(dataset => {
             const option = document.createElement('option');
             option.value = dataset.id;
             option.textContent = dataset.name;
@@ -1128,6 +1131,14 @@ export class VisualizationPanel {
     }
     
     updateDataset(dataset) {
+        // Check if dataset exists
+        if (dataset && !datasetStore.exists(dataset.id)) {
+            this.showDatasetMissingError(dataset);
+            this.currentDataset = null;
+            this.refreshCharts();
+            return;
+        }
+        
         this.currentDataset = dataset;
         // Update selection if this dataset is currently selected
         const datasetSelect = this.container.querySelector('#dataset-select');
@@ -1188,7 +1199,31 @@ export class VisualizationPanel {
      * Selects a dataset in the visualization builder
      * @param {string} datasetId - Dataset ID to select
      */
+    showDatasetMissingError(dataset) {
+        const chartsContainer = this.container.querySelector('#charts-container');
+        if (chartsContainer) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'chart-error-message';
+            errorDiv.innerHTML = `
+                <div class="error-icon">⚠️</div>
+                <div class="error-text">
+                    <strong>Dataset "${dataset.name}" is missing or has been deleted.</strong>
+                    <p>Charts for this dataset cannot be displayed. Please select a different dataset.</p>
+                </div>
+            `;
+            chartsContainer.innerHTML = '';
+            chartsContainer.appendChild(errorDiv);
+        }
+    }
+    
     selectDataset(datasetId) {
+        // Check if dataset exists
+        if (!datasetStore.exists(datasetId)) {
+            const dataset = { id: datasetId, name: 'Unknown Dataset' };
+            this.showDatasetMissingError(dataset);
+            this.currentDataset = null;
+            return;
+        }
         const datasetSelect = this.container.querySelector('#dataset-select');
         if (datasetSelect) {
             datasetSelect.value = datasetId;

@@ -116,12 +116,24 @@ class DatasetStore {
         return dataset;
     }
     
+    /**
+     * Checks if a dataset exists
+     * @param {string} id - Dataset ID
+     * @returns {boolean}
+     */
+    exists(id) {
+        return this.datasets.has(id);
+    }
+    
     delete(id) {
+        const dataset = this.datasets.get(id);
         const deleted = this.datasets.delete(id);
         if (deleted) {
             this.saveToStorage();
+            // Return dataset info for cleanup
+            return { deleted: true, dataset };
         }
-        return deleted;
+        return { deleted: false, dataset: null };
     }
 }
 

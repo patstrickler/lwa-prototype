@@ -397,6 +397,13 @@ export class QueryBuilder {
         this.refreshTableBrowserCallback = callback;
     }
     
+    /**
+     * Sets a callback for when datasets are deleted
+     */
+    onDatasetDeleted(callback) {
+        this.onDatasetDeletedCallback = callback;
+    }
+    
     onDatasetCreated(callback) {
         this.datasetCallbacks.push(callback);
     }
@@ -701,14 +708,19 @@ export class QueryBuilder {
             return;
         }
         
-        const deleted = datasetStore.delete(datasetId);
+        const result = datasetStore.delete(datasetId);
         
-        if (deleted) {
+        if (result.deleted) {
             await Modal.alert(`Query "${dataset.name}" deleted successfully.`);
             
             // Refresh table browser if callback exists
             if (this.refreshTableBrowserCallback) {
                 this.refreshTableBrowserCallback();
+            }
+            
+            // Notify about deletion
+            if (this.onDatasetDeletedCallback) {
+                this.onDatasetDeletedCallback(datasetId, result.dataset);
             }
             
             // If we were editing this query, clear the editor

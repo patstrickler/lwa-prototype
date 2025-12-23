@@ -84,6 +84,21 @@ export class AnalysisPanel {
     }
     
     setDataset(dataset) {
+        // Check if dataset exists
+        if (dataset && !datasetStore.exists(dataset.id)) {
+            this.showDatasetMissingError(dataset);
+            this.currentDataset = null;
+            if (this.datasetSelector) {
+                this.datasetSelector.setSelectedDataset(null);
+            }
+            if (this.scriptPanel) {
+                this.scriptPanel.setDataset(null);
+            }
+            this.updateMetricsList();
+            this.notifyDatasetUpdated(null);
+            return;
+        }
+        
         this.currentDataset = dataset;
         if (this.datasetSelector) {
             this.datasetSelector.setSelectedDataset(dataset);
@@ -101,12 +116,39 @@ export class AnalysisPanel {
         this.notifyDatasetUpdated(dataset);
     }
     
+    showDatasetMissingError(dataset) {
+        const datasetSelector = this.container.querySelector('#dataset-selector-container');
+        if (datasetSelector) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'dataset-missing-error';
+            errorDiv.innerHTML = `
+                <div class="error-message">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-text">
+                        <strong>Dataset "${dataset.name}" is missing or has been deleted.</strong>
+                        <p>This dataset is no longer available. Please select a different dataset.</p>
+                    </div>
+                </div>
+            `;
+            datasetSelector.innerHTML = '';
+            datasetSelector.appendChild(errorDiv);
+        }
+    }
+    
     /**
      * Re-executes all metrics for the current dataset
      * Updates metric values using the execution engine
      */
     reExecuteMetrics() {
         if (!this.currentDataset) {
+            return;
+        }
+        
+        // Check if dataset still exists
+        if (!datasetStore.exists(this.currentDataset.id)) {
+            this.showDatasetMissingError(this.currentDataset);
+            this.currentDataset = null;
+            this.updateMetricsList();
             return;
         }
         
@@ -172,6 +214,20 @@ export class AnalysisPanel {
         
         if (!this.currentDataset) {
             metricsList.innerHTML = '<p class="empty-message">Select a dataset to view metrics.</p>';
+            return;
+        }
+        
+        // Check if dataset still exists
+        if (!datasetStore.exists(this.currentDataset.id)) {
+            metricsList.innerHTML = `
+                <div class="error-message">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-text">
+                        <strong>Dataset "${this.currentDataset.name}" is missing or has been deleted.</strong>
+                        <p>Metrics for this dataset cannot be displayed. Please select a different dataset.</p>
+                    </div>
+                </div>
+            `;
             return;
         }
         

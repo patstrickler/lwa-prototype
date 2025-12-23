@@ -10,6 +10,7 @@ export class TableBrowser {
         this.onTableClickCallbacks = [];
         this.onColumnClickCallbacks = [];
         this.onQuerySelectCallbacks = [];
+        this.onDatasetDeletedCallbacks = [];
         this.savedQueries = [];
         this.init();
     }
@@ -174,13 +175,18 @@ export class TableBrowser {
             return;
         }
         
-        const deleted = datasetStore.delete(queryId);
+        const result = datasetStore.delete(queryId);
         
-        if (deleted) {
+        if (result.deleted) {
             await Modal.alert(`Query "${dataset.name}" deleted successfully.`);
+            
+            // Refresh saved queries dropdown
             await this.loadSavedQueries();
             this.render();
             this.attachEventListeners();
+            
+            // Notify all components about the deletion
+            this.notifyDatasetDeleted(queryId, dataset);
         } else {
             await Modal.alert('Failed to delete query.');
         }
@@ -214,6 +220,14 @@ export class TableBrowser {
     
     notifyQuerySelect(queryId) {
         this.onQuerySelectCallbacks.forEach(callback => callback(queryId));
+    }
+    
+    onDatasetDeleted(callback) {
+        this.onDatasetDeletedCallbacks.push(callback);
+    }
+    
+    notifyDatasetDeleted(datasetId, dataset) {
+        this.onDatasetDeletedCallbacks.forEach(callback => callback(datasetId, dataset));
     }
 }
 
