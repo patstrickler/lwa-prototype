@@ -188,31 +188,40 @@ function parseFromAndJoins(fromJoinClause) {
         joins: []
     };
     
+    // Normalize whitespace (replace newlines and multiple spaces with single space)
+    const normalized = fromJoinClause.replace(/\s+/g, ' ').trim();
+    
     // Parse FROM clause (first table)
-    const fromMatch = fromJoinClause.match(/^(\w+)(?:\s+(\w+))?/i);
+    const fromMatch = normalized.match(/^(\w+)(?:\s+(\w+))?/i);
     if (fromMatch) {
         const tableName = fromMatch[1];
         const alias = fromMatch[2] || tableName;
         result.tables[alias.toLowerCase()] = tableName.toLowerCase();
     }
     
-    // Parse JOIN clauses
-    const joinRegex = /(left|right|inner|full)?\s*join\s+(\w+)(?:\s+(\w+))?(?:\s+on\s+(.+?))?(?=\s+(?:left|right|inner|full)?\s*join|$)/gi;
+    // Parse JOIN clauses - use a more robust regex that handles ON clauses
+    const joinRegex = /(left|right|inner|full)?\s*join\s+(\w+)(?:\s+(\w+))?(?:\s+on\s+([^join]+(?=\s+(?:left|right|inner|full)?\s*join|$)))?/gi;
     let joinMatch;
+    let lastIndex = 0;
     
-    while ((joinMatch = joinRegex.exec(fromJoinClause)) !== null) {
+    while ((joinMatch = joinRegex.exec(normalized)) !== null) {
         const joinType = (joinMatch[1] || 'inner').toLowerCase();
         const tableName = joinMatch[2];
         const alias = joinMatch[3] || tableName;
-        const onClause = joinMatch[4] || '';
+        let onClause = (joinMatch[4] || '').trim();
+        
+        // Clean up ON clause - remove trailing semicolons and extra whitespace
+        onClause = onClause.replace(/;?\s*$/, '').trim();
         
         result.tables[alias.toLowerCase()] = tableName.toLowerCase();
         result.joins.push({
             type: joinType,
             table: tableName.toLowerCase(),
             alias: alias.toLowerCase(),
-            on: onClause.trim()
+            on: onClause
         });
+        
+        lastIndex = joinRegex.lastIndex;
     }
     
     return result;
