@@ -118,8 +118,11 @@ function parseAndExecuteSQL(sql) {
         }
     }
     
-    // Generate mock rows with JOIN support (generate more rows so we can filter)
-    const baseRowCount = limit || (whereMatch ? 20 : 10);
+    // Generate mock rows with JOIN support
+    // Generate enough rows to satisfy LIMIT after filtering
+    // If no LIMIT, default to 25 rows; if WHERE clause, generate more to account for filtering
+    const defaultRowCount = 25;
+    const baseRowCount = limit ? Math.max(limit, (whereMatch ? limit * 2 : limit)) : (whereMatch ? 50 : defaultRowCount);
     const rows = generateJoinedRows(expandedColumnSpecs, tableInfo, tableMap, baseRowCount);
     
     // Apply WHERE clause filtering if present
