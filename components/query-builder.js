@@ -631,15 +631,15 @@ export class QueryBuilder {
     
     
     /**
-     * Loads a saved query into the editor for editing
+     * Loads a saved dataset into the editor for editing
      * @param {string} datasetId - Dataset ID to load
      */
-    async loadQuery(datasetId) {
+    async loadDataset(datasetId) {
         const { datasetStore } = await import('../data/datasets.js');
         const dataset = datasetStore.get(datasetId);
         
         if (!dataset) {
-            await Modal.alert('Query not found.');
+            await Modal.alert('Dataset not found.');
             return;
         }
         
@@ -712,15 +712,15 @@ export class QueryBuilder {
     }
     
     /**
-     * Deletes a saved query
+     * Deletes a saved dataset
      * @param {string} datasetId - Dataset ID to delete
      */
-    async deleteQuery(datasetId) {
+    async deleteDataset(datasetId) {
         const { datasetStore } = await import('../data/datasets.js');
         const dataset = datasetStore.get(datasetId);
         
         if (!dataset) {
-            await Modal.alert('Query not found.');
+            await Modal.alert('Dataset not found.');
             return;
         }
         
@@ -735,7 +735,7 @@ export class QueryBuilder {
         const result = datasetStore.delete(datasetId);
         
         if (result.deleted) {
-            await Modal.alert(`Query "${dataset.name}" deleted successfully.`);
+            await Modal.alert(`Dataset "${dataset.name}" deleted successfully.`);
             
             // Refresh table browser if callback exists
             if (this.refreshTableBrowserCallback) {
@@ -747,12 +747,12 @@ export class QueryBuilder {
                 this.onDatasetDeletedCallback(datasetId, result.dataset);
             }
             
-            // If we were editing this query, clear the editor
+            // If we were editing this dataset, clear the editor
             if (this.currentDatasetId === datasetId) {
                 this.clearQuery();
             }
         } else {
-            await Modal.alert('Failed to delete query.');
+            await Modal.alert('Failed to delete dataset.');
         }
     }
 }

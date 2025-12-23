@@ -185,12 +185,12 @@ main {
     justify-content: flex-end;
 }
 
-.query-dropdown-actions .btn-icon {
+.dataset-dropdown-actions .btn-icon {
     font-size: 16px;
     padding: 4px 8px;
 }
 
-.query-dropdown-actions .btn-icon:disabled {
+.dataset-dropdown-actions .btn-icon:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
