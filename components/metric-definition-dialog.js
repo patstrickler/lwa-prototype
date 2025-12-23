@@ -199,6 +199,18 @@ export class MetricDefinitionDialog {
             column: column
         };
         
+        // Check if dataset is empty
+        if (!dataset.rows || dataset.rows.length === 0) {
+            await Modal.alert('Error: Cannot calculate metric on an empty dataset. Please select a dataset with data.');
+            return;
+        }
+        
+        // Check if dataset has columns
+        if (!dataset.columns || dataset.columns.length === 0) {
+            await Modal.alert('Error: Dataset has no columns. Cannot calculate metric.');
+            return;
+        }
+        
         // Validate metric definition
         const validation = metricExecutionEngine.validate(metricDefinition, dataset.columns);
         if (!validation.isValid) {
@@ -211,12 +223,25 @@ export class MetricDefinitionDialog {
         try {
             value = metricExecutionEngine.execute(metricDefinition, dataset.rows, dataset.columns);
         } catch (error) {
-            await Modal.alert(`Error executing metric: ${error.message}`);
+            // Provide user-friendly error messages
+            let errorMessage = 'Error executing metric.';
+            if (error.message) {
+                if (error.message.includes('empty')) {
+                    errorMessage = 'Cannot calculate metric: The dataset is empty. Please select a dataset with data.';
+                } else if (error.message.includes('Column') && error.message.includes('not found')) {
+                    errorMessage = error.message;
+                } else if (error.message.includes('numeric values')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage = `Error: ${error.message}`;
+                }
+            }
+            await Modal.alert(errorMessage);
             return;
         }
         
         if (value === null) {
-            await Modal.alert('Error: Could not calculate metric. Please ensure the column contains numeric values.');
+            await Modal.alert('Error: Could not calculate metric. The column may not contain numeric values, or the calculation failed.');
             return;
         }
         

@@ -428,6 +428,61 @@ main {
     text-align: center;
 }
 
+.error-message {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    color: #856404;
+    margin: 10px 0;
+}
+
+.error-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.error-text {
+    flex: 1;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.metric-error {
+    border-color: #dc3545;
+    background-color: #fff5f5;
+}
+
+.metric-value-error {
+    color: #dc3545;
+}
+
+.metric-error-message {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background-color: #f8d7da;
+    border-left: 3px solid #dc3545;
+    border-radius: 3px;
+    font-size: 13px;
+    color: #721c24;
+}
+
+.chart-error-message {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    color: #856404;
+    margin: 20px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* Analysis Panel Styles */
 .dataset-selector {
     margin-bottom: 20px;

@@ -409,7 +409,7 @@ export class VisualizationPanel {
         };
     }
     
-    renderChart() {
+    async renderChart() {
         const datasetSelect = this.container.querySelector('#dataset-select');
         const xColumnSelect = this.container.querySelector('#x-column-select');
         const yColumnSelect = this.container.querySelector('#y-column-select');
@@ -485,7 +485,7 @@ export class VisualizationPanel {
                 }
                 
                 // Render chart with metric as reference line
-                this.renderChartWithReferenceLine(datasetId, xColumn, yValue, chartType, metric);
+                await this.renderChartWithReferenceLine(datasetId, xColumn, yValue, chartType, metric);
                 return;
             }
         }
@@ -541,8 +541,16 @@ export class VisualizationPanel {
         chartsContainer.appendChild(chartContainer);
         
         // Use Y column from dataset - convert rows to Highcharts series format
-        const seriesData = this.convertToHighchartsSeries(data, xColumn, yValue, chartType);
-        const yLabel = this.formatColumnName(yValue);
+        let seriesData;
+        let yLabel;
+        try {
+            seriesData = this.convertToHighchartsSeries(data, xColumn, yValue, chartType);
+            yLabel = this.formatColumnName(yValue);
+        } catch (error) {
+            this.showError(error.message || 'Error preparing chart data');
+            chartContainer.remove();
+            return;
+        }
         
         // Render with Highcharts
         this.renderHighchart(chartId, chartType, seriesData, {
@@ -595,16 +603,16 @@ export class VisualizationPanel {
      * @param {string} chartType - Chart type (line, bar)
      * @param {Object} metric - Metric object
      */
-    renderChartWithReferenceLine(datasetId, xColumn, metricId, chartType, metric) {
+    async renderChartWithReferenceLine(datasetId, xColumn, metricId, chartType, metric) {
         const dataset = datasetStore.get(datasetId);
         if (!dataset) {
-            alert('Dataset not found.');
+            await Modal.alert('Dataset not found.');
             return;
         }
         
         const data = this.getDatasetData(dataset);
         if (!data || data.length === 0) {
-            alert('Dataset has no data.');
+            await Modal.alert('Dataset has no data.');
             return;
         }
         
@@ -617,7 +625,7 @@ export class VisualizationPanel {
         });
         
         if (numericColumns.length === 0) {
-            alert('No numeric columns found in dataset for reference line chart.');
+            await Modal.alert('No numeric columns found in dataset for reference line chart.');
             return;
         }
         

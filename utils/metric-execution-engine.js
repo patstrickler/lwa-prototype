@@ -39,8 +39,16 @@ export class MetricExecutionEngine {
             throw new Error('Dataset rows must be an array');
         }
         
+        if (rows.length === 0) {
+            throw new Error('Cannot calculate metric: dataset is empty');
+        }
+        
         if (!columns || !Array.isArray(columns)) {
             throw new Error('Dataset columns must be an array');
+        }
+        
+        if (columns.length === 0) {
+            throw new Error('Cannot calculate metric: dataset has no columns');
         }
         
         const { operation, column } = metricDefinition;
@@ -55,12 +63,13 @@ export class MetricExecutionEngine {
         
         // Check if operation is supported
         if (!this.aggregationFunctions[operation]) {
-            throw new Error(`Unsupported aggregation operation: ${operation}`);
+            const supportedOps = Object.keys(this.aggregationFunctions).join(', ');
+            throw new Error(`Unsupported aggregation operation: "${operation}". Supported operations: ${supportedOps}`);
         }
         
         // Check if column exists in dataset
         if (!columns.includes(column)) {
-            throw new Error(`Column "${column}" not found in dataset`);
+            throw new Error(`Column "${column}" not found in dataset. Available columns: ${columns.join(', ')}`);
         }
         
         // Execute the aggregation function
