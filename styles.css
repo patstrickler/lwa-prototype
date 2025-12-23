@@ -1175,6 +1175,14 @@ main {
     margin-bottom: 15px;
 }
 
+.script-editor-wrapper {
+    position: relative;
+}
+
+.script-editor-container {
+    position: relative;
+}
+
 .script-editor {
     width: 100%;
     min-height: 200px;
@@ -1192,6 +1200,19 @@ main {
     outline: none;
     border-color: #007bff;
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+#script-autocomplete-suggestions {
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    min-width: 200px;
+    margin-top: 2px;
 }
 
 .script-actions {

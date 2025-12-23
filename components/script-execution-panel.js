@@ -4,12 +4,16 @@
 import { scriptsStore } from '../data/scripts.js';
 import { scriptExecutionEngine } from '../utils/script-execution-engine.js';
 import { datasetStore } from '../data/datasets.js';
+import { getColumnSuggestions, getWordStartPosition } from '../utils/script-autocomplete.js';
 
 export class ScriptExecutionPanel {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
         this.currentDataset = null;
         this.saveCallbacks = [];
+        this.suggestions = [];
+        this.selectedSuggestionIndex = -1;
+        this.autocompleteVisible = false;
         this.init();
     }
     
@@ -36,9 +40,12 @@ export class ScriptExecutionPanel {
                     </div>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group script-editor-wrapper">
                     <label for="script-editor">Script Code:</label>
-                    <textarea id="script-editor" class="script-editor" placeholder="Enter your script code here..."></textarea>
+                    <div class="script-editor-container">
+                        <textarea id="script-editor" class="script-editor" placeholder="Enter your script code here..."></textarea>
+                        <div id="script-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
+                    </div>
                 </div>
                 
                 <div class="script-actions">
@@ -64,16 +71,199 @@ export class ScriptExecutionPanel {
         clearBtn.addEventListener('click', () => this.clearScript());
         
         // Enable save button when script has content
-        scriptEditor.addEventListener('input', () => {
+        scriptEditor.addEventListener('input', (e) => {
             saveBtn.disabled = !scriptEditor.value.trim() || !scriptName.value.trim();
+            this.handleInput(e);
         });
         scriptName.addEventListener('input', () => {
             saveBtn.disabled = !scriptEditor.value.trim() || !scriptName.value.trim();
         });
+        
+        // Handle keyboard events for autocomplete
+        scriptEditor.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!this.container.contains(e.target)) {
+                this.hideSuggestions();
+            }
+        });
+    }
+    
+    handleInput(e) {
+        this.updateSuggestions();
+    }
+    
+    handleKeyDown(e) {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const suggestionsDiv = this.container.querySelector('#script-autocomplete-suggestions');
+        
+        if (!this.autocompleteVisible || this.suggestions.length === 0) {
+            return;
+        }
+        
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.selectedSuggestionIndex = Math.min(
+                    this.selectedSuggestionIndex + 1,
+                    this.suggestions.length - 1
+                );
+                this.highlightSuggestion();
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, -1);
+                this.highlightSuggestion();
+                break;
+                
+            case 'Enter':
+            case 'Tab':
+                if (this.selectedSuggestionIndex >= 0) {
+                    e.preventDefault();
+                    this.insertSuggestion(this.suggestions[this.selectedSuggestionIndex]);
+                }
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                this.hideSuggestions();
+                break;
+        }
+    }
+    
+    updateSuggestions() {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        if (!scriptEditor) return;
+        
+        const scriptText = scriptEditor.value;
+        const cursorPosition = scriptEditor.selectionStart;
+        
+        // Get dataset for column suggestions
+        const dataset = this.currentDataset ? datasetStore.get(this.currentDataset.id) : null;
+        
+        if (dataset && dataset.columns) {
+            this.suggestions = getColumnSuggestions(scriptText, cursorPosition, dataset);
+            
+            if (this.suggestions.length > 0) {
+                this.selectedSuggestionIndex = -1;
+                this.showSuggestions();
+            } else {
+                this.hideSuggestions();
+            }
+        } else {
+            this.hideSuggestions();
+        }
+    }
+    
+    showSuggestions() {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const suggestionsDiv = this.container.querySelector('#script-autocomplete-suggestions');
+        
+        if (!suggestionsDiv || this.suggestions.length === 0) {
+            return;
+        }
+        
+        // Build suggestions HTML
+        suggestionsDiv.innerHTML = this.suggestions.map((suggestion, index) => {
+            const typeClass = `suggestion-${suggestion.type}`;
+            const selectedClass = index === this.selectedSuggestionIndex ? 'selected' : '';
+            return `
+                <div class="suggestion-item ${typeClass} ${selectedClass}" data-index="${index}">
+                    <span class="suggestion-type">${suggestion.type}</span>
+                    <span class="suggestion-text">${this.escapeHtml(suggestion.display || suggestion.text)}</span>
+                </div>
+            `;
+        }).join('');
+        
+        // Position suggestions
+        this.positionSuggestions();
+        
+        // Add click handlers
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                this.insertSuggestion(this.suggestions[index]);
+            });
+        });
+        
+        suggestionsDiv.style.display = 'block';
+        this.autocompleteVisible = true;
+    }
+    
+    hideSuggestions() {
+        const suggestionsDiv = this.container.querySelector('#script-autocomplete-suggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.style.display = 'none';
+        }
+        this.autocompleteVisible = false;
+        this.selectedSuggestionIndex = -1;
+    }
+    
+    highlightSuggestion() {
+        const suggestionsDiv = this.container.querySelector('#script-autocomplete-suggestions');
+        if (!suggestionsDiv) return;
+        
+        const items = suggestionsDiv.querySelectorAll('.suggestion-item');
+        items.forEach((item, index) => {
+            if (index === this.selectedSuggestionIndex) {
+                item.classList.add('selected');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    positionSuggestions() {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const suggestionsDiv = this.container.querySelector('#script-autocomplete-suggestions');
+        const editorContainer = scriptEditor.closest('.script-editor-container');
+        
+        if (!scriptEditor || !suggestionsDiv || !editorContainer) return;
+        
+        // Position relative to editor container
+        suggestionsDiv.style.left = '0px';
+        suggestionsDiv.style.top = `${scriptEditor.offsetHeight + 2}px`;
+    }
+    
+    insertSuggestion(suggestion) {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const scriptText = scriptEditor.value;
+        const cursorPosition = scriptEditor.selectionStart;
+        const textBeforeCursor = scriptText.substring(0, cursorPosition);
+        
+        const wordStart = getWordStartPosition(textBeforeCursor);
+        const wordEnd = cursorPosition;
+        
+        // Replace current word with suggestion
+        const newScript = scriptText.substring(0, wordStart) + suggestion.text + scriptText.substring(wordEnd);
+        
+        // Update textarea
+        scriptEditor.value = newScript;
+        
+        // Set cursor position after inserted text
+        const newCursorPosition = wordStart + suggestion.text.length;
+        scriptEditor.setSelectionRange(newCursorPosition, newCursorPosition);
+        
+        // Hide suggestions and update
+        this.hideSuggestions();
+        this.updateSuggestions();
+        
+        // Focus back on editor
+        scriptEditor.focus();
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     setDataset(dataset) {
         this.currentDataset = dataset;
+        // Update suggestions when dataset changes
+        this.updateSuggestions();
     }
     
     executeScript() {
