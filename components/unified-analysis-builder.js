@@ -20,6 +20,7 @@ export class UnifiedAnalysisBuilder {
         this.metricSuggestions = [];
         this.selectedSuggestionIndex = -1;
         this.autocompleteVisible = false;
+        this.fullDatasetCache = new Map(); // Cache full datasets to avoid re-execution
         this.init();
     }
     
@@ -450,13 +451,13 @@ export class UnifiedAnalysisBuilder {
             return;
         }
         
-        // Get full dataset (re-execute SQL without LIMIT if available)
-        const fullDataset = await this.getFullDataset(this.currentDataset);
-        
-        // Show loading
+        // Show loading immediately
         resultContainer.innerHTML = '<div class="loading">Calculating metric...</div>';
         
         try {
+            // Get full dataset (re-execute SQL without LIMIT if available, with caching)
+            const fullDataset = await this.getFullDataset(this.currentDataset);
+            
             // Evaluate metric script expression on full dataset
             const value = evaluateMetricScript(expression, fullDataset);
             
@@ -549,6 +550,16 @@ export class UnifiedAnalysisBuilder {
     setDataset(dataset) {
         this.currentDataset = dataset;
         
+        // Clear cache when dataset changes
+        if (dataset && this.fullDatasetCache) {
+            // Only clear cache for different dataset
+            const cacheKey = dataset.id;
+            if (!this.fullDatasetCache.has(cacheKey)) {
+                // New dataset, clear old cache entries to free memory
+                this.fullDatasetCache.clear();
+            }
+        }
+        
         // Update metric builder if in metric mode
         if (this.mode === 'metric') {
             this.updateDatasetDisplay();
@@ -632,11 +643,33 @@ export class UnifiedAnalysisBuilder {
     
     /**
      * Gets the full dataset by re-executing SQL without LIMIT if available
+     * Uses caching to avoid re-executing the same query multiple times
      * @param {Object} dataset - Dataset object (may have limited rows)
      * @returns {Promise<Object>} Dataset with all rows
      */
     async getFullDataset(dataset) {
         if (!dataset) {
+            return dataset;
+        }
+        
+        // Check cache first
+        const cacheKey = dataset.id;
+        if (this.fullDatasetCache.has(cacheKey)) {
+            const cached = this.fullDatasetCache.get(cacheKey);
+            // Verify cache is still valid (same SQL)
+            if (cached.sql === dataset.sql) {
+                return cached;
+            } else {
+                // SQL changed, clear cache
+                this.fullDatasetCache.delete(cacheKey);
+            }
+        }
+        
+        // If stored dataset already has a good number of rows (>= 100), use it directly
+        // This avoids re-execution for datasets that are already reasonably complete
+        if (dataset.rows && dataset.rows.length >= 100) {
+            // Cache it for future use
+            this.fullDatasetCache.set(cacheKey, dataset);
             return dataset;
         }
         
@@ -650,16 +683,21 @@ export class UnifiedAnalysisBuilder {
                     .trim();
                 
                 // Re-execute query without LIMIT to get all rows
-                // Use a large number for the mock engine's row generation
-                const sqlResult = await executeSQL(sqlWithoutLimit, 10000);
+                // Use 1000 rows instead of 10000 for faster execution (still plenty for metrics)
+                const sqlResult = await executeSQL(sqlWithoutLimit, 1000);
                 
                 if (sqlResult && sqlResult.rows && sqlResult.rows.length > 0) {
-                    // Return dataset with all rows
-                    return {
+                    // Create full dataset with all rows
+                    const fullDataset = {
                         ...dataset,
                         rows: sqlResult.rows,
                         columns: sqlResult.columns || dataset.columns
                     };
+                    
+                    // Cache it for future use
+                    this.fullDatasetCache.set(cacheKey, fullDataset);
+                    
+                    return fullDataset;
                 }
             } catch (error) {
                 console.warn('Could not re-execute SQL for full dataset, using stored dataset:', error);
@@ -668,7 +706,16 @@ export class UnifiedAnalysisBuilder {
         }
         
         // Return original dataset if no SQL or re-execution failed
+        // Cache it anyway to avoid future checks
+        this.fullDatasetCache.set(cacheKey, dataset);
         return dataset;
+    }
+    
+    /**
+     * Clears the full dataset cache (useful when datasets are updated)
+     */
+    clearFullDatasetCache() {
+        this.fullDatasetCache.clear();
     }
 }
 
