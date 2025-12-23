@@ -131,6 +131,18 @@ main {
     min-width: 0;
 }
 
+/* Visualization Layout */
+.visualization-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.visualization-content {
+    flex: 1;
+    min-width: 0;
+}
+
 /* Saved Queries Dropdown Styles */
 .saved-queries-dropdown-container {
     background-color: #fff;
@@ -631,6 +643,10 @@ main {
         max-height: 400px;
         flex: 0 0 100%;
         margin-bottom: 20px;
+    }
+    
+    .visualization-layout {
+        flex-direction: column;
     }
 }
 

@@ -2,40 +2,47 @@
 // SQL editor → Dataset
 
 import { executeSQL } from '../utils/sql-engine.js';
-import { getSuggestions, getWordStartPosition } from '../utils/autocomplete.js';
+import { getAllTables } from '../utils/sql-engine.js';
 import { Modal } from '../utils/modal.js';
-
-// Helper function to get current word (duplicated from autocomplete for use here)
-function getCurrentWord(text) {
-    const match = text.match(/(\w+)$/);
-    return match ? match[1] : '';
-}
 
 export class QueryBuilder {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
         this.datasetCallbacks = [];
         this.currentResult = null;
-        this.suggestions = [];
-        this.selectedSuggestionIndex = -1;
-        this.autocompleteVisible = false;
-        this.inlineCompletionVisible = false;
         this.currentDatasetId = null; // Track if we're editing an existing dataset
+        this.editor = null;
         this.init();
     }
     
-    init() {
+    async init() {
+        await this.loadMonaco();
         this.render();
         this.attachEventListeners();
+        this.initMonacoEditor();
+    }
+    
+    async loadMonaco() {
+        return new Promise((resolve, reject) => {
+            if (window.monaco) {
+                resolve();
+                return;
+            }
+            
+            require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+            require(['vs/editor/editor.main'], () => {
+                resolve();
+            }, (err) => {
+                reject(err);
+            });
+        });
     }
     
     render() {
         this.container.innerHTML = `
             <div class="query-builder">
                 <div class="sql-editor-wrapper">
-                    <textarea id="sql-editor" placeholder="Enter your SQL query here..."></textarea>
-                    <div id="autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
-                    <div id="inline-completion" class="inline-completion" style="display: none;"></div>
+                    <div id="monaco-editor-container" class="monaco-editor-container"></div>
                 </div>
                 <div class="query-actions">
                     <button id="run-query" class="btn btn-primary">Run Query</button>
@@ -61,55 +68,181 @@ export class QueryBuilder {
         `;
     }
     
+    initMonacoEditor() {
+        const container = this.container.querySelector('#monaco-editor-container');
+        if (!container || !window.monaco) {
+            console.error('Monaco Editor not loaded');
+            return;
+        }
+        
+        // Get table and column information for autocomplete
+        const tables = getAllTables();
+        const tableSchemas = {};
+        tables.forEach(table => {
+            tableSchemas[table.name] = table.columns;
+        });
+        
+        // Configure SQL language with custom autocomplete
+        monaco.languages.registerCompletionItemProvider('sql', {
+            provideCompletionItems: (model, position) => {
+                const textUntilPosition = model.getValueInRange({
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: position.lineNumber,
+                    endColumn: position.column
+                });
+                
+                const word = model.getWordUntilPosition(position);
+                const range = {
+                    startLineNumber: position.lineNumber,
+                    endLineNumber: position.lineNumber,
+                    startColumn: word.startColumn,
+                    endColumn: word.endColumn
+                };
+                
+                const suggestions = [];
+                const textLower = textUntilPosition.toLowerCase();
+                
+                // SQL Keywords
+                const sqlKeywords = [
+                    'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN',
+                    'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'OFFSET', 'JOIN', 'INNER JOIN',
+                    'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'ON', 'AS', 'DISTINCT', 'COUNT',
+                    'SUM', 'AVG', 'MAX', 'MIN', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+                    'IS NULL', 'IS NOT NULL', 'UNION', 'UNION ALL'
+                ];
+                
+                // Context-aware suggestions
+                if (textLower.match(/from\s+(\w*)$/)) {
+                    // After FROM, suggest tables
+                    tables.forEach(table => {
+                        if (table.name.toLowerCase().startsWith(word.word.toLowerCase())) {
+                            suggestions.push({
+                                label: table.name,
+                                kind: monaco.languages.CompletionItemKind.Class,
+                                insertText: table.name,
+                                detail: table.description,
+                                range: range
+                            });
+                        }
+                    });
+                } else if (textLower.match(/select\s+(.*?)(?:\s+from|$)/i) || textLower.match(/where\s+(.*?)$/i)) {
+                    // In SELECT or WHERE, suggest columns
+                    const fromMatch = textLower.match(/from\s+(\w+)/);
+                    if (fromMatch) {
+                        const tableName = fromMatch[1];
+                        if (tableSchemas[tableName]) {
+                            tableSchemas[tableName].forEach(col => {
+                                if (col.toLowerCase().startsWith(word.word.toLowerCase())) {
+                                    suggestions.push({
+                                        label: col,
+                                        kind: monaco.languages.CompletionItemKind.Field,
+                                        insertText: col,
+                                        range: range
+                                    });
+                                }
+                            });
+                        }
+                    }
+                    // Also suggest all columns from all tables
+                    Object.entries(tableSchemas).forEach(([table, columns]) => {
+                        columns.forEach(col => {
+                            if (col.toLowerCase().startsWith(word.word.toLowerCase())) {
+                                suggestions.push({
+                                    label: `${table}.${col}`,
+                                    kind: monaco.languages.CompletionItemKind.Field,
+                                    insertText: `${table}.${col}`,
+                                    detail: `Column from ${table}`,
+                                    range: range
+                                });
+                            }
+                        });
+                    });
+                }
+                
+                // Always suggest SQL keywords
+                sqlKeywords.forEach(keyword => {
+                    if (keyword.toLowerCase().startsWith(word.word.toLowerCase())) {
+                        suggestions.push({
+                            label: keyword,
+                            kind: monaco.languages.CompletionItemKind.Keyword,
+                            insertText: keyword,
+                            range: range
+                        });
+                    }
+                });
+                
+                // Also suggest table names
+                tables.forEach(table => {
+                    if (table.name.toLowerCase().startsWith(word.word.toLowerCase())) {
+                        suggestions.push({
+                            label: table.name,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            insertText: table.name,
+                            detail: table.description,
+                            range: range
+                        });
+                    }
+                });
+                
+                return { suggestions: suggestions.slice(0, 50) };
+            },
+            triggerCharacters: ['.', ' ']
+        });
+        
+        // Create editor instance
+        this.editor = monaco.editor.create(container, {
+            value: '',
+            language: 'sql',
+            theme: 'vs',
+            automaticLayout: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontSize: 14,
+            fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+            lineNumbers: 'on',
+            roundedSelection: false,
+            cursorStyle: 'line',
+            wordWrap: 'on',
+            formatOnPaste: true,
+            formatOnType: true,
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: {
+                other: true,
+                comments: false,
+                strings: false
+            },
+            tabSize: 2,
+            insertSpaces: true
+        });
+        
+        // Add placeholder
+        this.editor.onDidChangeModelContent(() => {
+            const value = this.editor.getValue();
+            if (value === '') {
+                container.classList.add('empty');
+            } else {
+                container.classList.remove('empty');
+            }
+        });
+    }
+    
     attachEventListeners() {
         const runBtn = this.container.querySelector('#run-query');
         const clearBtn = this.container.querySelector('#clear-query');
         const saveBtn = this.container.querySelector('#save-dataset');
         const updateBtn = this.container.querySelector('#update-dataset');
-        const sqlEditor = this.container.querySelector('#sql-editor');
         
         runBtn.addEventListener('click', () => this.executeQuery());
         clearBtn.addEventListener('click', () => this.clearQuery());
         saveBtn.addEventListener('click', () => this.saveAsDataset());
         updateBtn.addEventListener('click', () => this.updateDataset());
-        
-        // Autocomplete event listeners
-        sqlEditor.addEventListener('input', (e) => this.handleInput(e));
-        sqlEditor.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        sqlEditor.addEventListener('click', () => {
-            this.updateSuggestions();
-            if (this.autocompleteVisible) {
-                requestAnimationFrame(() => this.positionSuggestions());
-            }
-        });
-        sqlEditor.addEventListener('scroll', () => {
-            if (this.autocompleteVisible) {
-                requestAnimationFrame(() => {
-                    this.positionSuggestions();
-                    this.positionInlineCompletion();
-                });
-            }
-        });
-        
-        // Hide suggestions when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.container.contains(e.target)) {
-                this.hideSuggestions();
-                this.hideInlineCompletion();
-            }
-        });
-        
-        // Update inline completion on selection change
-        sqlEditor.addEventListener('selectionchange', () => {
-            if (this.autocompleteVisible) {
-                this.positionInlineCompletion();
-            }
-        });
     }
     
     async executeQuery() {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const query = sqlEditor.value.trim();
+        if (!this.editor) return;
+        
+        const query = this.editor.getValue().trim();
         const saveBtn = this.container.querySelector('#save-dataset');
         const runBtn = this.container.querySelector('#run-query');
         
@@ -357,13 +490,15 @@ export class QueryBuilder {
     }
     
     clearQuery() {
-        const sqlEditor = this.container.querySelector('#sql-editor');
+        if (this.editor) {
+            this.editor.setValue('');
+        }
+        
         const thead = this.container.querySelector('#results-thead');
         const tbody = this.container.querySelector('#results-tbody');
         const saveBtn = this.container.querySelector('#save-dataset');
         const updateBtn = this.container.querySelector('#update-dataset');
         
-        sqlEditor.value = '';
         thead.innerHTML = '';
         tbody.innerHTML = `
             <tr>

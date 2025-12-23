@@ -38,7 +38,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize components
     const tableBrowser = new TableBrowser('#table-browser');
-    const datasetBrowser = new DatasetBrowser('#dataset-browser');
+    
+    // Initialize dataset browsers for both pages
+    const datasetBrowserAnalysis = new DatasetBrowser('#dataset-browser-analysis');
+    const datasetBrowserVisualization = new DatasetBrowser('#dataset-browser-visualization');
+    // Use visualization browser as the main one for visualization panel interactions
+    const datasetBrowser = datasetBrowserVisualization;
+    
     const queryBuilder = new QueryBuilder('#query-builder');
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
@@ -65,17 +71,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Set up event listeners for component communication
-    // Dataset Browser → Analysis Panel
-    datasetBrowser.onSelection((dataset) => {
+    // Dataset Browser (Analysis) → Analysis Panel
+    datasetBrowserAnalysis.onDatasetSelect((dataset) => {
         analysisPanel.setDataset(dataset);
         analysisPanel.refreshDatasetSelector();
     });
     
-    // Query Builder → Analysis Panel & Dataset Browser
+    // Dataset Browser (Visualization) → Visualization Panel
+    datasetBrowserVisualization.onDatasetSelect((dataset) => {
+        if (visualizationPanel.selectDataset) {
+            visualizationPanel.selectDataset(dataset.id);
+        }
+    });
+    
+    // Dataset Browser item selection → Visualization Panel
+    datasetBrowserVisualization.onItemSelect((type, value, datasetId) => {
+        if (visualizationPanel.handleBrowserItemSelection) {
+            visualizationPanel.handleBrowserItemSelection(type, value, datasetId);
+        }
+    });
+    
+    // Query Builder → Analysis Panel & Dataset Browsers
     queryBuilder.onDatasetCreated((dataset) => {
         analysisPanel.setDataset(dataset);
         analysisPanel.refreshDatasetSelector();
-        datasetBrowser.refresh();
+        datasetBrowserAnalysis.refresh();
+        datasetBrowserVisualization.refresh();
     });
     
     // Analysis Panel → Visualization Panel
@@ -87,18 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
         visualizationPanel.updateDataset(dataset);
     });
     
-    // Dataset Browser → Visualization Panel
-    datasetBrowser.onDatasetSelect((dataset) => {
-        if (visualizationPanel.selectDataset) {
-            visualizationPanel.selectDataset(dataset.id);
-        }
-    });
-    
-    
     // Handle dataset deletion - refresh all components
     tableBrowser.onDatasetDeleted((datasetId, dataset) => {
-        // Refresh dataset browser
-        datasetBrowser.refresh();
+        // Refresh dataset browsers
+        datasetBrowserAnalysis.refresh();
+        datasetBrowserVisualization.refresh();
         
         // Clear analysis panel if it was using the deleted dataset
         if (analysisPanel.currentDataset && analysisPanel.currentDataset.id === datasetId) {
@@ -112,8 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     queryBuilder.onDatasetDeleted((datasetId, dataset) => {
-        // Refresh dataset browser
-        datasetBrowser.refresh();
+        // Refresh dataset browsers
+        datasetBrowserAnalysis.refresh();
+        datasetBrowserVisualization.refresh();
         
         // Clear analysis panel if it was using the deleted dataset
         if (analysisPanel.currentDataset && analysisPanel.currentDataset.id === datasetId) {

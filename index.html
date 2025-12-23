@@ -6,6 +6,8 @@
     <title>Analytics Platform Prototype</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://code.highcharts.com/highcharts.js"></script>
+    <!-- Monaco Editor -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 </head>
 <body>
     <div class="container">
@@ -37,7 +39,7 @@
                 <section id="analysis-page" class="page">
                     <div class="analysis-layout">
                         <aside class="dataset-browser-sidebar">
-                            <div id="dataset-browser"></div>
+                            <div id="dataset-browser-analysis"></div>
                         </aside>
                         <div class="analysis-content">
                             <div class="panel">
@@ -49,9 +51,16 @@
                 </section>
                 
                 <section id="visualization-page" class="page">
-                    <div class="panel">
-                        <h2>Visualization</h2>
-                        <div id="visualization-panel"></div>
+                    <div class="visualization-layout">
+                        <aside class="dataset-browser-sidebar">
+                            <div id="dataset-browser-visualization"></div>
+                        </aside>
+                        <div class="visualization-content">
+                            <div class="panel">
+                                <h2>Visualization</h2>
+                                <div id="visualization-panel"></div>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </div>
