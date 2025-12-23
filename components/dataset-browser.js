@@ -3,6 +3,7 @@
 
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
+import { scriptsStore } from '../data/scripts.js';
 
 export class DatasetBrowser {
     constructor(containerSelector) {
@@ -64,9 +65,89 @@ export class DatasetBrowser {
         `;
     }
     
+    renderDataPreview(dataset) {
+        if (!dataset.rows || dataset.rows.length === 0) {
+            return '<div class="empty-state-small">No data rows available</div>';
+        }
+        
+        // Show first 5 rows as preview
+        const previewRows = dataset.rows.slice(0, 5);
+        const allColumns = dataset.columns || [];
+        
+        if (allColumns.length === 0) {
+            return '<div class="empty-state-small">No columns defined</div>';
+        }
+        
+        // Build table
+        const headerRow = `
+            <tr>
+                ${allColumns.map(col => `<th>${this.escapeHtml(this.formatColumnName(col))}</th>`).join('')}
+            </tr>
+        `;
+        
+        const dataRows = previewRows.map(row => {
+            return `
+                <tr>
+                    ${allColumns.map((col, idx) => {
+                        const value = row[idx];
+                        const displayValue = this.formatCellValue(value);
+                        const cellClass = this.isNumeric(value) ? 'numeric' : '';
+                        return `<td class="${cellClass}">${this.escapeHtml(displayValue)}</td>`;
+                    }).join('')}
+                </tr>
+            `;
+        }).join('');
+        
+        const moreRows = dataset.rows.length > 5 
+            ? `<tr><td colspan="${allColumns.length}" class="preview-more">... and ${dataset.rows.length - 5} more rows</td></tr>`
+            : '';
+        
+        return `
+            <div class="preview-table-container">
+                <table class="preview-table">
+                    <thead>${headerRow}</thead>
+                    <tbody>${dataRows}${moreRows}</tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    formatCellValue(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+        
+        if (typeof value === 'number') {
+            if (Number.isInteger(value)) {
+                return String(value);
+            } else {
+                return parseFloat(value.toFixed(2)).toString();
+            }
+        }
+        
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            try {
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleDateString();
+                }
+            } catch (e) {
+                // If date parsing fails, return original string
+            }
+        }
+        
+        return String(value);
+    }
+    
+    isNumeric(value) {
+        return typeof value === 'number' && !isNaN(value);
+    }
+    
     renderDatasetDetails(dataset) {
         const metrics = metricsStore.getByDataset(dataset.id);
-        const scripts = scriptsStore.getAll(); // Show all scripts for now
+        // Get scripts for this dataset if method exists, otherwise show all
+        const scripts = scriptsStore.getByDataset ? scriptsStore.getByDataset(dataset.id) : 
+                       (scriptsStore.getAll ? scriptsStore.getAll().filter(s => s.datasetId === dataset.id) : []);
         
         return `
             <div class="dataset-details-panel">
@@ -76,6 +157,16 @@ export class DatasetBrowser {
                         <span>${dataset.columns ? dataset.columns.length : 0} columns</span>
                         <span>•</span>
                         <span>${dataset.rows ? dataset.rows.length : 0} rows</span>
+                    </div>
+                </div>
+                
+                <div class="data-preview-section">
+                    <div class="section-title">
+                        <span class="section-icon">📋</span>
+                        <span>Data Preview</span>
+                    </div>
+                    <div class="data-preview">
+                        ${this.renderDataPreview(dataset)}
                     </div>
                 </div>
                 

@@ -31,62 +31,46 @@ function parseAndExecuteSQL(sql) {
         throw new Error('SQL query cannot be empty');
     }
     
-    const normalizedSQL = sql.trim().toLowerCase();
+    const originalSQL = sql.trim();
+    const normalizedSQL = originalSQL.toLowerCase();
     
     // Basic SQL validation - must start with SELECT
     if (!normalizedSQL.startsWith('select')) {
         throw new Error('SQL query must start with SELECT. Only SELECT queries are supported.');
     }
     
-    // Extract table name from FROM clause
-    const fromMatch = normalizedSQL.match(/from\s+(\w+)/);
-    if (!fromMatch) {
-        throw new Error('SQL query must include a FROM clause with a table name. Example: SELECT * FROM samples');
-    }
-    
-    const tableName = fromMatch[1];
-    
-    // Validate table exists (optional check - could be more lenient)
-    const allTables = getAllTables();
-    const tableExists = allTables.some(t => t.name.toLowerCase() === tableName) || 
-                       ['users', 'orders', 'products', 'sales', 'metrics', 'analytics', 'default'].includes(tableName);
-    
-    if (!tableExists) {
-        throw new Error(`Table "${tableName}" not found. Available tables: ${allTables.map(t => t.name).join(', ')}`);
-    }
-    
-    // Extract column names from SELECT clause
-    const selectMatch = normalizedSQL.match(/select\s+(.+?)\s+from/i);
-    let columns = [];
-    let selectClause = null;
-    
-    if (selectMatch) {
-        selectClause = selectMatch[1].trim();
-        if (selectClause === '*') {
-            // Use default columns for the table
-            columns = getDefaultColumns(tableName);
-        } else {
-            // Parse column names
-            columns = selectClause
-                .split(',')
-                .map(col => col.trim().replace(/\s+as\s+\w+/i, ''))
-                .map(col => col.replace(/^["'`]|["'`]$/g, ''))
-                .filter(col => col.length > 0);
-            
-            if (columns.length === 0) {
-                throw new Error('No valid columns found in SELECT clause. Please specify at least one column or use *');
-            }
-        }
-    } else {
+    // Parse SELECT clause with column aliases
+    const selectMatch = originalSQL.match(/select\s+(.+?)\s+from/i);
+    if (!selectMatch) {
         throw new Error('Invalid SELECT clause. Please use format: SELECT column1, column2 FROM table_name');
     }
     
-    // Validate columns exist in table (optional - could be more lenient)
-    const defaultColumns = getDefaultColumns(tableName);
-    const invalidColumns = columns.filter(col => !defaultColumns.includes(col.toLowerCase()));
-    if (invalidColumns.length > 0 && selectClause !== '*') {
-        // Warning only - don't throw, but could log
-        console.warn(`Some columns may not exist in table "${tableName}": ${invalidColumns.join(', ')}`);
+    const selectClause = selectMatch[1].trim();
+    const columnSpecs = parseSelectClause(selectClause);
+    
+    // Parse FROM and JOIN clauses
+    const fromJoinMatch = originalSQL.match(/from\s+(.+?)(?:\s+where|\s+order\s+by|\s+group\s+by|\s+having|\s+limit|$)/i);
+    if (!fromJoinMatch) {
+        throw new Error('SQL query must include a FROM clause with a table name.');
+    }
+    
+    const fromJoinClause = fromJoinMatch[1].trim();
+    const tableInfo = parseFromAndJoins(fromJoinClause);
+    
+    // Validate all tables exist
+    const allTables = getAllTables();
+    const tableMap = {};
+    allTables.forEach(t => {
+        tableMap[t.name.toLowerCase()] = t;
+    });
+    // Add test_types as alias for tests
+    tableMap['test_types'] = tableMap['tests'];
+    
+    for (const tableAlias of Object.keys(tableInfo.tables)) {
+        const tableName = tableInfo.tables[tableAlias];
+        if (!tableMap[tableName.toLowerCase()]) {
+            throw new Error(`Table "${tableName}" not found. Available tables: ${allTables.map(t => t.name).join(', ')}`);
+        }
     }
     
     // Check for WHERE clause to determine row count
@@ -98,22 +82,140 @@ function parseAndExecuteSQL(sql) {
         throw new Error('LIMIT clause must contain a positive number. Example: LIMIT 10');
     }
     
-    // Generate mock rows
+    // Generate mock rows with JOIN support
     const rowCount = limit || (whereMatch ? 5 : 10);
-    const rows = generateMockRows(columns, rowCount, tableName);
+    const rows = generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount);
     
-    // Check if result is empty (shouldn't happen with mock data, but good practice)
-    if (rows.length === 0) {
-        return {
-            columns,
-            rows: []
-        };
-    }
+    // Extract column names for output (use aliases if present, otherwise use column names)
+    const columns = columnSpecs.map(spec => spec.alias || spec.columnName);
     
     return {
         columns,
         rows
     };
+}
+
+/**
+ * Parses SELECT clause to extract column specifications with aliases
+ * @param {string} selectClause - The SELECT clause content
+ * @returns {Array<{columnName: string, alias: string|null, tableAlias: string|null}>}
+ */
+function parseSelectClause(selectClause) {
+    if (selectClause.trim() === '*') {
+        return [{ columnName: '*', alias: null, tableAlias: null }];
+    }
+    
+    // Split by comma, but be careful with commas inside parentheses
+    const columns = [];
+    let current = '';
+    let depth = 0;
+    
+    for (let i = 0; i < selectClause.length; i++) {
+        const char = selectClause[i];
+        if (char === '(') depth++;
+        else if (char === ')') depth--;
+        else if (char === ',' && depth === 0) {
+            if (current.trim()) {
+                columns.push(parseColumnSpec(current.trim()));
+            }
+            current = '';
+            continue;
+        }
+        current += char;
+    }
+    
+    if (current.trim()) {
+        columns.push(parseColumnSpec(current.trim()));
+    }
+    
+    return columns.filter(col => col !== null);
+}
+
+/**
+ * Parses a single column specification
+ * @param {string} colSpec - Column specification (e.g., "s.sample_id", "status AS sample_status")
+ * @returns {{columnName: string, alias: string|null, tableAlias: string|null}}
+ */
+function parseColumnSpec(colSpec) {
+    // Remove quotes
+    colSpec = colSpec.replace(/^["'`]|["'`]$/g, '');
+    
+    // Check for alias (AS keyword or space-separated)
+    const aliasMatch = colSpec.match(/\s+as\s+(\w+)$/i) || colSpec.match(/\s+(\w+)$/);
+    let alias = null;
+    let columnPart = colSpec;
+    
+    if (aliasMatch) {
+        alias = aliasMatch[1];
+        columnPart = colSpec.substring(0, aliasMatch.index).trim();
+    }
+    
+    // Check for table alias (table.column)
+    const parts = columnPart.split('.');
+    let tableAlias = null;
+    let columnName = columnPart;
+    
+    if (parts.length === 2) {
+        tableAlias = parts[0].trim();
+        columnName = parts[1].trim();
+    } else if (parts.length > 2) {
+        // Handle schema.table.column (use last two parts)
+        tableAlias = parts[parts.length - 2].trim();
+        columnName = parts[parts.length - 1].trim();
+    }
+    
+    // Remove quotes from column name
+    columnName = columnName.replace(/^["'`]|["'`]$/g, '');
+    if (tableAlias) {
+        tableAlias = tableAlias.replace(/^["'`]|["'`]$/g, '');
+    }
+    
+    return {
+        columnName: columnName.toLowerCase(),
+        alias: alias ? alias.toLowerCase() : null,
+        tableAlias: tableAlias ? tableAlias.toLowerCase() : null
+    };
+}
+
+/**
+ * Parses FROM and JOIN clauses to extract table information
+ * @param {string} fromJoinClause - The FROM/JOIN clause content
+ * @returns {{tables: Object<string, string>, joins: Array<{type: string, table: string, alias: string, on: string}>}}
+ */
+function parseFromAndJoins(fromJoinClause) {
+    const result = {
+        tables: {}, // alias -> table name
+        joins: []
+    };
+    
+    // Parse FROM clause (first table)
+    const fromMatch = fromJoinClause.match(/^(\w+)(?:\s+(\w+))?/i);
+    if (fromMatch) {
+        const tableName = fromMatch[1];
+        const alias = fromMatch[2] || tableName;
+        result.tables[alias.toLowerCase()] = tableName.toLowerCase();
+    }
+    
+    // Parse JOIN clauses
+    const joinRegex = /(left|right|inner|full)?\s*join\s+(\w+)(?:\s+(\w+))?(?:\s+on\s+(.+?))?(?=\s+(?:left|right|inner|full)?\s*join|$)/gi;
+    let joinMatch;
+    
+    while ((joinMatch = joinRegex.exec(fromJoinClause)) !== null) {
+        const joinType = (joinMatch[1] || 'inner').toLowerCase();
+        const tableName = joinMatch[2];
+        const alias = joinMatch[3] || tableName;
+        const onClause = joinMatch[4] || '';
+        
+        result.tables[alias.toLowerCase()] = tableName.toLowerCase();
+        result.joins.push({
+            type: joinType,
+            table: tableName.toLowerCase(),
+            alias: alias.toLowerCase(),
+            on: onClause.trim()
+        });
+    }
+    
+    return result;
 }
 
 /**
@@ -183,69 +285,241 @@ export function getAllTables() {
 }
 
 /**
- * Generates mock rows based on column names
- * @param {string[]} columns - Column names
+ * Generates mock rows for JOIN queries
+ * @param {Array} columnSpecs - Column specifications from SELECT clause
+ * @param {Object} tableInfo - Table and JOIN information
+ * @param {Object} tableMap - Map of table names to table definitions
  * @param {number} rowCount - Number of rows to generate
- * @param {string} tableName - Table name for context
  * @returns {any[][]}
  */
-function generateMockRows(columns, rowCount, tableName) {
+function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
     const rows = [];
     const baseDate = new Date('2024-01-01');
     
-    for (let i = 0; i < rowCount; i++) {
-        const row = columns.map(column => {
-            const colLower = column.toLowerCase();
+    // Generate base data for each table
+    const tableData = {};
+    for (const [alias, tableName] of Object.entries(tableInfo.tables)) {
+        const tableDef = tableMap[tableName];
+        if (!tableDef) continue;
+        
+        const tableRows = [];
+        const tableRowCount = rowCount;
+        
+        for (let i = 0; i < tableRowCount; i++) {
+            const row = {};
+            tableDef.columns.forEach(col => {
+                row[col] = generateColumnValue(col, i, tableName);
+            });
+            tableRows.push(row);
+        }
+        
+        tableData[alias] = tableRows;
+    }
+    
+    // Perform JOINs
+    let joinedData = tableData[Object.keys(tableInfo.tables)[0]] || [];
+    
+    for (const join of tableInfo.joins) {
+        const rightTableData = tableData[join.alias] || [];
+        const joined = [];
+        
+        // Parse ON clause to find join keys
+        const onClause = join.on.toLowerCase();
+        const onMatch = onClause.match(/(\w+)\.(\w+)\s*=\s*(\w+)\.(\w+)/);
+        
+        if (onMatch) {
+            const leftTableAlias = onMatch[1];
+            const leftColumn = onMatch[2];
+            const rightTableAlias = onMatch[3];
+            const rightColumn = onMatch[4];
             
-            // Generate data based on column name patterns
-            if (colLower.includes('date') || colLower.includes('_at')) {
-                const date = new Date(baseDate);
-                date.setDate(date.getDate() + i);
-                return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+            // Create index for right table
+            const rightIndex = {};
+            rightTableData.forEach((rightRow, idx) => {
+                const key = rightRow[rightColumn];
+                if (!rightIndex[key]) {
+                    rightIndex[key] = [];
+                }
+                rightIndex[key].push(idx);
+            });
+            
+            // Perform join
+            if (join.type === 'left') {
+                // LEFT JOIN: all rows from left, matching rows from right (or NULL)
+                joinedData.forEach(leftRow => {
+                    const key = leftRow[leftColumn];
+                    const matchingRight = rightIndex[key] || [];
+                    
+                    if (matchingRight.length > 0) {
+                        matchingRight.forEach(rightIdx => {
+                            const merged = { ...leftRow };
+                            Object.assign(merged, rightTableData[rightIdx]);
+                            joined.push(merged);
+                        });
+                    } else {
+                        // No match - add left row with NULLs for right columns
+                        const merged = { ...leftRow };
+                        const rightTableDef = tableMap[join.table];
+                        if (rightTableDef) {
+                            rightTableDef.columns.forEach(col => {
+                                merged[col] = null;
+                            });
+                        }
+                        joined.push(merged);
+                    }
+                });
+            } else {
+                // INNER JOIN: only matching rows
+                joinedData.forEach(leftRow => {
+                    const key = leftRow[leftColumn];
+                    const matchingRight = rightIndex[key] || [];
+                    
+                    matchingRight.forEach(rightIdx => {
+                        const merged = { ...leftRow };
+                        Object.assign(merged, rightTableData[rightIdx]);
+                        joined.push(merged);
+                    });
+                });
+            }
+        } else {
+            // No ON clause or couldn't parse - perform cartesian product (limited)
+            const maxCartesian = Math.min(joinedData.length * rightTableData.length, rowCount * 2);
+            for (let i = 0; i < Math.min(joinedData.length, rowCount); i++) {
+                for (let j = 0; j < Math.min(rightTableData.length, 3); j++) {
+                    if (joined.length >= maxCartesian) break;
+                    const merged = { ...joinedData[i] };
+                    Object.assign(merged, rightTableData[j]);
+                    joined.push(merged);
+                }
+            }
+        }
+        
+        joinedData = joined;
+    }
+    
+    // Limit to requested row count
+    joinedData = joinedData.slice(0, rowCount);
+    
+    // Map columns from joined data to result columns
+    for (const joinedRow of joinedData) {
+        const resultRow = columnSpecs.map(spec => {
+            if (spec.columnName === '*') {
+                // Handle SELECT * - return all columns (this is simplified)
+                return null; // We'll handle this differently
             }
             
-            if (colLower.includes('id')) {
-                return i + 1;
+            // Find the column value
+            let value = null;
+            
+            if (spec.tableAlias) {
+                // Qualified column name (table.column)
+                // Try to find in the joined row
+                const tableDef = tableMap[tableInfo.tables[spec.tableAlias]];
+                if (tableDef && tableDef.columns.includes(spec.columnName)) {
+                    value = joinedRow[spec.columnName];
+                }
+            } else {
+                // Unqualified column name - search in all tables
+                value = joinedRow[spec.columnName];
             }
             
-            if (colLower.includes('email')) {
-                return `user${i + 1}@example.com`;
+            // If still null, try to generate based on column name
+            if (value === null || value === undefined) {
+                value = generateColumnValue(spec.columnName, 0, null);
             }
             
-            if (colLower.includes('name')) {
-                return `Item ${i + 1}`;
-            }
-            
-            if (colLower.includes('value') || colLower.includes('result')) {
-                // Generate numeric values with some variation
-                return parseFloat((Math.random() * 100 + i * 0.5).toFixed(2));
-            }
-            
-            if (colLower.includes('price') || colLower.includes('amount') || colLower.includes('total')) {
-                return parseFloat((Math.random() * 1000 + 10).toFixed(2));
-            }
-            
-            if (colLower.includes('quantity') || colLower.includes('count')) {
-                return Math.floor(Math.random() * 100) + 1;
-            }
-            
-            if (colLower.includes('category') || colLower.includes('type')) {
-                const categories = ['A', 'B', 'C', 'D'];
-                return categories[i % categories.length];
-            }
-            
-            if (colLower.includes('event')) {
-                const events = ['click', 'view', 'purchase', 'signup'];
-                return events[i % events.length];
-            }
-            
-            // Default: return a string
-            return `Value ${i + 1}`;
+            return value;
         });
         
-        rows.push(row);
+        rows.push(resultRow);
     }
     
     return rows;
+}
+
+/**
+ * Generates a mock value for a column based on its name and context
+ * @param {string} columnName - Name of the column
+ * @param {number} rowIndex - Index of the row
+ * @param {string|null} tableName - Name of the table (optional)
+ * @returns {any}
+ */
+function generateColumnValue(columnName, rowIndex, tableName) {
+    const colLower = columnName.toLowerCase();
+    const baseDate = new Date('2024-01-01');
+    
+    // Generate data based on column name patterns
+    if (colLower.includes('date') || colLower.includes('_at')) {
+        const date = new Date(baseDate);
+        date.setDate(date.getDate() + rowIndex);
+        return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    }
+    
+    if (colLower.includes('id')) {
+        return rowIndex + 1;
+    }
+    
+    if (colLower.includes('email')) {
+        return `user${rowIndex + 1}@example.com`;
+    }
+    
+    if (colLower.includes('name')) {
+        if (colLower.includes('sample')) {
+            return `Sample-${String(rowIndex + 1).padStart(4, '0')}`;
+        }
+        if (colLower.includes('test')) {
+            const testNames = ['Blood Test', 'Urine Analysis', 'Culture Test', 'PCR Test', 'Antibody Test'];
+            return testNames[rowIndex % testNames.length];
+        }
+        if (colLower.includes('lab')) {
+            return `Lab ${rowIndex + 1}`;
+        }
+        return `Item ${rowIndex + 1}`;
+    }
+    
+    if (colLower.includes('value') || colLower.includes('result')) {
+        // Generate numeric values with some variation
+        return parseFloat((Math.random() * 100 + rowIndex * 0.5).toFixed(2));
+    }
+    
+    if (colLower.includes('price') || colLower.includes('amount') || colLower.includes('total')) {
+        return parseFloat((Math.random() * 1000 + 10).toFixed(2));
+    }
+    
+    if (colLower.includes('quantity') || colLower.includes('count')) {
+        return Math.floor(Math.random() * 100) + 1;
+    }
+    
+    if (colLower.includes('category') || colLower.includes('type')) {
+        const categories = ['A', 'B', 'C', 'D'];
+        return categories[rowIndex % categories.length];
+    }
+    
+    if (colLower === 'status') {
+        const statuses = ['pending', 'completed', 'in_progress', 'cancelled'];
+        return statuses[rowIndex % statuses.length];
+    }
+    
+    if (colLower.includes('method')) {
+        const methods = ['ELISA', 'PCR', 'Culture', 'Microscopy', 'Flow Cytometry'];
+        return methods[rowIndex % methods.length];
+    }
+    
+    if (colLower.includes('unit')) {
+        const units = ['mg/dL', 'IU/L', 'cells/μL', 'ng/mL', 'pg/mL'];
+        return units[rowIndex % units.length];
+    }
+    
+    if (colLower.includes('reference_range')) {
+        return '0-100';
+    }
+    
+    if (colLower.includes('event')) {
+        const events = ['click', 'view', 'purchase', 'signup'];
+        return events[rowIndex % events.length];
+    }
+    
+    // Default: return a string
+    return `Value ${rowIndex + 1}`;
 }
 
