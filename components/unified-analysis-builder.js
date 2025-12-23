@@ -110,10 +110,10 @@ export class UnifiedAnalysisBuilder {
             <div class="metric-script-builder">
                 <div class="metric-controls">
                     <div class="form-group">
-                        <label for="metric-dataset-select">Dataset:</label>
-                        <select id="metric-dataset-select" class="form-control">
-                            <option value="">-- Select a dataset --</option>
-                        </select>
+                        <label>Dataset:</label>
+                        <div id="metric-dataset-display" class="dataset-display">
+                            ${this.currentDataset ? this.escapeHtml(this.currentDataset.name) : '<span class="no-dataset">No dataset selected. Please select a dataset from the left pane.</span>'}
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -145,22 +145,19 @@ export class UnifiedAnalysisBuilder {
         `;
         
         this.attachMetricListeners();
-        this.populateDatasets();
+        this.updateDatasetDisplay();
+        if (this.currentDataset) {
+            this.updateMetricSuggestions();
+        }
     }
     
     attachMetricListeners() {
-        const datasetSelect = this.container.querySelector('#metric-dataset-select');
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
         const createBtn = this.container.querySelector('#create-metric');
         const clearBtn = this.container.querySelector('#clear-metric-form');
         
-        if (!datasetSelect || !nameInput || !expressionEditor) return;
-        
-        datasetSelect.addEventListener('change', () => {
-            this.updateCreateButtonState();
-            this.updateMetricSuggestions();
-        });
+        if (!nameInput || !expressionEditor) return;
         
         nameInput.addEventListener('input', () => this.updateCreateButtonState());
         
@@ -232,10 +229,8 @@ export class UnifiedAnalysisBuilder {
         const expression = expressionEditor.value;
         const cursorPosition = expressionEditor.selectionStart;
         
-        // Get dataset for column suggestions
-        const datasetSelect = this.container.querySelector('#metric-dataset-select');
-        const datasetId = datasetSelect ? datasetSelect.value : null;
-        const dataset = datasetId ? datasetStore.get(datasetId) : null;
+        // Use current dataset
+        const dataset = this.currentDataset;
         
         // Get function and column suggestions
         this.metricSuggestions = this.getMetricSuggestions(expression, cursorPosition, dataset);
@@ -392,26 +387,14 @@ export class UnifiedAnalysisBuilder {
         return div.innerHTML;
     }
     
-    populateDatasets() {
-        const datasetSelect = this.container.querySelector('#metric-dataset-select');
-        if (!datasetSelect) return;
-        
-        const datasets = datasetStore.getAll();
-        datasetSelect.innerHTML = '<option value="">-- Select a dataset --</option>';
-        
-        datasets.forEach(dataset => {
-            const option = document.createElement('option');
-            option.value = dataset.id;
-            option.textContent = dataset.name;
-            if (this.currentDataset && dataset.id === this.currentDataset.id) {
-                option.selected = true;
+    updateDatasetDisplay() {
+        const datasetDisplay = this.container.querySelector('#metric-dataset-display');
+        if (datasetDisplay) {
+            if (this.currentDataset) {
+                datasetDisplay.innerHTML = `<span class="dataset-name">${this.escapeHtml(this.currentDataset.name)}</span>`;
+            } else {
+                datasetDisplay.innerHTML = '<span class="no-dataset">No dataset selected. Please select a dataset from the left pane.</span>';
             }
-            datasetSelect.appendChild(option);
-        });
-        
-        // If current dataset is set, populate columns
-        if (this.currentDataset) {
-            this.populateColumns(this.currentDataset);
         }
     }
     
@@ -424,14 +407,13 @@ export class UnifiedAnalysisBuilder {
     
     updateCreateButtonState() {
         const createBtn = this.container.querySelector('#create-metric');
-        const datasetSelect = this.container.querySelector('#metric-dataset-select');
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
         
         if (!createBtn) return;
         
         const isValid = 
-            datasetSelect && datasetSelect.value !== '' &&
+            this.currentDataset !== null &&
             nameInput && nameInput.value.trim() !== '' &&
             expressionEditor && expressionEditor.value.trim() !== '';
         
@@ -439,24 +421,23 @@ export class UnifiedAnalysisBuilder {
     }
     
     async createMetric() {
-        const datasetSelect = this.container.querySelector('#metric-dataset-select');
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
         const resultContainer = this.container.querySelector('#metric-result');
         
-        const datasetId = datasetSelect.value;
+        if (!this.currentDataset) {
+            resultContainer.innerHTML = '<div class="error">Error: No dataset selected. Please select a dataset from the left pane.</div>';
+            return;
+        }
+        
         const name = nameInput.value.trim();
         const expression = expressionEditor.value.trim();
         
-        if (!datasetId || !name || !expression) {
+        if (!name || !expression) {
             return;
         }
         
-        const dataset = datasetStore.get(datasetId);
-        if (!dataset) {
-            resultContainer.innerHTML = '<div class="error">Error: Dataset not found</div>';
-            return;
-        }
+        const dataset = this.currentDataset;
         
         // Show loading
         resultContainer.innerHTML = '<div class="loading">Calculating metric...</div>';
@@ -495,7 +476,7 @@ export class UnifiedAnalysisBuilder {
             
             // Create the metric with expression
             const metric = metricsStore.create(
-                datasetId,
+                dataset.id,
                 name,
                 value,
                 'calculated',
@@ -541,7 +522,6 @@ export class UnifiedAnalysisBuilder {
     }
     
     clearMetricForm() {
-        const datasetSelect = this.container.querySelector('#metric-dataset-select');
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
         const resultContainer = this.container.querySelector('#metric-result');
@@ -557,11 +537,9 @@ export class UnifiedAnalysisBuilder {
         
         // Update metric builder if in metric mode
         if (this.mode === 'metric') {
-            const datasetSelect = this.container.querySelector('#metric-dataset-select');
-            if (datasetSelect && dataset) {
-                datasetSelect.value = dataset.id;
-                this.updateMetricSuggestions();
-            }
+            this.updateDatasetDisplay();
+            this.updateMetricSuggestions();
+            this.updateCreateButtonState();
         }
         
         // Update script panel (initialize if needed)
@@ -593,11 +571,17 @@ export class UnifiedAnalysisBuilder {
         const metric = metricsStore.get(metricId);
         if (!metric) return;
         
-        const datasetSelect = this.container.querySelector('#metric-dataset-select');
+        // Set the dataset if not already set
+        if (!this.currentDataset || this.currentDataset.id !== metric.datasetId) {
+            const dataset = datasetStore.get(metric.datasetId);
+            if (dataset) {
+                this.setDataset(dataset);
+            }
+        }
+        
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
         
-        if (datasetSelect) datasetSelect.value = metric.datasetId;
         if (nameInput) nameInput.value = metric.name || '';
         
         // Reconstruct expression from metric or use stored expression

@@ -1924,6 +1924,28 @@ main {
     gap: 15px;
 }
 
+.dataset-display {
+    padding: 10px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #495057;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+}
+
+.dataset-display .dataset-name {
+    font-weight: 500;
+    color: #007bff;
+}
+
+.dataset-display .no-dataset {
+    color: #6c757d;
+    font-style: italic;
+}
+
 .metric-editor-wrapper {
     margin-top: 10px;
 }

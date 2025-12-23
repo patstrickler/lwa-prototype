@@ -4,8 +4,11 @@
 import { getAllTables } from '../utils/sql-engine.js';
 
 export class TableBrowser {
-    constructor(containerSelector) {
+    constructor(containerSelector, savedDatasetsContainerSelector = null) {
         this.container = document.querySelector(containerSelector);
+        this.savedDatasetsContainer = savedDatasetsContainerSelector 
+            ? document.querySelector(savedDatasetsContainerSelector) 
+            : null;
         this.tables = getAllTables();
         this.onTableClickCallbacks = [];
         this.onColumnClickCallbacks = [];
@@ -29,7 +32,8 @@ export class TableBrowser {
     }
     
     render() {
-        this.container.innerHTML = `
+        // Render saved datasets dropdown in separate container if provided
+        const savedDatasetsHtml = `
             <div class="saved-datasets-dropdown-container">
                 <label for="saved-datasets-select" class="dropdown-label">Saved Datasets</label>
                 <select id="saved-datasets-select" class="saved-datasets-dropdown">
@@ -44,6 +48,18 @@ export class TableBrowser {
                     <button id="refresh-datasets-btn" class="btn-icon" title="Refresh">🔄</button>
                 </div>
             </div>
+        `;
+        
+        if (this.savedDatasetsContainer) {
+            // Render saved datasets in the separate container
+            this.savedDatasetsContainer.innerHTML = savedDatasetsHtml;
+        } else {
+            // Render saved datasets in the main container (backward compatibility)
+            this.container.innerHTML = savedDatasetsHtml;
+        }
+        
+        // Render table browser in the main container
+        const tableBrowserHtml = `
             <div class="table-browser">
                 <div class="table-browser-header">
                     <h3>Database Tables</h3>
@@ -53,6 +69,14 @@ export class TableBrowser {
                 </div>
             </div>
         `;
+        
+        if (this.savedDatasetsContainer) {
+            // If saved datasets are in separate container, append table browser to main container
+            this.container.innerHTML = tableBrowserHtml;
+        } else {
+            // Otherwise, append to existing content
+            this.container.innerHTML += tableBrowserHtml;
+        }
     }
     
     renderTable(table) {
@@ -79,11 +103,17 @@ export class TableBrowser {
     }
     
     attachEventListeners() {
-        // Saved datasets dropdown
-        const datasetSelect = this.container.querySelector('#saved-datasets-select');
-        const editBtn = this.container.querySelector('#edit-dataset-btn');
-        const deleteBtn = this.container.querySelector('#delete-dataset-btn');
-        const refreshBtn = this.container.querySelector('#refresh-datasets-btn');
+        // Saved datasets dropdown - look in separate container first, then main container
+        const searchContainer = this.savedDatasetsContainer || this.container;
+        const datasetSelect = searchContainer.querySelector('#saved-datasets-select');
+        const editBtn = searchContainer.querySelector('#edit-dataset-btn');
+        const deleteBtn = searchContainer.querySelector('#delete-dataset-btn');
+        const refreshBtn = searchContainer.querySelector('#refresh-datasets-btn');
+        
+        if (!datasetSelect || !editBtn || !deleteBtn || !refreshBtn) {
+            console.warn('Saved datasets controls not found');
+            return;
+        }
         
         datasetSelect.addEventListener('change', (e) => {
             const datasetId = e.target.value;
@@ -190,10 +220,11 @@ export class TableBrowser {
             this.render();
             this.attachEventListeners();
             
-            // Reset dropdown selection
-            const datasetSelect = this.container.querySelector('#saved-datasets-select');
-            const editBtn = this.container.querySelector('#edit-dataset-btn');
-            const deleteBtn = this.container.querySelector('#delete-dataset-btn');
+            // Reset dropdown selection - look in separate container first, then main container
+            const searchContainer = this.savedDatasetsContainer || this.container;
+            const datasetSelect = searchContainer.querySelector('#saved-datasets-select');
+            const editBtn = searchContainer.querySelector('#edit-dataset-btn');
+            const deleteBtn = searchContainer.querySelector('#delete-dataset-btn');
             if (datasetSelect) {
                 datasetSelect.value = '';
             }
