@@ -30,36 +30,51 @@ export class QueryBuilder {
             }
             
             // Wait for require to be available (from loader.js)
+            let attempts = 0;
+            const maxAttempts = 50; // 5 seconds total (50 * 100ms)
+            
             const checkRequire = () => {
+                attempts++;
+                
                 if (typeof require !== 'undefined') {
-                    // Configure require if not already configured
-                    if (!require.config.hasOwnProperty('vs')) {
+                    try {
+                        // Ensure require is configured
+                        if (!require.config || typeof require.config !== 'function') {
+                            reject(new Error('Monaco Editor require.config is not available'));
+                            return;
+                        }
+                        
+                        // Configure require with the correct base path
                         require.config({ 
                             paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } 
                         });
+                        
+                        // Load the editor main module
+                        require(['vs/editor/editor.main'], () => {
+                            if (window.monaco) {
+                                resolve();
+                            } else {
+                                reject(new Error('Monaco Editor failed to initialize - window.monaco is undefined'));
+                            }
+                        }, (err) => {
+                            console.error('Monaco Editor load error:', err);
+                            const errorMsg = err && err.message ? err.message : (err && err.toString ? err.toString() : 'Unknown error');
+                            reject(new Error(`Failed to load Monaco Editor: ${errorMsg}`));
+                        });
+                    } catch (error) {
+                        console.error('Error configuring Monaco Editor:', error);
+                        reject(new Error(`Error configuring Monaco Editor: ${error.message || error}`));
                     }
-                    
-                    require(['vs/editor/editor.main'], () => {
-                        if (window.monaco) {
-                            resolve();
-                        } else {
-                            reject(new Error('Monaco Editor failed to load'));
-                        }
-                    }, (err) => {
-                        console.error('Monaco Editor load error:', err);
-                        reject(new Error(`Failed to load Monaco Editor: ${err.message || err}`));
-                    });
-                } else {
+                } else if (attempts < maxAttempts) {
                     // Retry after a short delay
                     setTimeout(checkRequire, 100);
-                    // Timeout after 5 seconds
-                    setTimeout(() => {
-                        reject(new Error('Monaco Editor loader (require) not found after 5 seconds. Please ensure loader.js is loaded.'));
-                    }, 5000);
+                } else {
+                    reject(new Error('Monaco Editor loader (require) not found after 5 seconds. Please ensure loader.js is loaded before app.js.'));
                 }
             };
             
-            checkRequire();
+            // Start checking after a brief delay to ensure loader.js has loaded
+            setTimeout(checkRequire, 100);
         });
     }
     
