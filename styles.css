@@ -97,14 +97,66 @@ main {
 
 .query-results {
     margin-top: 20px;
-    padding: 15px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
 }
 
-.dataset-info h3 {
-    font-size: 16px;
-    margin-bottom: 10px;
+.results-table-container {
+    overflow-x: auto;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.results-table thead {
+    background-color: #f8f9fa;
+}
+
+.results-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    color: #495057;
+}
+
+.results-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.results-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.results-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.empty-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.results-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+    background-color: #007bff;
 }
 
 .error {
@@ -112,6 +164,7 @@ main {
     padding: 10px;
     background-color: #f8d7da;
     border-radius: 4px;
+    text-align: center;
 }
 
 /* Analysis Panel Styles */
