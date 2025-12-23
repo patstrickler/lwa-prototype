@@ -24,20 +24,44 @@ export async function executeSQL(sql, latency = 500) {
  * Parses SQL and generates mock data based on query patterns
  * @param {string} sql - SQL query string
  * @returns {{columns: string[], rows: any[][]}}
+ * @throws {Error} If SQL syntax is invalid
  */
 function parseAndExecuteSQL(sql) {
+    if (!sql || typeof sql !== 'string' || sql.trim().length === 0) {
+        throw new Error('SQL query cannot be empty');
+    }
+    
     const normalizedSQL = sql.trim().toLowerCase();
+    
+    // Basic SQL validation - must start with SELECT
+    if (!normalizedSQL.startsWith('select')) {
+        throw new Error('SQL query must start with SELECT. Only SELECT queries are supported.');
+    }
     
     // Extract table name from FROM clause
     const fromMatch = normalizedSQL.match(/from\s+(\w+)/);
-    const tableName = fromMatch ? fromMatch[1] : 'default';
+    if (!fromMatch) {
+        throw new Error('SQL query must include a FROM clause with a table name. Example: SELECT * FROM samples');
+    }
+    
+    const tableName = fromMatch[1];
+    
+    // Validate table exists (optional check - could be more lenient)
+    const allTables = getAllTables();
+    const tableExists = allTables.some(t => t.name.toLowerCase() === tableName) || 
+                       ['users', 'orders', 'products', 'sales', 'metrics', 'analytics', 'default'].includes(tableName);
+    
+    if (!tableExists) {
+        throw new Error(`Table "${tableName}" not found. Available tables: ${allTables.map(t => t.name).join(', ')}`);
+    }
     
     // Extract column names from SELECT clause
     const selectMatch = normalizedSQL.match(/select\s+(.+?)\s+from/i);
     let columns = [];
+    let selectClause = null;
     
     if (selectMatch) {
-        const selectClause = selectMatch[1].trim();
+        selectClause = selectMatch[1].trim();
         if (selectClause === '*') {
             // Use default columns for the table
             columns = getDefaultColumns(tableName);
@@ -48,9 +72,21 @@ function parseAndExecuteSQL(sql) {
                 .map(col => col.trim().replace(/\s+as\s+\w+/i, ''))
                 .map(col => col.replace(/^["'`]|["'`]$/g, ''))
                 .filter(col => col.length > 0);
+            
+            if (columns.length === 0) {
+                throw new Error('No valid columns found in SELECT clause. Please specify at least one column or use *');
+            }
         }
     } else {
-        columns = getDefaultColumns(tableName);
+        throw new Error('Invalid SELECT clause. Please use format: SELECT column1, column2 FROM table_name');
+    }
+    
+    // Validate columns exist in table (optional - could be more lenient)
+    const defaultColumns = getDefaultColumns(tableName);
+    const invalidColumns = columns.filter(col => !defaultColumns.includes(col.toLowerCase()));
+    if (invalidColumns.length > 0 && selectClause !== '*') {
+        // Warning only - don't throw, but could log
+        console.warn(`Some columns may not exist in table "${tableName}": ${invalidColumns.join(', ')}`);
     }
     
     // Check for WHERE clause to determine row count
@@ -58,9 +94,21 @@ function parseAndExecuteSQL(sql) {
     const limitMatch = normalizedSQL.match(/limit\s+(\d+)/i);
     const limit = limitMatch ? parseInt(limitMatch[1], 10) : null;
     
+    if (limit !== null && (isNaN(limit) || limit < 0)) {
+        throw new Error('LIMIT clause must contain a positive number. Example: LIMIT 10');
+    }
+    
     // Generate mock rows
     const rowCount = limit || (whereMatch ? 5 : 10);
     const rows = generateMockRows(columns, rowCount, tableName);
+    
+    // Check if result is empty (shouldn't happen with mock data, but good practice)
+    if (rows.length === 0) {
+        return {
+            columns,
+            rows: []
+        };
+    }
     
     return {
         columns,

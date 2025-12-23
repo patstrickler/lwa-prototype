@@ -3,6 +3,7 @@
 
 import { executeSQL } from '../utils/sql-engine.js';
 import { getSuggestions, getWordStartPosition } from '../utils/autocomplete.js';
+import { Modal } from '../utils/modal.js';
 
 export class QueryBuilder {
     constructor(containerSelector) {
@@ -94,6 +95,29 @@ export class QueryBuilder {
             // Execute SQL query with mock engine
             const sqlResult = await executeSQL(query, 500);
             
+            // Check if result is empty
+            if (!sqlResult || !sqlResult.columns || sqlResult.columns.length === 0) {
+                this.showError('Query executed successfully but returned no columns. Please check your SELECT clause.');
+                this.currentResult = null;
+                saveBtn.disabled = true;
+                return;
+            }
+            
+            if (!sqlResult.rows || sqlResult.rows.length === 0) {
+                // Empty result set is valid - show message
+                const result = {
+                    id: `result_${Date.now()}`,
+                    name: 'Query Result',
+                    data: [],
+                    columns: sqlResult.columns,
+                    query: query
+                };
+                this.currentResult = result;
+                this.displayResults(result);
+                saveBtn.disabled = false;
+                return;
+            }
+            
             // Convert rows (array of arrays) to data (array of objects)
             const data = sqlResult.rows.map(row => {
                 const rowObj = {};
@@ -116,7 +140,26 @@ export class QueryBuilder {
             this.displayResults(result);
             saveBtn.disabled = false;
         } catch (error) {
-            this.showError(`Error: ${error.message}`);
+            // Provide user-friendly error messages
+            let errorMessage = 'An error occurred while executing the query.';
+            
+            if (error.message) {
+                if (error.message.includes('empty')) {
+                    errorMessage = 'SQL query cannot be empty. Please enter a query.';
+                } else if (error.message.includes('SELECT')) {
+                    errorMessage = error.message;
+                } else if (error.message.includes('FROM')) {
+                    errorMessage = error.message;
+                } else if (error.message.includes('Table')) {
+                    errorMessage = error.message;
+                } else if (error.message.includes('column')) {
+                    errorMessage = error.message;
+                } else {
+                    errorMessage = `SQL Error: ${error.message}`;
+                }
+            }
+            
+            this.showError(errorMessage);
             this.currentResult = null;
             saveBtn.disabled = true;
         } finally {
@@ -272,7 +315,10 @@ export class QueryBuilder {
         thead.innerHTML = '';
         tbody.innerHTML = `
             <tr>
-                <td colspan="100%" class="error">${message}</td>
+                <td colspan="100%" class="error-message">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-text">${this.escapeHtml(message)}</div>
+                </td>
             </tr>
         `;
         saveBtn.disabled = true;
@@ -295,40 +341,39 @@ export class QueryBuilder {
         this.currentResult = null;
     }
     
-    saveAsDataset() {
+    async saveAsDataset() {
         if (!this.currentResult) {
             return;
         }
         
         // Import datasetStore
-        import('../data/datasets.js').then(({ datasetStore }) => {
-            const datasetName = prompt('Enter a name for this dataset:', `Dataset ${new Date().toLocaleString()}`);
-            
-            if (!datasetName || !datasetName.trim()) {
-                return; // User cancelled or entered empty name
-            }
-            
-            // Convert data (array of objects) to rows (array of arrays)
-            const columns = this.currentResult.columns || [];
-            const data = this.currentResult.data || [];
-            const rows = data.map(row => {
-                return columns.map(column => row[column]);
-            });
-            
-            // Create dataset with SQL, columns, and rows
-            const dataset = datasetStore.create(
-                datasetName.trim(),
-                this.currentResult.query || '',
-                columns,
-                rows
-            );
-            
-            // Notify listeners
-            this.notifyDatasetCreated(dataset);
-            
-            // Show success message
-            alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
+        const { datasetStore } = await import('../data/datasets.js');
+        const datasetName = await Modal.prompt('Enter a name for this dataset:', `Dataset ${new Date().toLocaleString()}`);
+        
+        if (!datasetName || !datasetName.trim()) {
+            return; // User cancelled or entered empty name
+        }
+        
+        // Convert data (array of objects) to rows (array of arrays)
+        const columns = this.currentResult.columns || [];
+        const data = this.currentResult.data || [];
+        const rows = data.map(row => {
+            return columns.map(column => row[column]);
         });
+        
+        // Create dataset with SQL, columns, and rows
+        const dataset = datasetStore.create(
+            datasetName.trim(),
+            this.currentResult.query || '',
+            columns,
+            rows
+        );
+        
+        // Notify listeners
+        this.notifyDatasetCreated(dataset);
+        
+        // Show success message
+        await Modal.alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
     }
     
     onDatasetCreated(callback) {

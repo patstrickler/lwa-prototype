@@ -7,17 +7,35 @@
  * @param {string[]} columns - Column names array
  * @param {string} columnName - Name of the column to calculate on
  * @returns {number|null}
+ * @throws {Error} If column is missing or dataset is empty
  */
 export function calculateMean(rows, columns, columnName) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Cannot calculate mean: dataset is empty');
+    }
+    
+    if (!columns || !Array.isArray(columns)) {
+        throw new Error('Cannot calculate mean: column names are missing');
+    }
+    
     const columnIndex = columns.indexOf(columnName);
-    if (columnIndex === -1) return null;
+    if (columnIndex === -1) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${columns.join(', ')}`);
+    }
     
     const values = rows
-        .map(row => row[columnIndex])
+        .map(row => {
+            if (!row || !Array.isArray(row) || row.length <= columnIndex) {
+                return null;
+            }
+            return row[columnIndex];
+        })
         .filter(val => val !== null && val !== undefined && !isNaN(Number(val)))
         .map(val => Number(val));
     
-    if (values.length === 0) return null;
+    if (values.length === 0) {
+        throw new Error(`Cannot calculate mean: column "${columnName}" contains no numeric values`);
+    }
     
     const sum = values.reduce((acc, val) => acc + val, 0);
     return parseFloat((sum / values.length).toFixed(4));
@@ -29,17 +47,35 @@ export function calculateMean(rows, columns, columnName) {
  * @param {string[]} columns - Column names array
  * @param {string} columnName - Name of the column to calculate on
  * @returns {number|null}
+ * @throws {Error} If column is missing or dataset is empty
  */
 export function calculateSum(rows, columns, columnName) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Cannot calculate sum: dataset is empty');
+    }
+    
+    if (!columns || !Array.isArray(columns)) {
+        throw new Error('Cannot calculate sum: column names are missing');
+    }
+    
     const columnIndex = columns.indexOf(columnName);
-    if (columnIndex === -1) return null;
+    if (columnIndex === -1) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${columns.join(', ')}`);
+    }
     
     const values = rows
-        .map(row => row[columnIndex])
+        .map(row => {
+            if (!row || !Array.isArray(row) || row.length <= columnIndex) {
+                return null;
+            }
+            return row[columnIndex];
+        })
         .filter(val => val !== null && val !== undefined && !isNaN(Number(val)))
         .map(val => Number(val));
     
-    if (values.length === 0) return null;
+    if (values.length === 0) {
+        throw new Error(`Cannot calculate sum: column "${columnName}" contains no numeric values`);
+    }
     
     return parseFloat(values.reduce((acc, val) => acc + val, 0).toFixed(4));
 }
@@ -50,17 +86,35 @@ export function calculateSum(rows, columns, columnName) {
  * @param {string[]} columns - Column names array
  * @param {string} columnName - Name of the column to calculate on
  * @returns {number|null}
+ * @throws {Error} If column is missing or dataset is empty
  */
 export function calculateMin(rows, columns, columnName) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Cannot calculate minimum: dataset is empty');
+    }
+    
+    if (!columns || !Array.isArray(columns)) {
+        throw new Error('Cannot calculate minimum: column names are missing');
+    }
+    
     const columnIndex = columns.indexOf(columnName);
-    if (columnIndex === -1) return null;
+    if (columnIndex === -1) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${columns.join(', ')}`);
+    }
     
     const values = rows
-        .map(row => row[columnIndex])
+        .map(row => {
+            if (!row || !Array.isArray(row) || row.length <= columnIndex) {
+                return null;
+            }
+            return row[columnIndex];
+        })
         .filter(val => val !== null && val !== undefined && !isNaN(Number(val)))
         .map(val => Number(val));
     
-    if (values.length === 0) return null;
+    if (values.length === 0) {
+        throw new Error(`Cannot calculate minimum: column "${columnName}" contains no numeric values`);
+    }
     
     return Math.min(...values);
 }
@@ -71,17 +125,35 @@ export function calculateMin(rows, columns, columnName) {
  * @param {string[]} columns - Column names array
  * @param {string} columnName - Name of the column to calculate on
  * @returns {number|null}
+ * @throws {Error} If column is missing or dataset is empty
  */
 export function calculateMax(rows, columns, columnName) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Cannot calculate maximum: dataset is empty');
+    }
+    
+    if (!columns || !Array.isArray(columns)) {
+        throw new Error('Cannot calculate maximum: column names are missing');
+    }
+    
     const columnIndex = columns.indexOf(columnName);
-    if (columnIndex === -1) return null;
+    if (columnIndex === -1) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${columns.join(', ')}`);
+    }
     
     const values = rows
-        .map(row => row[columnIndex])
+        .map(row => {
+            if (!row || !Array.isArray(row) || row.length <= columnIndex) {
+                return null;
+            }
+            return row[columnIndex];
+        })
         .filter(val => val !== null && val !== undefined && !isNaN(Number(val)))
         .map(val => Number(val));
     
-    if (values.length === 0) return null;
+    if (values.length === 0) {
+        throw new Error(`Cannot calculate maximum: column "${columnName}" contains no numeric values`);
+    }
     
     return Math.max(...values);
 }
@@ -92,17 +164,36 @@ export function calculateMax(rows, columns, columnName) {
  * @param {string[]} columns - Column names array
  * @param {string} columnName - Name of the column to calculate on
  * @returns {number|null}
+ * @throws {Error} If column is missing or dataset is empty
  */
 export function calculateStdev(rows, columns, columnName) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Cannot calculate standard deviation: dataset is empty');
+    }
+    
+    if (!columns || !Array.isArray(columns)) {
+        throw new Error('Cannot calculate standard deviation: column names are missing');
+    }
+    
     const columnIndex = columns.indexOf(columnName);
-    if (columnIndex === -1) return null;
+    if (columnIndex === -1) {
+        throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${columns.join(', ')}`);
+    }
     
     const values = rows
-        .map(row => row[columnIndex])
+        .map(row => {
+            if (!row || !Array.isArray(row) || row.length <= columnIndex) {
+                return null;
+            }
+            return row[columnIndex];
+        })
         .filter(val => val !== null && val !== undefined && !isNaN(Number(val)))
         .map(val => Number(val));
     
-    if (values.length === 0) return null;
+    if (values.length === 0) {
+        throw new Error(`Cannot calculate standard deviation: column "${columnName}" contains no numeric values`);
+    }
+    
     if (values.length === 1) return 0;
     
     // Calculate mean
@@ -122,9 +213,15 @@ export function calculateStdev(rows, columns, columnName) {
  * @param {string} columnName - Name of the column to calculate on
  * @param {string} operation - Operation type: 'mean', 'sum', 'min', 'max', 'stdev'
  * @returns {number|null}
+ * @throws {Error} If operation is invalid or calculation fails
  */
 export function calculateMetric(rows, columns, columnName, operation) {
-    switch (operation.toLowerCase()) {
+    if (!operation) {
+        throw new Error('Operation type is required');
+    }
+    
+    const operationLower = operation.toLowerCase();
+    switch (operationLower) {
         case 'mean':
             return calculateMean(rows, columns, columnName);
         case 'sum':
@@ -136,7 +233,7 @@ export function calculateMetric(rows, columns, columnName, operation) {
         case 'stdev':
             return calculateStdev(rows, columns, columnName);
         default:
-            return null;
+            throw new Error(`Unsupported operation: "${operation}". Supported operations: mean, sum, min, max, stdev`);
     }
 }
 

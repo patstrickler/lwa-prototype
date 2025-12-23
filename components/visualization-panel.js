@@ -3,6 +3,7 @@
 
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
+import { Modal } from '../utils/modal.js';
 
 export class VisualizationPanel {
     constructor(containerSelector) {
@@ -424,7 +425,7 @@ export class VisualizationPanel {
         const displayMode = metricDisplayMode ? metricDisplayMode.value : 'kpi';
         
         if (!datasetId || !yValue) {
-            alert('Please select dataset and Y column/metric.');
+            this.showError('Please select a dataset and Y axis column or metric to create a chart.');
             return;
         }
         
@@ -432,7 +433,13 @@ export class VisualizationPanel {
         if (yType === 'metric') {
             const metric = metricsStore.get(yValue);
             if (!metric) {
-                alert('Metric not found.');
+                this.showError('Cannot create chart: Selected metric not found. Please select a valid metric.');
+                return;
+            }
+            
+            // Check if metric has a valid value
+            if (metric.value === null || metric.value === undefined) {
+                this.showError(`Cannot create chart: Metric "${metric.name}" has no value. The metric calculation may have failed.`);
                 return;
             }
             
@@ -443,19 +450,37 @@ export class VisualizationPanel {
             } else {
                 // Reference line mode: need X column and dataset data
                 if (!xColumn) {
-                    alert('Please select X column for reference line overlay.');
+                    this.showError('Please select an X axis column for the reference line overlay.');
                     return;
                 }
                 
                 const dataset = datasetStore.get(datasetId);
                 if (!dataset) {
-                    alert('Dataset not found.');
+                    this.showError('Cannot create chart: Dataset not found. Please select a valid dataset.');
+                    return;
+                }
+                
+                // Check if dataset is empty
+                if (!dataset.rows || dataset.rows.length === 0) {
+                    this.showError('Cannot create chart: The selected dataset is empty. Please select a dataset with data.');
+                    return;
+                }
+                
+                // Check if dataset has columns
+                if (!dataset.columns || dataset.columns.length === 0) {
+                    this.showError('Cannot create chart: The selected dataset has no columns.');
+                    return;
+                }
+                
+                // Validate that selected columns exist
+                if (!dataset.columns.includes(xColumn)) {
+                    this.showError(`Cannot create chart: Column "${xColumn}" not found in dataset. Available columns: ${dataset.columns.join(', ')}`);
                     return;
                 }
                 
                 const data = this.getDatasetData(dataset);
                 if (!data || data.length === 0) {
-                    alert('Dataset has no data.');
+                    this.showError('Cannot create chart: The dataset contains no data rows.');
                     return;
                 }
                 
@@ -467,19 +492,42 @@ export class VisualizationPanel {
         
         // Handle column-based charts (existing logic)
         if (!xColumn) {
-            alert('Please select X column.');
+            this.showError('Please select an X axis column to create a chart.');
             return;
         }
         
         const dataset = datasetStore.get(datasetId);
         if (!dataset) {
-            alert('Dataset not found.');
+            this.showError('Cannot create chart: Dataset not found. Please select a valid dataset.');
+            return;
+        }
+        
+        // Check if dataset is empty
+        if (!dataset.rows || dataset.rows.length === 0) {
+            this.showError('Cannot create chart: The selected dataset is empty. Please select a dataset with data.');
+            return;
+        }
+        
+        // Check if dataset has columns
+        if (!dataset.columns || dataset.columns.length === 0) {
+            this.showError('Cannot create chart: The selected dataset has no columns.');
+            return;
+        }
+        
+        // Validate that selected columns exist
+        if (!dataset.columns.includes(xColumn)) {
+            this.showError(`Cannot create chart: Column "${xColumn}" not found in dataset. Available columns: ${dataset.columns.join(', ')}`);
+            return;
+        }
+        
+        if (yType === 'column' && !dataset.columns.includes(yValue)) {
+            this.showError(`Cannot create chart: Column "${yValue}" not found in dataset. Available columns: ${dataset.columns.join(', ')}`);
             return;
         }
         
         const data = this.getDatasetData(dataset);
         if (!data || data.length === 0) {
-            alert('Dataset has no data.');
+            this.showError('Cannot create chart: The dataset contains no data rows.');
             return;
         }
         

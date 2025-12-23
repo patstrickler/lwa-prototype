@@ -4,6 +4,7 @@
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
+import { Modal } from '../utils/modal.js';
 
 export class MetricDefinitionDialog {
     constructor() {
@@ -171,7 +172,7 @@ export class MetricDefinitionDialog {
         createBtn.disabled = !isValid;
     }
     
-    createMetric() {
+    async createMetric() {
         const datasetSelect = this.dialog.querySelector('#metric-dataset-select');
         const columnSelect = this.dialog.querySelector('#metric-column-select');
         const operationSelect = this.dialog.querySelector('#metric-operation-select');
@@ -188,7 +189,7 @@ export class MetricDefinitionDialog {
         
         const dataset = datasetStore.get(datasetId);
         if (!dataset) {
-            alert('Error: Dataset not found');
+            await Modal.alert('Error: Dataset not found');
             return;
         }
         
@@ -201,7 +202,7 @@ export class MetricDefinitionDialog {
         // Validate metric definition
         const validation = metricExecutionEngine.validate(metricDefinition, dataset.columns);
         if (!validation.isValid) {
-            alert(`Error: ${validation.errors.join(', ')}`);
+            await Modal.alert(`Error: ${validation.errors.join(', ')}`);
             return;
         }
         
@@ -210,12 +211,12 @@ export class MetricDefinitionDialog {
         try {
             value = metricExecutionEngine.execute(metricDefinition, dataset.rows, dataset.columns);
         } catch (error) {
-            alert(`Error executing metric: ${error.message}`);
+            await Modal.alert(`Error executing metric: ${error.message}`);
             return;
         }
         
         if (value === null) {
-            alert('Error: Could not calculate metric. Please ensure the column contains numeric values.');
+            await Modal.alert('Error: Could not calculate metric. Please ensure the column contains numeric values.');
             return;
         }
         

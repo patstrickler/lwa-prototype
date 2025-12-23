@@ -51,18 +51,44 @@ class ScriptsStore {
         }
     }
     
-    create(name, code, description) {
+    create(name, code, language, description = '', result = null) {
         const id = `script_${this.nextId++}`;
         const script = {
             id,
             name,
             code,
+            language,
             description,
+            result,
             createdAt: new Date().toISOString()
         };
         this.scripts.set(id, script);
         this.saveToStorage();
         return script;
+    }
+    
+    /**
+     * Updates a script's result after execution
+     * @param {string} id - Script ID
+     * @param {Object} result - Result object with type and value
+     * @returns {Object|null} Updated script or null if not found
+     */
+    updateResult(id, result) {
+        const script = this.scripts.get(id);
+        if (!script) {
+            return null;
+        }
+        
+        script.result = result;
+        script.executedAt = new Date().toISOString();
+        this.saveToStorage();
+        return script;
+    }
+    
+    getByDataset(datasetId) {
+        // Scripts are not tied to specific datasets in this implementation
+        // but this method exists for consistency with metrics
+        return Array.from(this.scripts.values());
     }
     
     get(id) {

@@ -3,9 +3,11 @@
 
 import { DatasetSelector } from './dataset-selector.js';
 import { MetricDefinitionDialog } from './metric-definition-dialog.js';
+import { ScriptExecutionPanel } from './script-execution-panel.js';
 import { metricsStore } from '../data/metrics.js';
 import { datasetStore } from '../data/datasets.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
+import { scriptsStore } from '../data/scripts.js';
 
 export class AnalysisPanel {
     constructor(containerSelector) {
@@ -15,6 +17,7 @@ export class AnalysisPanel {
         this.datasetCallbacks = [];
         this.datasetSelector = null;
         this.metricDialog = null;
+        this.scriptPanel = null;
         this.init();
     }
     
@@ -23,6 +26,7 @@ export class AnalysisPanel {
         this.attachEventListeners();
         this.initDatasetSelector();
         this.initMetricDialog();
+        this.initScriptPanel();
     }
     
     render() {
@@ -41,8 +45,8 @@ export class AnalysisPanel {
                 
                 <div class="scripts-section">
                     <h3>Analysis Scripts</h3>
+                    <div id="script-execution-container"></div>
                     <div id="scripts-list"></div>
-                    <button id="add-script" class="btn btn-primary">Add Script</button>
                 </div>
             </div>
         `;
@@ -63,13 +67,19 @@ export class AnalysisPanel {
         });
     }
     
+    initScriptPanel() {
+        this.scriptPanel = new ScriptExecutionPanel('#script-execution-container');
+        this.scriptPanel.onSaved(() => {
+            this.updateScriptsList();
+        });
+        this.updateScriptsList();
+    }
+    
     attachEventListeners() {
         const addMetricBtn = this.container.querySelector('#add-metric');
-        const addScriptBtn = this.container.querySelector('#add-script');
         const refreshMetricsBtn = this.container.querySelector('#refresh-metrics');
         
         addMetricBtn.addEventListener('click', () => this.showAddMetricDialog());
-        addScriptBtn.addEventListener('click', () => this.showAddScriptDialog());
         refreshMetricsBtn.addEventListener('click', () => this.reExecuteMetrics());
     }
     
@@ -77,6 +87,10 @@ export class AnalysisPanel {
         this.currentDataset = dataset;
         if (this.datasetSelector) {
             this.datasetSelector.setSelectedDataset(dataset);
+        }
+        // Update script panel with current dataset
+        if (this.scriptPanel) {
+            this.scriptPanel.setDataset(dataset);
         }
         // Re-execute metrics when dataset changes to ensure values are up-to-date
         if (dataset) {
@@ -114,6 +128,16 @@ export class AnalysisPanel {
         const updatedMetrics = [];
         metrics.forEach(metric => {
             try {
+                // Check if dataset is empty
+                if (!dataset.rows || dataset.rows.length === 0) {
+                    throw new Error('Dataset is empty. Cannot calculate metrics on an empty dataset.');
+                }
+                
+                // Check if dataset has columns
+                if (!dataset.columns || dataset.columns.length === 0) {
+                    throw new Error('Dataset has no columns. Cannot calculate metrics.');
+                }
+                
                 const newValue = metricExecutionEngine.executeMetric(metric, dataset);
                 const updated = metricsStore.updateValue(metric.id, newValue);
                 if (updated) {
@@ -123,6 +147,10 @@ export class AnalysisPanel {
                 console.error(`Error re-executing metric ${metric.id}:`, error);
                 // Update with null value to indicate error
                 metricsStore.updateValue(metric.id, null);
+                // Store error message for display
+                if (metric) {
+                    metric._error = error.message || 'Error calculating metric';
+                }
             }
         });
         
@@ -165,17 +193,22 @@ export class AnalysisPanel {
             
             const columnName = metric.column ? this.formatColumnName(metric.column) : 'N/A';
             
+            // Check if metric has an error
+            const hasError = metric.value === null || metric._error;
+            const errorMessage = metric._error || (metric.value === null ? 'Calculation failed' : null);
+            
             return `
-                <div class="metric-item">
+                <div class="metric-item ${hasError ? 'metric-error' : ''}">
                     <div class="metric-header">
                         <span class="metric-name">${this.escapeHtml(metric.name)}</span>
-                        <span class="metric-value">${this.formatValue(metric.value)}</span>
+                        <span class="metric-value ${hasError ? 'metric-value-error' : ''}">${hasError ? 'Error' : this.formatValue(metric.value)}</span>
                     </div>
                     <div class="metric-details">
                         <span class="metric-operation">${operationLabel}</span>
                         <span class="metric-separator">•</span>
                         <span class="metric-column">${columnName}</span>
                     </div>
+                    ${errorMessage ? `<div class="metric-error-message">${this.escapeHtml(errorMessage)}</div>` : ''}
                 </div>
             `;
         }).join('');
@@ -212,9 +245,52 @@ export class AnalysisPanel {
         }
     }
     
-    showAddScriptDialog() {
-        // TODO: Implement script creation dialog
-        alert('Add Script dialog - to be implemented');
+    updateScriptsList() {
+        const scriptsList = this.container.querySelector('#scripts-list');
+        if (!scriptsList) return;
+        
+        const scripts = scriptsStore.getAll();
+        
+        if (scripts.length === 0) {
+            scriptsList.innerHTML = '<p class="empty-message">No saved scripts yet. Create and save a script to see it here.</p>';
+            return;
+        }
+        
+        scriptsList.innerHTML = scripts.map(script => {
+            const languageLabel = script.language === 'python' ? 'Python' : 'R';
+            const resultType = script.result ? script.result.type : 'none';
+            const resultValue = script.result ? this.formatScriptResult(script.result) : 'Not executed';
+            
+            return `
+                <div class="script-item">
+                    <div class="script-header">
+                        <span class="script-name">${this.escapeHtml(script.name)}</span>
+                        <span class="script-language">${languageLabel}</span>
+                    </div>
+                    <div class="script-code-preview">${this.escapeHtml(script.code.substring(0, 100))}${script.code.length > 100 ? '...' : ''}</div>
+                    <div class="script-result-preview">
+                        <strong>Last Result:</strong> ${resultType !== 'none' ? `${resultType} - ${resultValue}` : 'Not executed'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    formatScriptResult(result) {
+        if (!result) return 'N/A';
+        
+        switch (result.type) {
+            case 'scalar':
+                return typeof result.value === 'number' 
+                    ? result.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 })
+                    : String(result.value);
+            case 'series':
+                return `[${result.value.length} values]`;
+            case 'image':
+                return 'Chart/Plot';
+            default:
+                return 'Unknown';
+        }
     }
     
     onMetricsUpdated(callback) {

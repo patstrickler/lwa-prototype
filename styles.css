@@ -491,6 +491,215 @@ main {
     border-radius: 4px;
 }
 
+/* Script Execution Panel Styles */
+.script-execution-panel {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.script-controls {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.script-editor {
+    width: 100%;
+    min-height: 200px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    resize: vertical;
+    background-color: #fff;
+    line-height: 1.5;
+}
+
+.script-editor:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.script-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.script-result {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    min-height: 50px;
+}
+
+.script-loading {
+    text-align: center;
+    padding: 20px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.result-type {
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+}
+
+.result-language {
+    font-size: 12px;
+    color: #6c757d;
+    background-color: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.result-scalar .result-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: #007bff;
+    text-align: center;
+    padding: 20px;
+    font-variant-numeric: tabular-nums;
+}
+
+.result-series {
+    margin-top: 10px;
+}
+
+.series-chart {
+    margin: 15px 0;
+    text-align: center;
+}
+
+.series-chart canvas {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+.series-data {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #495057;
+}
+
+.result-image {
+    margin-top: 10px;
+}
+
+.image-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    background-color: #f8f9fa;
+    border: 2px dashed #ddd;
+    border-radius: 4px;
+}
+
+.image-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.image-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+.image-note {
+    font-size: 12px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.success-message {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    border: 1px solid #c3e6cb;
+}
+
+.script-item {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 10px;
+    transition: box-shadow 0.2s;
+}
+
+.script-item:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.script-item:last-child {
+    margin-bottom: 0;
+}
+
+.script-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.script-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #333;
+}
+
+.script-language {
+    font-size: 12px;
+    color: #fff;
+    background-color: #6c757d;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.script-code-preview {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 8px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.script-result-preview {
+    font-size: 13px;
+    color: #6c757d;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
 .empty-message {
     color: #6c757d;
     font-style: italic;
