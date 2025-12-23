@@ -1124,23 +1124,9 @@ export class VisualizationPanel {
                 return;
             }
             
-            // Fallback: metric doesn't have operation/column, show as reference line
-            // Find a numeric column for the main series
-            const numericColumns = dataset.columns.filter(col => {
-                const sampleValue = data[0] && data[0][col];
-                return sampleValue !== null && sampleValue !== undefined && 
-                       (typeof sampleValue === 'number' || !isNaN(parseFloat(sampleValue)));
-            });
-            
-            if (numericColumns.length === 0) {
-                // No numeric columns, just show the metric as reference line with X column
-                this.renderChartWithReferenceLine(datasetId, xAxis.value, yAxis.value, chartType, metric);
-                return;
-            }
-            
-            // Use first numeric column as main series
-            const mainColumn = numericColumns[0];
-            this.renderChartWithReferenceLine(datasetId, xAxis.value, yAxis.value, chartType, metric, mainColumn);
+            // Fallback: metric doesn't have operation/column, cannot group
+            // Show error message instead of reference line
+            this.showError(`Metric "${metric.name}" cannot be grouped. It needs an operation and column to group by ${xAxis.value}.`);
             return;
         }
         
