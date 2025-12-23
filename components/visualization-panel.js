@@ -368,9 +368,17 @@ export class VisualizationPanel {
                     this.tableFields.push(this.yAxisSelection);
                 }
             }
-            // Re-render to show updated fields
-            requestAnimationFrame(() => {
-                this.updateFieldSelectionUI('table');
+            // Update table field displays
+            this.tableFields.forEach((field, idx) => {
+                if (field) {
+                    const fieldDisplay = container.querySelector(`[data-field-index="${idx}"]`);
+                    if (fieldDisplay) {
+                        const contentContainer = fieldDisplay.querySelector('.axis-selection-content');
+                        if (contentContainer) {
+                            contentContainer.innerHTML = this.renderFieldDisplay(field);
+                        }
+                    }
+                }
             });
         } else {
             // For other chart types, preserve X, Y, Z as applicable
