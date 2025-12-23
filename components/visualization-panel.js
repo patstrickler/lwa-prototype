@@ -505,7 +505,7 @@ export class VisualizationPanel {
      * @param {number} fieldIndex - Index of the field in tableFields array
      * @param {HTMLElement} triggerElement - Element that triggered the dropdown
      */
-    showTableFieldDropdown(fieldIndex, triggerElement) {
+    async showTableFieldDropdown(fieldIndex, triggerElement) {
         // Similar to showAxisSelectionDropdown but for table fields
         this.closeAxisSelectionDropdown();
         
@@ -1040,53 +1040,7 @@ export class VisualizationPanel {
         const data = this.getDatasetData(dataset);
         if (!data || data.length === 0) return;
         
-        // Determine X and Y columns/values
-        let xColumn, yColumn, yLabel;
-        
-        if (xAxis.type === 'column') {
-            xColumn = xAxis.value;
-        } else {
-            // X is metric - use index or first column
-            xColumn = dataset.columns[0] || 'index';
-        }
-        
-        if (yAxis.type === 'column') {
-            yColumn = yAxis.value;
-            yLabel = this.formatColumnName(yColumn);
-        } else {
-            // Y is metric - create constant value series
-            const metric = metricsStore.get(yAxis.value);
-            if (!metric) return;
-            
-            // Create data with metric value
-            const metricData = data.map(row => ({
-                x: row[xColumn],
-                y: parseFloat(metric.value) || 0
-            }));
-            
-            const seriesData = this.convertToHighchartsSeries(metricData, 'x', 'y', chartType);
-            yLabel = metric.name;
-            
-            const chartId = `chart_${Date.now()}`;
-            const chartContainer = document.createElement('div');
-            chartContainer.id = chartId;
-            chartContainer.className = 'chart-wrapper';
-            
-            const chartsContainer = this.container.querySelector('#charts-container');
-            chartsContainer.appendChild(chartContainer);
-            
-            const stylingOptions = this.getStylingOptions();
-            
-            this.renderHighchart(chartId, chartType, seriesData, {
-                xLabel: stylingOptions.xLabel || this.formatColumnName(xColumn),
-                yLabel: stylingOptions.yLabel || yLabel,
-                title: stylingOptions.title || `${yLabel} vs ${this.formatColumnName(xColumn)}`,
-                color: stylingOptions.color,
-                showTrendline: stylingOptions.showTrendline
-            });
-            return;
-        }
-        
+        // Handle special chart types first (before determining columns)
         if (chartType === 'scorecard') {
             // Scorecard works best with just Y axis (metric or column)
             if (yAxis && yAxis.type === 'metric') {
@@ -1125,12 +1079,83 @@ export class VisualizationPanel {
             }
         }
         
-        // Both are columns - standard chart
+        // Determine X and Y columns/values for standard charts (line, bar)
+        let xColumn, yColumn, yLabel;
+        
+        if (xAxis.type === 'column') {
+            xColumn = xAxis.value;
+            // Validate column exists in dataset
+            if (!dataset.columns.includes(xColumn)) {
+                this.showError(`Column "${xColumn}" not found in dataset "${dataset.name}"`);
+                return;
+            }
+        } else {
+            // X is metric - use index or first column
+            xColumn = dataset.columns[0] || 'index';
+        }
+        
+        if (yAxis.type === 'column') {
+            yColumn = yAxis.value;
+            // Validate column exists in dataset
+            if (!dataset.columns.includes(yColumn)) {
+                this.showError(`Column "${yColumn}" not found in dataset "${dataset.name}"`);
+                return;
+            }
+            yLabel = this.formatColumnName(yColumn);
+        } else {
+            // Y is metric - create constant value series
+            const metric = metricsStore.get(yAxis.value);
+            if (!metric) return;
+            
+            // Create data with metric value
+            const metricData = data.map(row => ({
+                x: row[xColumn],
+                y: parseFloat(metric.value) || 0
+            }));
+            
+            const seriesData = this.convertToHighchartsSeries(metricData, 'x', 'y', chartType);
+            yLabel = metric.name;
+            
+            const chartId = `chart_${Date.now()}`;
+            const chartContainer = document.createElement('div');
+            chartContainer.id = chartId;
+            chartContainer.className = 'chart-wrapper';
+            
+            const chartsContainer = this.container.querySelector('#charts-container');
+            chartsContainer.appendChild(chartContainer);
+            
+            const stylingOptions = this.getStylingOptions();
+            
+            this.renderHighchart(chartId, chartType, seriesData, {
+                xLabel: stylingOptions.xLabel || this.formatColumnName(xColumn),
+                yLabel: stylingOptions.yLabel || yLabel,
+                title: stylingOptions.title || `${yLabel} vs ${this.formatColumnName(xColumn)}`,
+                color: stylingOptions.color,
+                showTrendline: stylingOptions.showTrendline
+            });
+            return;
+        }
+        
+        // Both are columns - standard chart (line, bar)
+        // Verify columns exist in data
+        if (data.length > 0) {
+            const firstRow = data[0];
+            if (!(xColumn in firstRow)) {
+                this.showError(`Column "${xColumn}" not found in data. Available columns: ${Object.keys(firstRow).join(', ')}`);
+                return;
+            }
+            if (!(yColumn in firstRow)) {
+                this.showError(`Column "${yColumn}" not found in data. Available columns: ${Object.keys(firstRow).join(', ')}`);
+                return;
+            }
+        }
+        
         let seriesData;
         try {
             seriesData = this.convertToHighchartsSeries(data, xColumn, yColumn, chartType);
         } catch (error) {
             console.error('Error preparing chart data:', error);
+            this.showError(`Error preparing chart data: ${error.message}`);
             return;
         }
         
@@ -2077,8 +2102,10 @@ export class VisualizationPanel {
                 e.stopPropagation();
                 if (displayId === 'x-axis-display') {
                     this.xAxisSelection = null;
-                } else {
+                } else if (displayId === 'y-axis-display') {
                     this.yAxisSelection = null;
+                } else if (displayId === 'z-axis-display') {
+                    this.zAxisSelection = null;
                 }
                 this.updateAxisDisplay(displayId, null);
                 this.autoRender();
