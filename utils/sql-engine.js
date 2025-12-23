@@ -84,12 +84,36 @@ function parseAndExecuteSQL(sql) {
         throw new Error('LIMIT clause must contain a positive number. Example: LIMIT 10');
     }
     
+    // Handle SELECT * - expand to all columns from the table(s)
+    let expandedColumnSpecs = columnSpecs;
+    if (columnSpecs.length === 1 && columnSpecs[0].columnName === '*') {
+        // Expand SELECT * to all columns from all tables
+        expandedColumnSpecs = [];
+        for (const [alias, tableName] of Object.entries(tableInfo.tables)) {
+            const tableDef = tableMap[tableName.toLowerCase()];
+            if (tableDef) {
+                tableDef.columns.forEach(col => {
+                    expandedColumnSpecs.push({
+                        columnName: col,
+                        alias: null,
+                        tableAlias: alias
+                    });
+                });
+            }
+        }
+        
+        // If no columns found, fall back to the original spec
+        if (expandedColumnSpecs.length === 0) {
+            expandedColumnSpecs = columnSpecs;
+        }
+    }
+    
     // Generate mock rows with JOIN support
     const rowCount = limit || (whereMatch ? 5 : 10);
-    const rows = generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount);
+    const rows = generateJoinedRows(expandedColumnSpecs, tableInfo, tableMap, rowCount);
     
     // Extract column names for output (use aliases if present, otherwise use column names)
-    const columns = columnSpecs.map(spec => spec.alias || spec.columnName);
+    const columns = expandedColumnSpecs.map(spec => spec.alias || spec.columnName);
     
     return {
         columns,
@@ -451,27 +475,10 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
     joinedData = joinedData.slice(0, rowCount);
     
     // Map columns from joined data to result columns
+    // Note: SELECT * should already be expanded before this function is called
     for (let rowIdx = 0; rowIdx < joinedData.length; rowIdx++) {
         const joinedRow = joinedData[rowIdx];
         const resultRow = columnSpecs.map(spec => {
-            if (spec.columnName === '*') {
-                // Handle SELECT * - return all columns from all tables
-                // This is a simplified implementation
-                const allCols = [];
-                for (const [alias, tableName] of Object.entries(tableInfo.tables)) {
-                    const tableDef = tableMap[tableName];
-                    if (tableDef) {
-                        tableDef.columns.forEach(col => {
-                            const qualifiedKey = `${alias}.${col}`;
-                            if (joinedRow[qualifiedKey] !== undefined) {
-                                allCols.push(joinedRow[qualifiedKey]);
-                            }
-                        });
-                    }
-                }
-                return allCols; // This won't work well with current structure, but handle gracefully
-            }
-            
             // Find the column value
             let value = null;
             
@@ -498,20 +505,7 @@ function generateJoinedRows(columnSpecs, tableInfo, tableMap, rowCount) {
             return value;
         });
         
-        // Flatten if SELECT * was used (though this is a simplified case)
-        if (resultRow.some(val => Array.isArray(val))) {
-            const flattened = [];
-            resultRow.forEach(val => {
-                if (Array.isArray(val)) {
-                    flattened.push(...val);
-                } else {
-                    flattened.push(val);
-                }
-            });
-            rows.push(flattened);
-        } else {
-            rows.push(resultRow);
-        }
+        rows.push(resultRow);
     }
     
     return rows;
