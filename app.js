@@ -58,13 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
         queryBuilder.insertText(`${tableName}.${columnName}`);
     });
     
-    tableBrowser.onQuerySelect((queryId) => {
-        queryBuilder.loadQuery(queryId);
+    tableBrowser.onDatasetSelect((datasetId) => {
+        queryBuilder.loadDataset(datasetId);
     });
     
     // Query Builder → Table Browser (refresh dropdown after save/update)
     queryBuilder.onRefreshTableBrowser(() => {
-        tableBrowser.loadSavedQueries().then(() => {
+        tableBrowser.loadSavedDatasets().then(() => {
             tableBrowser.render();
             tableBrowser.attachEventListeners();
         });
