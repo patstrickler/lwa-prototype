@@ -405,16 +405,108 @@ main {
     margin-bottom: 12px;
 }
 
+.section-title.clickable {
+    cursor: pointer;
+    padding: 4px 0;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.section-title.clickable:hover {
+    color: #007bff;
+}
+
+.section-title .toggle-icon {
+    margin-left: auto;
+    font-size: 12px;
+    color: #6c757d;
+    transition: transform 0.2s;
+}
+
 .section-icon {
     font-size: 16px;
 }
 
-.columns-list {
+.columns-list,
+.items-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
     max-height: 400px;
     overflow-y: auto;
+}
+
+.editable-items {
+    max-height: 300px;
+}
+
+.editable-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: all 0.2s;
+    cursor: default;
+}
+
+.editable-item:hover {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+}
+
+.editable-item .item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.editable-item .item-name {
+    color: #495057;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.editable-item .item-value {
+    font-size: 12px;
+    color: #007bff;
+    font-weight: 600;
+}
+
+.editable-item .item-language {
+    font-size: 11px;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+.editable-item .item-operation {
+    font-size: 11px;
+    color: #6c757d;
+    background-color: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.edit-btn {
+    background: none;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.edit-btn:hover {
+    background-color: #dee2e6;
+    opacity: 1;
 }
 
 .dataset-item {
@@ -988,15 +1080,24 @@ main {
     position: relative;
 }
 
-#sql-editor {
+.monaco-editor-container {
     width: 100%;
-    min-height: 150px;
-    padding: 12px;
+    min-height: 300px;
     border: 1px solid #ddd;
     border-radius: 4px;
+    overflow: hidden;
+}
+
+.monaco-editor-container.empty::before {
+    content: 'Enter your SQL query here...';
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    color: #999;
+    pointer-events: none;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 14px;
-    resize: vertical;
+    z-index: 1;
 }
 
 .autocomplete-suggestions {

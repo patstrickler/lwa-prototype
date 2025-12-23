@@ -29,7 +29,12 @@ export class QueryBuilder {
                 return;
             }
             
-            require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+            // Check if require is available (from loader.js)
+            if (typeof require === 'undefined') {
+                reject(new Error('Monaco Editor loader not found. Please ensure loader.js is loaded.'));
+                return;
+            }
+            
             require(['vs/editor/editor.main'], () => {
                 resolve();
             }, (err) => {
@@ -298,7 +303,7 @@ export class QueryBuilder {
                 name: 'Query Result',
                 data: data,
                 columns: sqlResult.columns,
-                query: query
+                query: query || (this.editor ? this.editor.getValue().trim() : '')
             };
             
             this.currentResult = result;
@@ -551,8 +556,7 @@ export class QueryBuilder {
             });
             
             // Get the SQL query from currentResult or from the SQL editor
-            const sqlEditor = this.container.querySelector('#sql-editor');
-            const sqlQuery = this.currentResult.query || (sqlEditor ? sqlEditor.value.trim() : '');
+            const sqlQuery = this.currentResult.query || (this.editor ? this.editor.getValue().trim() : '');
             
             // Create dataset with SQL, columns, and rows
             const dataset = datasetStore.create(
@@ -600,406 +604,29 @@ export class QueryBuilder {
         this.datasetCallbacks.forEach(callback => callback(dataset));
     }
     
-    // Autocomplete methods
-    handleInput(e) {
-        this.updateSuggestions();
-    }
-    
-    handleKeyDown(e) {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        
-        // Handle Tab for autocomplete completion
-        if (e.key === 'Tab' && this.autocompleteVisible && this.suggestions.length > 0) {
-            e.preventDefault();
-            // If a suggestion is selected, complete it
-            if (this.selectedSuggestionIndex >= 0) {
-                this.insertSuggestion(this.suggestions[this.selectedSuggestionIndex]);
-            } else {
-                // If no suggestion selected, select and complete the first one
-                this.selectedSuggestionIndex = 0;
-                this.insertSuggestion(this.suggestions[0]);
-            }
-            return;
-        }
-        
-        if (!this.autocompleteVisible || this.suggestions.length === 0) {
-            return;
-        }
-        
-        switch (e.key) {
-            case 'ArrowDown':
-                e.preventDefault();
-                this.selectedSuggestionIndex = Math.min(
-                    this.selectedSuggestionIndex + 1,
-                    this.suggestions.length - 1
-                );
-                this.highlightSuggestion();
-                break;
-                
-            case 'ArrowUp':
-                e.preventDefault();
-                this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, -1);
-                this.highlightSuggestion();
-                break;
-                
-            case 'Enter':
-                if (this.selectedSuggestionIndex >= 0) {
-                    e.preventDefault();
-                    this.insertSuggestion(this.suggestions[this.selectedSuggestionIndex]);
-                }
-                break;
-                
-            case 'Escape':
-                e.preventDefault();
-                this.hideSuggestions();
-                break;
-        }
-    }
-    
-    updateSuggestions() {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const sql = sqlEditor.value;
-        const cursorPosition = sqlEditor.selectionStart;
-        
-        this.suggestions = getSuggestions(sql, cursorPosition);
-        
-        if (this.suggestions.length > 0) {
-            // Reset selection when new suggestions appear
-            this.selectedSuggestionIndex = -1;
-            this.showSuggestions();
-            this.showInlineCompletion();
-            // Reposition after a short delay to ensure DOM is updated
-            requestAnimationFrame(() => {
-                this.positionSuggestions();
-                this.positionInlineCompletion();
-            });
-        } else {
-            this.hideSuggestions();
-            this.hideInlineCompletion();
-        }
-    }
-    
-    showSuggestions() {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
-        
-        if (!suggestionsDiv || this.suggestions.length === 0) {
-            return;
-        }
-        
-        // Build suggestions HTML
-        suggestionsDiv.innerHTML = this.suggestions.map((suggestion, index) => {
-            const typeClass = `suggestion-${suggestion.type}`;
-            const selectedClass = index === this.selectedSuggestionIndex ? 'selected' : '';
-            return `
-                <div class="suggestion-item ${typeClass} ${selectedClass}" data-index="${index}">
-                    <span class="suggestion-type">${suggestion.type}</span>
-                    <span class="suggestion-text">${this.escapeHtml(suggestion.text)}</span>
-                </div>
-            `;
-        }).join('');
-        
-        // Position suggestions near cursor (will be repositioned after render)
-        this.positionSuggestions();
-        
-        // Add click handlers
-        suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item, index) => {
-            item.addEventListener('click', () => {
-                this.insertSuggestion(this.suggestions[index]);
-            });
-        });
-        
-        suggestionsDiv.style.display = 'block';
-        this.autocompleteVisible = true;
-        
-        // Reposition after render to get accurate measurements
-        requestAnimationFrame(() => {
-            this.positionSuggestions();
-        });
-    }
-    
-    hideSuggestions() {
-        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
-        if (suggestionsDiv) {
-            suggestionsDiv.style.display = 'none';
-        }
-        this.autocompleteVisible = false;
-        this.selectedSuggestionIndex = -1;
-        this.hideInlineCompletion();
-    }
-    
-    showInlineCompletion() {
-        if (this.suggestions.length === 0) {
-            this.hideInlineCompletion();
-            return;
-        }
-        
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const inlineCompletion = this.container.querySelector('#inline-completion');
-        if (!sqlEditor || !inlineCompletion) return;
-        
-        const sql = sqlEditor.value;
-        const cursorPosition = sqlEditor.selectionStart;
-        const textBeforeCursor = sql.substring(0, cursorPosition);
-        const currentWord = getCurrentWord(textBeforeCursor);
-        
-        if (!currentWord || this.suggestions.length === 0) {
-            this.hideInlineCompletion();
-            return;
-        }
-        
-        // Show the first suggestion as inline completion
-        const firstSuggestion = this.suggestions[0];
-        const completionText = firstSuggestion.text.substring(currentWord.length);
-        
-        if (completionText.length === 0) {
-            this.hideInlineCompletion();
-            return;
-        }
-        
-        inlineCompletion.textContent = completionText;
-        inlineCompletion.style.display = 'block';
-        this.inlineCompletionVisible = true;
-        this.positionInlineCompletion();
-    }
-    
-    hideInlineCompletion() {
-        const inlineCompletion = this.container.querySelector('#inline-completion');
-        if (inlineCompletion) {
-            inlineCompletion.style.display = 'none';
-        }
-        this.inlineCompletionVisible = false;
-    }
-    
-    positionInlineCompletion() {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const inlineCompletion = this.container.querySelector('#inline-completion');
-        
-        if (!sqlEditor || !inlineCompletion || !this.inlineCompletionVisible) return;
-        
-        const cursorPosition = sqlEditor.selectionStart;
-        const textBeforeCursor = sqlEditor.value.substring(0, cursorPosition);
-        const lines = textBeforeCursor.split('\n');
-        const currentLine = lines.length - 1;
-        const currentColumn = lines[currentLine].length;
-        
-        // Create mirror to measure text width
-        const mirror = document.createElement('div');
-        const computedStyle = window.getComputedStyle(sqlEditor);
-        
-        mirror.style.position = 'absolute';
-        mirror.style.visibility = 'hidden';
-        mirror.style.whiteSpace = 'pre-wrap';
-        mirror.style.wordWrap = 'break-word';
-        mirror.style.font = computedStyle.font;
-        mirror.style.fontSize = computedStyle.fontSize;
-        mirror.style.fontFamily = computedStyle.fontFamily;
-        mirror.style.fontWeight = computedStyle.fontWeight;
-        mirror.style.letterSpacing = computedStyle.letterSpacing;
-        mirror.style.wordSpacing = computedStyle.wordSpacing;
-        mirror.style.padding = computedStyle.padding;
-        mirror.style.border = computedStyle.border;
-        mirror.style.width = computedStyle.width;
-        mirror.style.boxSizing = computedStyle.boxSizing;
-        mirror.style.lineHeight = computedStyle.lineHeight;
-        
-        mirror.textContent = lines[currentLine].substring(0, currentColumn);
-        
-        document.body.appendChild(mirror);
-        const textWidth = mirror.offsetWidth;
-        const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 1.2;
-        document.body.removeChild(mirror);
-        
-        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 12;
-        const paddingTop = parseFloat(computedStyle.paddingTop) || 12;
-        const borderLeft = parseFloat(computedStyle.borderLeftWidth) || 1;
-        const borderTop = parseFloat(computedStyle.borderTopWidth) || 1;
-        
-        const scrollTop = sqlEditor.scrollTop;
-        const scrollLeft = sqlEditor.scrollLeft;
-        
-        const left = textWidth + paddingLeft + borderLeft - scrollLeft;
-        const top = (currentLine + 1) * lineHeight + paddingTop + borderTop - scrollTop;
-        
-        inlineCompletion.style.left = `${left}px`;
-        inlineCompletion.style.top = `${top}px`;
-    }
-    
-    highlightSuggestion() {
-        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
-        if (!suggestionsDiv) return;
-        
-        const items = suggestionsDiv.querySelectorAll('.suggestion-item');
-        items.forEach((item, index) => {
-            if (index === this.selectedSuggestionIndex) {
-                item.classList.add('selected');
-                item.scrollIntoView({ block: 'nearest' });
-            } else {
-                item.classList.remove('selected');
-            }
-        });
-    }
-    
-    positionSuggestions() {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
-        
-        if (!sqlEditor || !suggestionsDiv) return;
-        
-        // Calculate cursor position in the textarea
-        const cursorPosition = sqlEditor.selectionStart;
-        const textBeforeCursor = sqlEditor.value.substring(0, cursorPosition);
-        
-        // Split text into lines to find current line
-        const lines = textBeforeCursor.split('\n');
-        const currentLine = lines.length - 1;
-        const currentColumn = lines[currentLine].length;
-        
-        // Create a mirror element to measure text width accurately
-        const mirror = document.createElement('div');
-        const computedStyle = window.getComputedStyle(sqlEditor);
-        
-        // Copy all relevant styles from textarea to mirror for accurate measurement
-        mirror.style.position = 'absolute';
-        mirror.style.visibility = 'hidden';
-        mirror.style.whiteSpace = 'pre-wrap';
-        mirror.style.wordWrap = 'break-word';
-        mirror.style.font = computedStyle.font;
-        mirror.style.fontSize = computedStyle.fontSize;
-        mirror.style.fontFamily = computedStyle.fontFamily;
-        mirror.style.fontWeight = computedStyle.fontWeight;
-        mirror.style.fontStyle = computedStyle.fontStyle;
-        mirror.style.letterSpacing = computedStyle.letterSpacing;
-        mirror.style.wordSpacing = computedStyle.wordSpacing;
-        mirror.style.textTransform = computedStyle.textTransform;
-        mirror.style.padding = computedStyle.padding;
-        mirror.style.border = computedStyle.border;
-        mirror.style.width = computedStyle.width;
-        mirror.style.boxSizing = computedStyle.boxSizing;
-        mirror.style.lineHeight = computedStyle.lineHeight;
-        mirror.style.textIndent = computedStyle.textIndent;
-        
-        // Set text content up to cursor on current line
-        mirror.textContent = lines[currentLine].substring(0, currentColumn);
-        
-        document.body.appendChild(mirror);
-        
-        // Get measurements
-        const textWidth = mirror.offsetWidth;
-        const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 1.2;
-        
-        // Clean up
-        document.body.removeChild(mirror);
-        
-        // Get textarea position and scroll
-        const editorRect = sqlEditor.getBoundingClientRect();
-        const wrapper = sqlEditor.parentElement;
-        
-        // Calculate position relative to wrapper
-        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 12;
-        const paddingTop = parseFloat(computedStyle.paddingTop) || 12;
-        const borderLeft = parseFloat(computedStyle.borderLeftWidth) || 1;
-        const borderTop = parseFloat(computedStyle.borderTopWidth) || 1;
-        
-        // Account for textarea scroll
-        const scrollTop = sqlEditor.scrollTop;
-        const scrollLeft = sqlEditor.scrollLeft;
-        
-        // Calculate absolute position at cursor
-        // Position suggestions directly at cursor location
-        const left = textWidth + paddingLeft + borderLeft - scrollLeft;
-        const top = (currentLine + 1) * lineHeight + paddingTop + borderTop - scrollTop;
-        
-        // Get wrapper bounds for constraint checking
-        const wrapperRect = wrapper.getBoundingClientRect();
-        const wrapperLeft = wrapperRect.left - editorRect.left;
-        const wrapperTop = wrapperRect.top - editorRect.top;
-        
-        // Ensure suggestions don't go outside wrapper horizontally
-        const maxLeft = wrapperRect.width - suggestionsDiv.offsetWidth - 10;
-        const adjustedLeft = Math.max(wrapperLeft + 5, Math.min(left, maxLeft));
-        
-        // Position vertically - try to show below cursor, but above if no room
-        const spaceBelow = editorRect.height - top;
-        const spaceAbove = top - lineHeight;
-        const suggestionHeight = suggestionsDiv.offsetHeight;
-        
-        let adjustedTop;
-        if (spaceBelow >= suggestionHeight + 5) {
-            // Show below cursor
-            adjustedTop = top + 2;
-        } else if (spaceAbove >= suggestionHeight + 5) {
-            // Show above cursor
-            adjustedTop = top - suggestionHeight - lineHeight - 2;
-        } else {
-            // Show below, even if it goes outside (user can scroll)
-            adjustedTop = top + 2;
-        }
-        
-        // Ensure it doesn't go above the wrapper
-        adjustedTop = Math.max(wrapperTop + 5, adjustedTop);
-        
-        suggestionsDiv.style.left = `${adjustedLeft}px`;
-        suggestionsDiv.style.top = `${adjustedTop}px`;
-    }
-    
-    insertSuggestion(suggestion) {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const sql = sqlEditor.value;
-        const cursorPosition = sqlEditor.selectionStart;
-        const textBeforeCursor = sql.substring(0, cursorPosition);
-        
-        const wordStart = getWordStartPosition(textBeforeCursor);
-        const wordEnd = cursorPosition;
-        
-        // Replace current word with suggestion
-        const newSql = sql.substring(0, wordStart) + suggestion.text + sql.substring(wordEnd);
-        
-        // Update textarea
-        sqlEditor.value = newSql;
-        
-        // Set cursor position after inserted text
-        const newCursorPosition = wordStart + suggestion.text.length;
-        sqlEditor.setSelectionRange(newCursorPosition, newCursorPosition);
-        
-        // Hide suggestions and update
-        this.hideSuggestions();
-        this.hideInlineCompletion();
-        this.updateSuggestions();
-        
-        // Focus back on editor
-        sqlEditor.focus();
-    }
-    
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
     /**
      * Inserts text at the current cursor position in the SQL editor
      * @param {string} text - Text to insert
      */
     insertText(text) {
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        if (!sqlEditor) return;
+        if (!this.editor) return;
         
-        const start = sqlEditor.selectionStart;
-        const end = sqlEditor.selectionEnd;
-        const sql = sqlEditor.value;
+        const selection = this.editor.getSelection();
+        const range = new monaco.Range(
+            selection.startLineNumber,
+            selection.startColumn,
+            selection.endLineNumber,
+            selection.endColumn
+        );
         
-        // Insert text at cursor position
-        const newSql = sql.substring(0, start) + text + sql.substring(end);
-        sqlEditor.value = newSql;
+        const op = {
+            range: range,
+            text: text,
+            forceMoveMarkers: true
+        };
         
-        // Set cursor position after inserted text
-        const newCursorPosition = start + text.length;
-        sqlEditor.setSelectionRange(newCursorPosition, newCursorPosition);
-        
-        // Focus editor and update suggestions
-        sqlEditor.focus();
-        this.updateSuggestions();
+        this.editor.executeEdits('insert-text', [op]);
+        this.editor.focus();
     }
     
     
@@ -1016,12 +643,13 @@ export class QueryBuilder {
             return;
         }
         
-        const sqlEditor = this.container.querySelector('#sql-editor');
+        if (!this.editor) return;
+        
         const saveBtn = this.container.querySelector('#save-dataset');
         const updateBtn = this.container.querySelector('#update-dataset');
         
         // Load SQL into editor
-        sqlEditor.value = dataset.sql;
+        this.editor.setValue(dataset.sql);
         
         // Set current dataset ID for updating
         this.currentDatasetId = datasetId;
@@ -1035,20 +663,19 @@ export class QueryBuilder {
         await this.executeQuery();
         
         // Focus editor
-        sqlEditor.focus();
+        this.editor.focus();
     }
     
     /**
      * Updates an existing dataset with current query results
      */
     async updateDataset() {
-        if (!this.currentDatasetId || !this.currentResult) {
+        if (!this.currentDatasetId || !this.currentResult || !this.editor) {
             return;
         }
         
         const { datasetStore } = await import('../data/datasets.js');
-        const sqlEditor = this.container.querySelector('#sql-editor');
-        const query = sqlEditor.value.trim();
+        const query = this.editor.getValue().trim();
         
         if (!query) {
             await Modal.alert('Please enter a SQL query.');

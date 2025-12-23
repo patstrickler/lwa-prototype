@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <!-- Monaco Editor -->
+    <script>
+        // Configure Monaco Editor loader
+        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 </head>
 <body>

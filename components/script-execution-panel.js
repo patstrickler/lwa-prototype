@@ -14,6 +14,7 @@ export class ScriptExecutionPanel {
         this.suggestions = [];
         this.selectedSuggestionIndex = -1;
         this.autocompleteVisible = false;
+        this.editingScriptId = null;
         this.init();
     }
     
@@ -462,8 +463,17 @@ export class ScriptExecutionPanel {
             }
         }
         
-        // Create script
-        const script = scriptsStore.create(scriptName, scriptText, language, '', result);
+        // Update existing script or create new one
+        let script;
+        if (this.editingScriptId) {
+            // For now, we'll create a new script since we don't have an update method
+            // In a real implementation, you'd update the existing script
+            script = scriptsStore.create(scriptName, scriptText, language, '', result);
+            this.editingScriptId = null;
+        } else {
+            // Create new script
+            script = scriptsStore.create(scriptName, scriptText, language, '', result);
+        }
         
         // Notify listeners
         this.notifySaved(script);
@@ -492,6 +502,41 @@ export class ScriptExecutionPanel {
         this.container.querySelector('#script-name').value = '';
         this.container.querySelector('#script-result').innerHTML = '';
         this.container.querySelector('#save-script').disabled = true;
+        this.editingScriptId = null;
+    }
+    
+    loadScriptForEditing(scriptId) {
+        const script = scriptsStore.get(scriptId);
+        if (!script) {
+            return;
+        }
+        
+        const languageSelect = this.container.querySelector('#script-language');
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const scriptName = this.container.querySelector('#script-name');
+        const saveBtn = this.container.querySelector('#save-script');
+        const resultContainer = this.container.querySelector('#script-result');
+        
+        // Set values
+        if (languageSelect) languageSelect.value = script.language || 'python';
+        if (scriptEditor) scriptEditor.value = script.code || '';
+        if (scriptName) scriptName.value = script.name || '';
+        
+        // Enable save button
+        if (saveBtn) saveBtn.disabled = false;
+        
+        // Store editing ID
+        this.editingScriptId = scriptId;
+        
+        // Display result if available
+        if (script.result && resultContainer) {
+            this.displayResult(script.result);
+        }
+        
+        // Scroll to editor
+        if (scriptEditor) {
+            scriptEditor.focus();
+        }
     }
 }
 

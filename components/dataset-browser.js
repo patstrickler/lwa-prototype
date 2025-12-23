@@ -66,6 +66,7 @@ export class DatasetBrowser {
     
     renderDatasetDetails(dataset) {
         const metrics = metricsStore.getByDataset(dataset.id);
+        const scripts = scriptsStore.getAll(); // Show all scripts for now
         
         return `
             <div class="dataset-details-panel">
@@ -79,11 +80,12 @@ export class DatasetBrowser {
                 </div>
                 
                 <div class="columns-section">
-                    <div class="section-title">
+                    <div class="section-title clickable" data-toggle="columns">
                         <span class="section-icon">📊</span>
                         <span>Columns</span>
+                        <span class="toggle-icon">${this.columnsExpanded ? '▼' : '▶'}</span>
                     </div>
-                    <div class="items-list">
+                    <div class="items-list" style="display: ${this.columnsExpanded ? 'block' : 'none'};">
                         ${dataset.columns && dataset.columns.length > 0
                             ? dataset.columns.map(col => `
                                 <div class="selectable-item column-item" 
@@ -103,14 +105,14 @@ export class DatasetBrowser {
                 <div class="metrics-section">
                     <div class="section-title">
                         <span class="section-icon">📈</span>
-                        <span>Calculations (Metrics)</span>
+                        <span>Metrics</span>
                     </div>
-                    <div class="items-list">
+                    <div class="items-list editable-items">
                         ${metrics && metrics.length > 0
                             ? metrics.map(metric => `
-                                <div class="selectable-item metric-item" 
+                                <div class="editable-item metric-item" 
                                      data-type="metric"
-                                     data-value="${metric.id}"
+                                     data-id="${metric.id}"
                                      data-dataset="${dataset.id}">
                                     <span class="item-icon">📈</span>
                                     <div class="item-info">
@@ -118,9 +120,34 @@ export class DatasetBrowser {
                                         <span class="item-value">${this.formatMetricValue(metric.value)}</span>
                                     </div>
                                     <span class="item-operation">${this.escapeHtml(metric.operation || '')}</span>
+                                    <button class="edit-btn" title="Edit metric">✏️</button>
                                 </div>
                             `).join('')
                             : '<div class="empty-state-small">No metrics defined</div>'
+                        }
+                    </div>
+                </div>
+                
+                <div class="scripts-section">
+                    <div class="section-title">
+                        <span class="section-icon">📝</span>
+                        <span>Scripts</span>
+                    </div>
+                    <div class="items-list editable-items">
+                        ${scripts && scripts.length > 0
+                            ? scripts.map(script => `
+                                <div class="editable-item script-item" 
+                                     data-type="script"
+                                     data-id="${script.id}">
+                                    <span class="item-icon">📝</span>
+                                    <div class="item-info">
+                                        <span class="item-name">${this.escapeHtml(script.name)}</span>
+                                        <span class="item-language">${script.language || 'N/A'}</span>
+                                    </div>
+                                    <button class="edit-btn" title="Edit script">✏️</button>
+                                </div>
+                            `).join('')
+                            : '<div class="empty-state-small">No scripts defined</div>'
                         }
                     </div>
                 </div>
@@ -218,6 +245,41 @@ export class DatasetBrowser {
         
         // Column/Metric click to select for axes
         this.container.addEventListener('click', (e) => {
+            // Handle column expand/collapse
+            const toggleTitle = e.target.closest('.section-title.clickable');
+            if (toggleTitle && toggleTitle.getAttribute('data-toggle') === 'columns') {
+                this.columnsExpanded = !this.columnsExpanded;
+                const itemsList = toggleTitle.nextElementSibling;
+                if (itemsList) {
+                    itemsList.style.display = this.columnsExpanded ? 'block' : 'none';
+                }
+                const toggleIcon = toggleTitle.querySelector('.toggle-icon');
+                if (toggleIcon) {
+                    toggleIcon.textContent = this.columnsExpanded ? '▼' : '▶';
+                }
+                e.stopPropagation();
+                return;
+            }
+            
+            // Handle edit button clicks
+            const editBtn = e.target.closest('.edit-btn');
+            if (editBtn) {
+                const editableItem = editBtn.closest('.editable-item');
+                if (editableItem) {
+                    const type = editableItem.getAttribute('data-type');
+                    const id = editableItem.getAttribute('data-id');
+                    
+                    if (type === 'metric') {
+                        this.notifyEditMetric(id);
+                    } else if (type === 'script') {
+                        this.notifyEditScript(id);
+                    }
+                    e.stopPropagation();
+                    return;
+                }
+            }
+            
+            // Handle column selection
             const selectableItem = e.target.closest('.selectable-item');
             if (selectableItem) {
                 const type = selectableItem.getAttribute('data-type');
@@ -252,7 +314,26 @@ export class DatasetBrowser {
         this.onItemSelectCallbacks.forEach(callback => callback(type, value, datasetId));
     }
     
+    onEditMetric(callback) {
+        this.onEditMetricCallbacks.push(callback);
+    }
+    
+    notifyEditMetric(metricId) {
+        this.onEditMetricCallbacks.forEach(callback => callback(metricId));
+    }
+    
+    onEditScript(callback) {
+        this.onEditScriptCallbacks.push(callback);
+    }
+    
+    notifyEditScript(scriptId) {
+        this.onEditScriptCallbacks.forEach(callback => callback(scriptId));
+    }
+    
     refresh() {
+        // Preserve columns expanded state
+        const wasExpanded = this.columnsExpanded;
+        
         // Only re-render if we have a selected dataset to preserve state
         if (this.selectedDataset) {
             const currentId = this.selectedDataset.id;
@@ -261,7 +342,21 @@ export class DatasetBrowser {
                 this.selectedDataset = updated;
             }
         }
+        
         this.render();
+        
+        // Restore columns expanded state after render
+        this.columnsExpanded = wasExpanded;
+        if (this.container) {
+            const columnsList = this.container.querySelector('.columns-section .items-list');
+            const toggleIcon = this.container.querySelector('.columns-section .toggle-icon');
+            if (columnsList) {
+                columnsList.style.display = this.columnsExpanded ? 'block' : 'none';
+            }
+            if (toggleIcon) {
+                toggleIcon.textContent = this.columnsExpanded ? '▼' : '▶';
+            }
+        }
     }
     
     onDatasetSelect(callback) {

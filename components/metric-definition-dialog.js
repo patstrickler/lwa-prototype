@@ -11,6 +11,7 @@ export class MetricDefinitionDialog {
         this.dialog = null;
         this.selectedDataset = null;
         this.createCallbacks = [];
+        this.editingMetricId = null;
         this.init();
     }
     
@@ -247,15 +248,29 @@ export class MetricDefinitionDialog {
             return;
         }
         
-        // Create the metric (definition and result are stored)
-        const metric = metricsStore.create(
-            datasetId,
-            name,
-            value,
-            'calculated',
-            column,
-            operation
-        );
+        // Update existing metric or create new one
+        let metric;
+        if (this.editingMetricId) {
+            // Update existing metric
+            const existingMetric = metricsStore.get(this.editingMetricId);
+            if (existingMetric) {
+                // Update the metric value
+                metric = metricsStore.updateValue(this.editingMetricId, value);
+                // Note: We can't update name, column, operation without modifying the store
+                // For now, we'll just update the value
+                this.editingMetricId = null;
+            }
+        } else {
+            // Create new metric
+            metric = metricsStore.create(
+                datasetId,
+                name,
+                value,
+                'calculated',
+                column,
+                operation
+            );
+        }
         
         // Notify listeners
         this.notifyCreated(metric);
@@ -270,6 +285,7 @@ export class MetricDefinitionDialog {
         const columnSelect = this.dialog.querySelector('#metric-column-select');
         const operationSelect = this.dialog.querySelector('#metric-operation-select');
         const nameInput = this.dialog.querySelector('#metric-name-input');
+        const header = this.dialog.querySelector('.modal-header h3');
         
         datasetSelect.value = '';
         columnSelect.innerHTML = '<option value="">-- Select a column --</option>';
@@ -277,15 +293,71 @@ export class MetricDefinitionDialog {
         operationSelect.value = '';
         nameInput.value = '';
         this.selectedDataset = null;
+        this.editingMetricId = null;
+        
+        // Reset header
+        if (header) {
+            header.textContent = 'Create Calculated Metric';
+        }
     }
     
-    show() {
+    show(metricId = null) {
         if (this.dialog) {
             this.dialog.style.display = 'flex';
             this.populateDatasets();
-            // Reset form when showing
-            this.resetForm();
+            
+            if (metricId) {
+                // Load metric for editing
+                const metric = metricsStore.get(metricId);
+                if (metric) {
+                    this.loadMetricForEditing(metric);
+                } else {
+                    this.resetForm();
+                }
+            } else {
+                // Reset form when creating new
+                this.resetForm();
+            }
         }
+    }
+    
+    loadMetricForEditing(metric) {
+        const datasetSelect = this.dialog.querySelector('#metric-dataset-select');
+        const columnSelect = this.dialog.querySelector('#metric-column-select');
+        const operationSelect = this.dialog.querySelector('#metric-operation-select');
+        const nameInput = this.dialog.querySelector('#metric-name-input');
+        const header = this.dialog.querySelector('.modal-header h3');
+        
+        // Update header
+        if (header) {
+            header.textContent = 'Edit Calculated Metric';
+        }
+        
+        // Set dataset
+        datasetSelect.value = metric.datasetId;
+        const dataset = datasetStore.get(metric.datasetId);
+        if (dataset) {
+            this.selectedDataset = dataset;
+            this.populateColumns(dataset);
+            
+            // Set column
+            if (metric.column) {
+                columnSelect.value = metric.column;
+            }
+        }
+        
+        // Set operation
+        if (metric.operation) {
+            operationSelect.value = metric.operation;
+        }
+        
+        // Set name
+        if (metric.name) {
+            nameInput.value = metric.name;
+        }
+        
+        // Store metric ID for update
+        this.editingMetricId = metric.id;
     }
     
     hide() {

@@ -77,6 +77,19 @@ document.addEventListener('DOMContentLoaded', () => {
         analysisPanel.refreshDatasetSelector();
     });
     
+    // Dataset Browser (Analysis) → Edit Metric/Script
+    datasetBrowserAnalysis.onEditMetric((metricId) => {
+        if (analysisPanel.metricDialog) {
+            analysisPanel.metricDialog.show(metricId);
+        }
+    });
+    
+    datasetBrowserAnalysis.onEditScript((scriptId) => {
+        if (analysisPanel.scriptPanel) {
+            analysisPanel.scriptPanel.loadScriptForEditing(scriptId);
+        }
+    });
+    
     // Dataset Browser (Visualization) → Visualization Panel
     datasetBrowserVisualization.onDatasetSelect((dataset) => {
         if (visualizationPanel.selectDataset) {
