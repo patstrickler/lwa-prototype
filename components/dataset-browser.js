@@ -20,6 +20,10 @@ export class DatasetBrowser {
     init() {
         this.attachEventListeners();
         this.render();
+        // Ensure details are visible if a dataset is already selected
+        if (this.selectedDataset) {
+            this.ensureDetailsVisible();
+        }
         // Refresh periodically to catch new datasets and metrics
         setInterval(() => this.refresh(), 2000);
     }
@@ -282,6 +286,8 @@ export class DatasetBrowser {
                         const dataset = datasetStore.get(datasetId);
                         if (dataset) {
                             this.selectedDataset = dataset;
+                            // Ensure columns are expanded when dataset is selected
+                            this.columnsExpanded = true;
                             // Use requestAnimationFrame for smooth updates
                             // But only render if dropdown is not open (shouldn't be after change event)
                             requestAnimationFrame(() => {
@@ -289,6 +295,8 @@ export class DatasetBrowser {
                                 const dropdown = this.container.querySelector('.dataset-browser-select');
                                 if (!dropdown || document.activeElement !== dropdown) {
                                     this.render();
+                                    // Ensure all details are visible after render
+                                    this.ensureDetailsVisible();
                                 }
                                 this.notifyDatasetSelected(dataset);
                             });
@@ -518,8 +526,46 @@ export class DatasetBrowser {
         const dataset = datasetStore.get(datasetId);
         if (dataset) {
             this.selectedDataset = dataset;
+            // Ensure columns are expanded when dataset is selected
+            this.columnsExpanded = true;
             this.render();
+            // Ensure all details are visible after render
+            this.ensureDetailsVisible();
             this.notifyDatasetSelected(dataset);
+        }
+    }
+    
+    ensureDetailsVisible() {
+        // Ensure columns section is expanded and visible
+        const columnsSection = this.container.querySelector('.columns-section');
+        if (columnsSection) {
+            const itemsList = columnsSection.querySelector('.columns-list-scrollable');
+            const searchContainer = columnsSection.querySelector('.column-search-container');
+            const toggleIcon = columnsSection.querySelector('.toggle-icon');
+            
+            if (this.columnsExpanded) {
+                if (itemsList) itemsList.style.display = 'block';
+                if (searchContainer) searchContainer.style.display = 'block';
+                if (toggleIcon) toggleIcon.textContent = '▼';
+            }
+        }
+        
+        // Ensure metrics section is visible
+        const metricsSection = this.container.querySelector('.metrics-section');
+        if (metricsSection) {
+            metricsSection.style.display = 'block';
+        }
+        
+        // Ensure scripts section is visible
+        const scriptsSection = this.container.querySelector('.scripts-section');
+        if (scriptsSection) {
+            scriptsSection.style.display = 'block';
+        }
+        
+        // Ensure dataset details panel is visible
+        const detailsPanel = this.container.querySelector('.dataset-details-panel');
+        if (detailsPanel) {
+            detailsPanel.style.display = 'block';
         }
     }
     
