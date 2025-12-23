@@ -13,6 +13,7 @@ export class QueryBuilder {
         this.currentResult = null;
         this.currentDatasetId = null; // Track if we're editing an existing dataset
         this.editor = null; // Will be the textarea element
+        this.columnMetadata = {}; // Store metadata for hover tooltips
         this.init();
     }
     
@@ -48,7 +49,6 @@ export class QueryBuilder {
                     </div>
                 </div>
                 <div id="query-results" class="query-results">
-                    <div id="results-metadata" class="results-metadata" style="display: none;"></div>
                     <div class="results-table-container">
                         <table id="results-table" class="results-table">
                             <thead id="results-thead"></thead>
@@ -334,8 +334,8 @@ export class QueryBuilder {
             };
             
             this.currentResult = result;
+            this.columnMetadata = this.calculateMetadata(result);
             this.displayResults(result);
-            this.displayMetadata(result);
             saveBtn.disabled = false;
         } catch (error) {
             // Provide user-friendly error messages
@@ -370,7 +370,6 @@ export class QueryBuilder {
     showLoading() {
         const thead = this.container.querySelector('#results-thead');
         const tbody = this.container.querySelector('#results-tbody');
-        const metadataDiv = this.container.querySelector('#results-metadata');
         
         thead.innerHTML = '';
         tbody.innerHTML = `
@@ -378,9 +377,6 @@ export class QueryBuilder {
                 <td colspan="100%" class="empty-placeholder">Executing query...</td>
             </tr>
         `;
-        if (metadataDiv) {
-            metadataDiv.style.display = 'none';
-        }
     }
     
     displayResults(result) {
@@ -411,6 +407,15 @@ export class QueryBuilder {
             // Format column name (replace underscores with spaces, capitalize)
             th.textContent = this.formatColumnName(column);
             th.setAttribute('data-column', column); // Store original column name
+            th.classList.add('column-header-hoverable');
+            
+            // Add hover tooltip with metadata
+            if (this.columnMetadata && this.columnMetadata[column]) {
+                const meta = this.columnMetadata[column];
+                th.setAttribute('data-metadata', JSON.stringify(meta));
+                this.attachColumnHover(th, meta);
+            }
+            
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
@@ -459,35 +464,34 @@ export class QueryBuilder {
     }
     
     /**
-     * Calculates and displays metadata about the query results
+     * Calculates metadata for all columns
      * @param {Object} result - Result object with data and columns
+     * @returns {Object} Map of column name to metadata
      */
-    displayMetadata(result) {
-        const metadataDiv = this.container.querySelector('#results-metadata');
-        if (!metadataDiv || !result || !result.data || !result.columns) {
-            metadataDiv.style.display = 'none';
-            return;
+    calculateMetadata(result) {
+        if (!result || !result.data || !result.columns) {
+            return {};
         }
         
         const data = result.data;
         const columns = result.columns;
+        const metadata = {};
         
         if (data.length === 0) {
-            metadataDiv.style.display = 'none';
-            return;
+            return metadata;
         }
         
         // Calculate metadata for each column
-        const columnMetadata = columns.map(column => {
+        columns.forEach(column => {
             const values = data.map(row => row[column]);
             const nonNullValues = values.filter(v => v !== null && v !== undefined && v !== '');
             const nullCount = values.length - nonNullValues.length;
-            const nullPercentage = ((nullCount / values.length) * 100).toFixed(1);
+            const nullPercentage = nonNullValues.length > 0 ? ((nullCount / values.length) * 100).toFixed(1) : '100.0';
             
             // Calculate unique values
             const uniqueValues = new Set(nonNullValues.map(v => String(v)));
             const uniqueCount = uniqueValues.size;
-            const uniquePercentage = ((uniqueCount / nonNullValues.length) * 100).toFixed(1);
+            const uniquePercentage = nonNullValues.length > 0 ? ((uniqueCount / nonNullValues.length) * 100).toFixed(1) : '0.0';
             
             // Calculate distribution (top 5 most common values)
             const valueCounts = {};
@@ -502,7 +506,7 @@ export class QueryBuilder {
                 .map(([value, count]) => ({
                     value: value.length > 30 ? value.substring(0, 30) + '...' : value,
                     count: count,
-                    percentage: ((count / nonNullValues.length) * 100).toFixed(1)
+                    percentage: nonNullValues.length > 0 ? ((count / nonNullValues.length) * 100).toFixed(1) : '0.0'
                 }));
             
             // Determine data type
@@ -522,7 +526,7 @@ export class QueryBuilder {
                 }
             }
             
-            return {
+            metadata[column] = {
                 column,
                 totalRows: values.length,
                 nonNullCount: nonNullValues.length,
@@ -535,56 +539,78 @@ export class QueryBuilder {
             };
         });
         
-        // Build metadata HTML
-        const metadataHtml = `
-            <div class="metadata-header">
-                <h3>Result Metadata</h3>
-                <div class="metadata-summary">
-                    <span class="metadata-stat">
-                        <strong>Rows Returned:</strong> ${data.length.toLocaleString()}
-                    </span>
-                    <span class="metadata-stat">
-                        <strong>Columns:</strong> ${columns.length}
-                    </span>
-                </div>
-            </div>
-            <div class="metadata-columns">
-                ${columnMetadata.map(meta => `
-                    <div class="metadata-column-card">
-                        <div class="metadata-column-header">
-                            <strong>${this.escapeHtml(this.formatColumnName(meta.column))}</strong>
-                            <span class="metadata-type-badge type-${meta.dataType}">${meta.dataType}</span>
-                        </div>
-                        <div class="metadata-stats">
-                            <div class="metadata-stat-item">
-                                <span class="stat-label">Unique Values:</span>
-                                <span class="stat-value">${meta.uniqueCount} (${meta.uniquePercentage}%)</span>
-                            </div>
-                            <div class="metadata-stat-item">
-                                <span class="stat-label">Missing Values:</span>
-                                <span class="stat-value">${meta.nullCount} (${meta.nullPercentage}%)</span>
-                            </div>
-                            ${meta.distribution.length > 0 ? `
-                                <div class="metadata-distribution">
-                                    <span class="stat-label">Top Values:</span>
-                                    <div class="distribution-list">
-                                        ${meta.distribution.map(dist => `
-                                            <div class="distribution-item">
-                                                <span class="dist-value">${this.escapeHtml(dist.value)}</span>
-                                                <span class="dist-count">${dist.count} (${dist.percentage}%)</span>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        return metadata;
+    }
+    
+    /**
+     * Attaches hover tooltip to column header
+     * @param {HTMLElement} th - Table header element
+     * @param {Object} meta - Metadata for the column
+     */
+    attachColumnHover(th, meta) {
+        let tooltip = null;
         
-        metadataDiv.innerHTML = metadataHtml;
-        metadataDiv.style.display = 'block';
+        th.addEventListener('mouseenter', (e) => {
+            // Create tooltip
+            tooltip = document.createElement('div');
+            tooltip.className = 'column-metadata-tooltip';
+            tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <strong>${this.escapeHtml(this.formatColumnName(meta.column))}</strong>
+                    <span class="metadata-type-badge type-${meta.dataType}">${meta.dataType}</span>
+                </div>
+                <div class="tooltip-stats">
+                    <div class="tooltip-stat-item">
+                        <span class="tooltip-label">Unique Values:</span>
+                        <span class="tooltip-value">${meta.uniqueCount} (${meta.uniquePercentage}%)</span>
+                    </div>
+                    <div class="tooltip-stat-item">
+                        <span class="tooltip-label">Missing Values:</span>
+                        <span class="tooltip-value">${meta.nullCount} (${meta.nullPercentage}%)</span>
+                    </div>
+                    ${meta.distribution.length > 0 ? `
+                        <div class="tooltip-distribution">
+                            <span class="tooltip-label">Top Values:</span>
+                            <div class="tooltip-distribution-list">
+                                ${meta.distribution.map(dist => `
+                                    <div class="tooltip-dist-item">
+                                        <span class="tooltip-dist-value">${this.escapeHtml(dist.value)}</span>
+                                        <span class="tooltip-dist-count">${dist.count} (${dist.percentage}%)</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.body.appendChild(tooltip);
+            
+            // Position tooltip
+            const rect = th.getBoundingClientRect();
+            tooltip.style.top = `${rect.bottom + 5}px`;
+            tooltip.style.left = `${rect.left}px`;
+            
+            // Adjust if tooltip goes off screen
+            setTimeout(() => {
+                if (tooltip) {
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    if (tooltipRect.right > window.innerWidth) {
+                        tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+                    }
+                    if (tooltipRect.bottom > window.innerHeight) {
+                        tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
+                    }
+                }
+            }, 0);
+        });
+        
+        th.addEventListener('mouseleave', () => {
+            if (tooltip) {
+                tooltip.remove();
+                tooltip = null;
+            }
+        });
     }
     
     /**
@@ -647,7 +673,6 @@ export class QueryBuilder {
         const thead = this.container.querySelector('#results-thead');
         const tbody = this.container.querySelector('#results-tbody');
         const saveBtn = this.container.querySelector('#save-dataset');
-        const metadataDiv = this.container.querySelector('#results-metadata');
         
         thead.innerHTML = '';
         tbody.innerHTML = `
@@ -659,9 +684,6 @@ export class QueryBuilder {
             </tr>
         `;
         saveBtn.disabled = true;
-        if (metadataDiv) {
-            metadataDiv.style.display = 'none';
-        }
     }
     
     /**
