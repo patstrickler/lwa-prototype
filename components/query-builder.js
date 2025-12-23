@@ -283,21 +283,30 @@ export class QueryBuilder {
         import('../data/datasets.js').then(({ datasetStore }) => {
             const datasetName = prompt('Enter a name for this dataset:', `Dataset ${new Date().toLocaleString()}`);
             
-            if (!datasetName) {
-                return; // User cancelled
+            if (!datasetName || !datasetName.trim()) {
+                return; // User cancelled or entered empty name
             }
             
+            // Convert data (array of objects) to rows (array of arrays)
+            const columns = this.currentResult.columns || [];
+            const data = this.currentResult.data || [];
+            const rows = data.map(row => {
+                return columns.map(column => row[column]);
+            });
+            
+            // Create dataset with SQL, columns, and rows
             const dataset = datasetStore.create(
-                datasetName,
-                this.currentResult.data || [],
-                this.currentResult.columns || []
+                datasetName.trim(),
+                this.currentResult.query || '',
+                columns,
+                rows
             );
             
             // Notify listeners
             this.notifyDatasetCreated(dataset);
             
             // Show success message
-            alert(`Dataset "${datasetName}" saved successfully!`);
+            alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
         });
     }
     

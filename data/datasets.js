@@ -7,13 +7,22 @@ class DatasetStore {
         this.nextId = 1;
     }
     
-    create(name, data, columns) {
-        const id = `dataset_${this.nextId++}`;
+    /**
+     * Creates a new dataset
+     * @param {string} name - Dataset name
+     * @param {string} sql - SQL query string
+     * @param {string[]} columns - Column names
+     * @param {any[][]} rows - Array of row arrays
+     * @returns {Object} Dataset object
+     */
+    create(name, sql, columns, rows) {
+        const id = `ds_${this.nextId++}`;
         const dataset = {
             id,
             name,
-            data,
+            sql,
             columns,
+            rows,
             createdAt: new Date().toISOString()
         };
         this.datasets.set(id, dataset);
