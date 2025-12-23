@@ -130,6 +130,11 @@ main {
     border-bottom: 1px solid #dee2e6;
 }
 
+.results-table td.numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 .results-table tbody tr:hover {
     background-color: #f8f9fa;
 }

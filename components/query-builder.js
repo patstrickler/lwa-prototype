@@ -126,7 +126,8 @@ export class QueryBuilder {
         thead.innerHTML = '';
         tbody.innerHTML = '';
         
-        if (!result || !result.columns || result.columns.length === 0) {
+        // Validate result structure
+        if (!result || !result.columns || !Array.isArray(result.columns) || result.columns.length === 0) {
             // Show empty placeholder
             tbody.innerHTML = `
                 <tr>
@@ -137,36 +138,109 @@ export class QueryBuilder {
             return;
         }
         
-        // Build table header
+        // Build table header dynamically from columns
         const headerRow = document.createElement('tr');
         result.columns.forEach(column => {
             const th = document.createElement('th');
-            th.textContent = column;
+            // Format column name (replace underscores with spaces, capitalize)
+            th.textContent = this.formatColumnName(column);
+            th.setAttribute('data-column', column); // Store original column name
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
         
-        // Build table body
-        if (result.data && result.data.length > 0) {
-            result.data.forEach(row => {
+        // Build table body dynamically from rows
+        if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+            result.data.forEach((row, rowIndex) => {
                 const tr = document.createElement('tr');
                 result.columns.forEach(column => {
                     const td = document.createElement('td');
-                    td.textContent = row[column] !== undefined ? row[column] : '';
+                    const value = row[column];
+                    
+                    // Format cell value based on data type
+                    td.textContent = this.formatCellValue(value);
+                    
+                    // Add data attribute for potential styling/filtering
+                    td.setAttribute('data-column', column);
+                    td.setAttribute('data-value', value !== null && value !== undefined ? String(value) : '');
+                    
+                    // Add class for numeric values for potential right-alignment
+                    if (this.isNumeric(value)) {
+                        td.classList.add('numeric');
+                    }
+                    
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
             });
         } else {
-            // Empty result set
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="${result.columns.length}" class="empty-placeholder">Query executed successfully. No rows returned.</td>
-                </tr>
-            `;
+            // Empty result set - show message spanning all columns
+            const emptyRow = document.createElement('tr');
+            const emptyCell = document.createElement('td');
+            emptyCell.colSpan = result.columns.length;
+            emptyCell.className = 'empty-placeholder';
+            emptyCell.textContent = 'Query executed successfully. No rows returned.';
+            emptyRow.appendChild(emptyCell);
+            tbody.appendChild(emptyRow);
         }
         
         saveBtn.disabled = false;
+    }
+    
+    /**
+     * Formats column name for display
+     * @param {string} column - Column name
+     * @returns {string}
+     */
+    formatColumnName(column) {
+        return column
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, char => char.toUpperCase());
+    }
+    
+    /**
+     * Formats cell value for display
+     * @param {any} value - Cell value
+     * @returns {string}
+     */
+    formatCellValue(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+        
+        // Format numbers with appropriate precision
+        if (typeof value === 'number') {
+            // Check if it's an integer or float
+            if (Number.isInteger(value)) {
+                return String(value);
+            } else {
+                // Format floats to 2 decimal places, but remove trailing zeros
+                return parseFloat(value.toFixed(2)).toString();
+            }
+        }
+        
+        // Format dates if they're in ISO format
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            try {
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleDateString();
+                }
+            } catch (e) {
+                // If date parsing fails, return original string
+            }
+        }
+        
+        return String(value);
+    }
+    
+    /**
+     * Checks if a value is numeric
+     * @param {any} value - Value to check
+     * @returns {boolean}
+     */
+    isNumeric(value) {
+        return typeof value === 'number' && !isNaN(value);
     }
     
     showError(message) {
