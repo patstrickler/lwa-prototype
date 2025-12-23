@@ -127,6 +127,11 @@ document.addEventListener('DOMContentLoaded', () => {
         datasetBrowserAnalysis.refresh();
         datasetBrowserVisualization.refresh();
         
+        // Clear query builder if it was editing the deleted dataset
+        if (queryBuilder.currentDatasetId === datasetId) {
+            queryBuilder.clearQuery();
+        }
+        
         // Clear analysis panel if it was using the deleted dataset
         if (analysisPanel.currentDataset && analysisPanel.currentDataset.id === datasetId) {
             analysisPanel.setDataset(null);
