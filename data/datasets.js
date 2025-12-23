@@ -60,17 +60,42 @@ class DatasetStore {
      * @returns {Object} Dataset object
      */
     create(name, sql, columns, rows) {
+        // Validate inputs
+        if (!name || typeof name !== 'string' || !name.trim()) {
+            throw new Error('Dataset name is required');
+        }
+        
+        if (!Array.isArray(columns)) {
+            throw new Error('Columns must be an array');
+        }
+        
+        if (!Array.isArray(rows)) {
+            throw new Error('Rows must be an array');
+        }
+        
+        // Ensure sql is a string (can be empty for non-SQL datasets)
+        const sqlString = sql || '';
+        
         const id = `ds_${this.nextId++}`;
         const dataset = {
             id,
-            name,
-            sql,
-            columns,
-            rows,
+            name: name.trim(),
+            sql: sqlString,
+            columns: [...columns], // Create a copy to avoid reference issues
+            rows: rows.map(row => Array.isArray(row) ? [...row] : []), // Create copies of rows
             createdAt: new Date().toISOString()
         };
-        this.datasets.set(id, dataset);
-        this.saveToStorage();
+        
+        try {
+            this.datasets.set(id, dataset);
+            this.saveToStorage();
+        } catch (error) {
+            console.error('Error creating dataset:', error);
+            // Remove from map if storage failed
+            this.datasets.delete(id);
+            throw new Error(`Failed to save dataset: ${error.message || 'Storage error'}`);
+        }
+        
         return dataset;
     }
     

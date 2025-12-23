@@ -68,8 +68,17 @@ export class QueryBuilder {
         // Autocomplete event listeners
         sqlEditor.addEventListener('input', (e) => this.handleInput(e));
         sqlEditor.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        sqlEditor.addEventListener('click', () => this.updateSuggestions());
-        sqlEditor.addEventListener('scroll', () => this.updateSuggestions());
+        sqlEditor.addEventListener('click', () => {
+            this.updateSuggestions();
+            if (this.autocompleteVisible) {
+                requestAnimationFrame(() => this.positionSuggestions());
+            }
+        });
+        sqlEditor.addEventListener('scroll', () => {
+            if (this.autocompleteVisible) {
+                requestAnimationFrame(() => this.positionSuggestions());
+            }
+        });
         
         // Hide suggestions when clicking outside
         document.addEventListener('click', (e) => {
@@ -352,42 +361,67 @@ export class QueryBuilder {
     
     async saveAsDataset() {
         if (!this.currentResult) {
+            await Modal.alert('No query results to save. Please run a query first.');
             return;
         }
         
-        // Import datasetStore
-        const { datasetStore } = await import('../data/datasets.js');
-        const datasetName = await Modal.prompt('Enter a name for this dataset:', `Dataset ${new Date().toLocaleString()}`);
-        
-        if (!datasetName || !datasetName.trim()) {
-            return; // User cancelled or entered empty name
+        try {
+            // Import datasetStore
+            const { datasetStore } = await import('../data/datasets.js');
+            
+            // Get dataset name from user
+            const datasetName = await Modal.prompt('Enter a name for this dataset:', `Dataset ${new Date().toLocaleString()}`);
+            
+            if (!datasetName || !datasetName.trim()) {
+                return; // User cancelled or entered empty name
+            }
+            
+            // Validate that we have columns
+            const columns = this.currentResult.columns || [];
+            if (columns.length === 0) {
+                await Modal.alert('Cannot save dataset: No columns found in query results.');
+                return;
+            }
+            
+            // Convert data (array of objects) to rows (array of arrays)
+            const data = this.currentResult.data || [];
+            const rows = data.map(row => {
+                if (!row || typeof row !== 'object') {
+                    // If row is not an object, return empty array for this row
+                    return columns.map(() => null);
+                }
+                return columns.map(column => {
+                    // Handle case where column might not exist in row
+                    return row.hasOwnProperty(column) ? row[column] : null;
+                });
+            });
+            
+            // Get the SQL query from currentResult or from the SQL editor
+            const sqlEditor = this.container.querySelector('#sql-editor');
+            const sqlQuery = this.currentResult.query || (sqlEditor ? sqlEditor.value.trim() : '');
+            
+            // Create dataset with SQL, columns, and rows
+            const dataset = datasetStore.create(
+                datasetName.trim(),
+                sqlQuery,
+                columns,
+                rows
+            );
+            
+            // Notify listeners
+            this.notifyDatasetCreated(dataset);
+            
+            // Refresh table browser if callback exists
+            if (this.refreshTableBrowserCallback) {
+                this.refreshTableBrowserCallback();
+            }
+            
+            // Show success message
+            await Modal.alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
+        } catch (error) {
+            console.error('Error saving dataset:', error);
+            await Modal.alert(`Failed to save dataset: ${error.message || 'Unknown error'}`);
         }
-        
-        // Convert data (array of objects) to rows (array of arrays)
-        const columns = this.currentResult.columns || [];
-        const data = this.currentResult.data || [];
-        const rows = data.map(row => {
-            return columns.map(column => row[column]);
-        });
-        
-        // Create dataset with SQL, columns, and rows
-        const dataset = datasetStore.create(
-            datasetName.trim(),
-            this.currentResult.query || '',
-            columns,
-            rows
-        );
-        
-        // Notify listeners
-        this.notifyDatasetCreated(dataset);
-        
-        // Refresh table browser if callback exists
-        if (this.refreshTableBrowserCallback) {
-            this.refreshTableBrowserCallback();
-        }
-        
-        // Show success message
-        await Modal.alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
     }
     
     /**
@@ -419,7 +453,20 @@ export class QueryBuilder {
     
     handleKeyDown(e) {
         const sqlEditor = this.container.querySelector('#sql-editor');
-        const suggestionsDiv = this.container.querySelector('#autocomplete-suggestions');
+        
+        // Handle Tab for autocomplete completion
+        if (e.key === 'Tab' && this.autocompleteVisible && this.suggestions.length > 0) {
+            e.preventDefault();
+            // If a suggestion is selected, complete it
+            if (this.selectedSuggestionIndex >= 0) {
+                this.insertSuggestion(this.suggestions[this.selectedSuggestionIndex]);
+            } else {
+                // If no suggestion selected, select and complete the first one
+                this.selectedSuggestionIndex = 0;
+                this.insertSuggestion(this.suggestions[0]);
+            }
+            return;
+        }
         
         if (!this.autocompleteVisible || this.suggestions.length === 0) {
             return;
@@ -442,7 +489,6 @@ export class QueryBuilder {
                 break;
                 
             case 'Enter':
-            case 'Tab':
                 if (this.selectedSuggestionIndex >= 0) {
                     e.preventDefault();
                     this.insertSuggestion(this.suggestions[this.selectedSuggestionIndex]);
@@ -464,8 +510,13 @@ export class QueryBuilder {
         this.suggestions = getSuggestions(sql, cursorPosition);
         
         if (this.suggestions.length > 0) {
+            // Reset selection when new suggestions appear
             this.selectedSuggestionIndex = -1;
             this.showSuggestions();
+            // Reposition after a short delay to ensure DOM is updated
+            requestAnimationFrame(() => {
+                this.positionSuggestions();
+            });
         } else {
             this.hideSuggestions();
         }
@@ -491,7 +542,7 @@ export class QueryBuilder {
             `;
         }).join('');
         
-        // Position suggestions near cursor
+        // Position suggestions near cursor (will be repositioned after render)
         this.positionSuggestions();
         
         // Add click handlers
@@ -503,6 +554,11 @@ export class QueryBuilder {
         
         suggestionsDiv.style.display = 'block';
         this.autocompleteVisible = true;
+        
+        // Reposition after render to get accurate measurements
+        requestAnimationFrame(() => {
+            this.positionSuggestions();
+        });
     }
     
     hideSuggestions() {
@@ -535,16 +591,74 @@ export class QueryBuilder {
         
         if (!sqlEditor || !suggestionsDiv) return;
         
-        // Simple positioning: place dropdown below the textarea
-        // For more precise positioning, we'd need to calculate cursor position
-        // which is complex with textareas. This simpler approach works well.
+        // Calculate cursor position in the textarea
+        const cursorPosition = sqlEditor.selectionStart;
+        const textBeforeCursor = sqlEditor.value.substring(0, cursorPosition);
+        
+        // Split text into lines to find current line
+        const lines = textBeforeCursor.split('\n');
+        const currentLine = lines.length - 1;
+        const currentColumn = lines[currentLine].length;
+        
+        // Create a mirror element to measure text width
+        const mirror = document.createElement('div');
+        const computedStyle = window.getComputedStyle(sqlEditor);
+        
+        // Copy styles from textarea to mirror
+        mirror.style.position = 'absolute';
+        mirror.style.visibility = 'hidden';
+        mirror.style.whiteSpace = 'pre-wrap';
+        mirror.style.wordWrap = 'break-word';
+        mirror.style.font = computedStyle.font;
+        mirror.style.fontSize = computedStyle.fontSize;
+        mirror.style.fontFamily = computedStyle.fontFamily;
+        mirror.style.fontWeight = computedStyle.fontWeight;
+        mirror.style.letterSpacing = computedStyle.letterSpacing;
+        mirror.style.padding = computedStyle.padding;
+        mirror.style.border = computedStyle.border;
+        mirror.style.width = computedStyle.width;
+        mirror.style.boxSizing = computedStyle.boxSizing;
+        mirror.style.wordSpacing = computedStyle.wordSpacing;
+        
+        // Set text content up to cursor
+        mirror.textContent = lines[currentLine].substring(0, currentColumn);
+        
+        document.body.appendChild(mirror);
+        
+        // Get measurements
+        const textWidth = mirror.offsetWidth;
+        const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 1.2;
+        
+        // Clean up
+        document.body.removeChild(mirror);
+        
+        // Get textarea position and scroll
+        const editorRect = sqlEditor.getBoundingClientRect();
         const wrapper = sqlEditor.parentElement;
         const wrapperRect = wrapper.getBoundingClientRect();
-        const editorRect = sqlEditor.getBoundingClientRect();
         
-        // Position relative to wrapper
-        suggestionsDiv.style.left = '0px';
-        suggestionsDiv.style.top = `${editorRect.height + 2}px`;
+        // Calculate position relative to wrapper
+        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 12;
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 12;
+        
+        // Account for textarea scroll
+        const scrollTop = sqlEditor.scrollTop;
+        const scrollLeft = sqlEditor.scrollLeft;
+        
+        // Position suggestions at cursor
+        const left = textWidth + paddingLeft - scrollLeft;
+        const top = (currentLine + 1) * lineHeight + paddingTop - scrollTop;
+        
+        // Ensure suggestions don't go outside wrapper
+        const maxLeft = wrapperRect.width - suggestionsDiv.offsetWidth - 10;
+        const adjustedLeft = Math.max(0, Math.min(left, maxLeft));
+        
+        // Ensure suggestions don't go below visible area
+        const maxTop = wrapperRect.height - suggestionsDiv.offsetHeight - 10;
+        const adjustedTop = Math.max(0, Math.min(top, maxTop));
+        
+        suggestionsDiv.style.left = `${adjustedLeft}px`;
+        suggestionsDiv.style.top = `${adjustedTop}px`;
     }
     
     insertSuggestion(suggestion) {
