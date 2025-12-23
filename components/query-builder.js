@@ -279,10 +279,12 @@ export class QueryBuilder {
         this.showLoading();
         
         try {
-            // Store the full query (without LIMIT) for saving datasets
-            // Remove any existing LIMIT from the query
+            // Store the full query (without LIMIT/TOP) for saving datasets
+            // Remove any existing LIMIT or TOP from the query
             let fullQuery = query;
-            const existingLimitMatch = /limit\s+\d+/i.exec(fullQuery);
+            
+            // Remove LIMIT clause if present
+            const existingLimitMatch = /\blimit\s+\d+\b/i.exec(fullQuery);
             if (existingLimitMatch) {
                 // Remove LIMIT clause from query
                 fullQuery = fullQuery.substring(0, existingLimitMatch.index).trim();
@@ -291,6 +293,14 @@ export class QueryBuilder {
                     fullQuery = fullQuery.slice(0, -1).trim();
                 }
             }
+            
+            // Remove TOP clause if present (SQL Server syntax)
+            const existingTopMatch = /select\s+top\s+\d+\s+/i.exec(fullQuery);
+            if (existingTopMatch) {
+                // Replace "SELECT TOP N " with "SELECT "
+                fullQuery = fullQuery.replace(/select\s+top\s+\d+\s+/i, 'SELECT ');
+            }
+            
             this.fullQuery = fullQuery;
             
             // First, execute the full query to get total count (but don't load all data)
@@ -314,8 +324,11 @@ export class QueryBuilder {
             
             // Now execute the limited query for preview
             let queryToExecute = query;
-            const hasLimit = /limit\s+\d+/i.test(query);
-            if (!hasLimit && recordLimit > 0) {
+            const hasLimit = /\blimit\s+\d+\b/i.test(query);
+            const hasTop = /select\s+top\s+\d+\s+/i.test(query);
+            
+            // Only add LIMIT if query doesn't already have LIMIT or TOP
+            if (!hasLimit && !hasTop && recordLimit > 0) {
                 // Add LIMIT to query (before semicolon if present, or at end)
                 if (query.trim().endsWith(';')) {
                     queryToExecute = query.trim().slice(0, -1) + ` LIMIT ${recordLimit};`;

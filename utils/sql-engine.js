@@ -41,8 +41,18 @@ function parseAndExecuteSQL(sql) {
         throw new Error('SQL query must start with SELECT. Only SELECT queries are supported.');
     }
     
+    // Handle TOP clause (SQL Server syntax) - remove it from SELECT clause for parsing
+    let sqlForParsing = originalSQL;
+    let topLimit = null;
+    const topMatch = originalSQL.match(/select\s+top\s+(\d+)\s+(.+?)\s+from/i);
+    if (topMatch) {
+        topLimit = parseInt(topMatch[1], 10);
+        // Remove TOP from SQL for parsing
+        sqlForParsing = originalSQL.replace(/select\s+top\s+\d+\s+/i, 'SELECT ');
+    }
+    
     // Parse SELECT clause with column aliases
-    const selectMatch = originalSQL.match(/select\s+(.+?)\s+from/i);
+    const selectMatch = sqlForParsing.match(/select\s+(.+?)\s+from/i);
     if (!selectMatch) {
         throw new Error('Invalid SELECT clause. Please use format: SELECT column1, column2 FROM table_name');
     }
@@ -50,10 +60,15 @@ function parseAndExecuteSQL(sql) {
     const selectClause = selectMatch[1].trim();
     const columnSpecs = parseSelectClause(selectClause);
     
+    // Use TOP limit if found, otherwise use LIMIT
+    if (topLimit !== null && limit === null) {
+        limit = topLimit;
+    }
+    
     // Parse FROM and JOIN clauses
     // Match FROM clause - capture everything until WHERE, ORDER BY, GROUP BY, HAVING, LIMIT, or end of string
     // Use a more robust pattern that handles multi-line queries
-    const fromJoinMatch = originalSQL.match(/from\s+((?:(?!\s+(?:where|order\s+by|group\s+by|having|limit)\b).)+)/is);
+    const fromJoinMatch = sqlForParsing.match(/from\s+((?:(?!\s+(?:where|order\s+by|group\s+by|having|limit)\b).)+)/is);
     if (!fromJoinMatch) {
         throw new Error('SQL query must include a FROM clause with a table name.');
     }
@@ -77,11 +92,21 @@ function parseAndExecuteSQL(sql) {
     
     // Check for WHERE clause to determine row count
     const whereMatch = normalizedSQL.match(/where/i);
-    const limitMatch = normalizedSQL.match(/limit\s+(\d+)/i);
-    const limit = limitMatch ? parseInt(limitMatch[1], 10) : null;
+    
+    // Parse LIMIT clause (MySQL/PostgreSQL syntax)
+    let limitMatch = normalizedSQL.match(/\blimit\s+(\d+)\b/i);
+    let limit = limitMatch ? parseInt(limitMatch[1], 10) : null;
+    
+    // Parse TOP clause (SQL Server syntax) - only if LIMIT not found
+    if (!limit) {
+        const topMatch = normalizedSQL.match(/\btop\s+(\d+)\b/i);
+        if (topMatch) {
+            limit = parseInt(topMatch[1], 10);
+        }
+    }
     
     if (limit !== null && (isNaN(limit) || limit < 0)) {
-        throw new Error('LIMIT clause must contain a positive number. Example: LIMIT 10');
+        throw new Error('LIMIT/TOP clause must contain a positive number. Example: LIMIT 10 or SELECT TOP 10');
     }
     
     // Handle SELECT * - expand to all columns from the table(s)
@@ -112,7 +137,7 @@ function parseAndExecuteSQL(sql) {
     let whereClause = null;
     if (whereMatch) {
         // Extract WHERE clause - everything after WHERE until ORDER BY, GROUP BY, HAVING, LIMIT, or end
-        const whereMatchFull = originalSQL.match(/where\s+((?:(?!\s+(?:order\s+by|group\s+by|having|limit)\b).)+)/is);
+        const whereMatchFull = sqlForParsing.match(/where\s+((?:(?!\s+(?:order\s+by|group\s+by|having|limit)\b).)+)/is);
         if (whereMatchFull) {
             whereClause = whereMatchFull[1].trim();
         }
