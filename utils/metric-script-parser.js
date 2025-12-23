@@ -235,10 +235,22 @@ function parse(tokens) {
             
             const args = [];
             if (index < tokens.length && tokens[index] && tokens[index].type !== ')') {
-                args.push(parseExpression());
-                while (index < tokens.length && tokens[index] && tokens[index].type === ',') {
+                // Check if there's an argument (not just a comma)
+                if (tokens[index].type === ',') {
+                    // Empty first argument - skip it
                     index++; // consume ,
+                } else {
                     args.push(parseExpression());
+                    while (index < tokens.length && tokens[index] && tokens[index].type === ',') {
+                        index++; // consume ,
+                        // Check if there's another argument or if it's just a trailing comma
+                        if (index < tokens.length && tokens[index] && tokens[index].type !== ')') {
+                            args.push(parseExpression());
+                        } else {
+                            // Trailing comma with empty argument - treat as null/undefined
+                            args.push({ type: 'NULL', value: null });
+                        }
+                    }
                 }
             }
             
@@ -285,7 +297,7 @@ function parse(tokens) {
  * @param {Object} dataset - Dataset object
  * @returns {number} Calculated value
  */
-function evaluate(node, dataset) {
+function evaluate(node, dataset, rowIndex = null) {
     switch (node.type) {
         case 'NUMBER':
             return node.value;
@@ -293,17 +305,28 @@ function evaluate(node, dataset) {
         case 'STRING':
             return node.value;
             
+        case 'NULL':
+            return null;
+            
         case 'COLUMN':
-            // For text comparisons, automatically get the first text value from the column
+            // If rowIndex is provided, get value from that specific row
+            if (rowIndex !== null && dataset.rows && rowIndex < dataset.rows.length) {
+                const columnIndex = dataset.columns.indexOf(node.name);
+                if (columnIndex !== -1 && dataset.rows[rowIndex] && columnIndex < dataset.rows[rowIndex].length) {
+                    return dataset.rows[rowIndex][columnIndex];
+                }
+                return null;
+            }
+            // For text comparisons when not in row-by-row context, automatically get the first text value from the column
             // This allows direct column references in comparisons like: status = "In Progress"
             return getColumnTextValue(node.name, dataset);
             
         case 'FUNCTION':
-            return evaluateFunction(node.name, node.args, dataset);
+            return evaluateFunction(node.name, node.args, dataset, rowIndex);
             
         case 'BINARY_OP':
-            const left = evaluate(node.left, dataset);
-            const right = evaluate(node.right, dataset);
+            const left = evaluate(node.left, dataset, rowIndex);
+            const right = evaluate(node.right, dataset, rowIndex);
             
             switch (node.operator) {
                 case '+':
@@ -322,8 +345,8 @@ function evaluate(node, dataset) {
             }
             
         case 'COMPARISON':
-            const compLeft = evaluate(node.left, dataset);
-            const compRight = evaluate(node.right, dataset);
+            const compLeft = evaluate(node.left, dataset, rowIndex);
+            const compRight = evaluate(node.right, dataset, rowIndex);
             
             // Handle both numeric and string comparisons
             const leftIsString = typeof compLeft === 'string';
@@ -389,9 +412,10 @@ function evaluate(node, dataset) {
  * Automatically detects if column is text-based
  * @param {string} columnName - Column name
  * @param {Object} dataset - Dataset object
- * @returns {string} First non-null text value from the column
+ * @param {number|null} rowIndex - Optional row index to get value from specific row
+ * @returns {string} Text value from the column
  */
-function getColumnTextValue(columnName, dataset) {
+function getColumnTextValue(columnName, dataset, rowIndex = null) {
     // Check if column exists
     if (!dataset.columns || !dataset.columns.includes(columnName)) {
         throw new Error(`Column "${columnName}" not found in dataset. Available columns: ${dataset.columns ? dataset.columns.join(', ') : 'none'}`);
@@ -399,6 +423,15 @@ function getColumnTextValue(columnName, dataset) {
     
     // Get the column index
     const columnIndex = dataset.columns.indexOf(columnName);
+    
+    // If rowIndex is provided, get value from that specific row
+    if (rowIndex !== null && dataset.rows && rowIndex < dataset.rows.length) {
+        if (dataset.rows[rowIndex] && columnIndex < dataset.rows[rowIndex].length) {
+            const value = dataset.rows[rowIndex][columnIndex];
+            return value !== null && value !== undefined ? String(value) : '';
+        }
+        return '';
+    }
     
     // Return first non-null value as string, or empty string if no values
     if (dataset.rows && dataset.rows.length > 0) {
@@ -420,23 +453,81 @@ function getColumnTextValue(columnName, dataset) {
  * @param {string} funcName - Function name (uppercase)
  * @param {Array} args - Function arguments (AST nodes)
  * @param {Object} dataset - Dataset object
- * @returns {number|string} Function result
+ * @param {number|null} rowIndex - Optional row index for row-by-row evaluation
+ * @returns {number|string|Array} Function result
  */
-function evaluateFunction(funcName, args, dataset) {
-    // Handle IF function specially
-    if (funcName === 'IF') {
-        if (args.length !== 3) {
-            throw new Error('IF function expects exactly 3 arguments: IF(condition, value_if_true, value_if_false)');
+function evaluateFunction(funcName, args, dataset, rowIndex = null) {
+    // Handle COUNT_DISTINCT with expression (row-by-row evaluation)
+    if (funcName === 'COUNT_DISTINCT' || funcName === 'COUNTDISTINCT') {
+        if (args.length !== 1) {
+            throw new Error('COUNT_DISTINCT function expects exactly 1 argument');
         }
         
+        const argNode = args[0];
+        
+        // If argument is a column reference, use the standard calculation
+        if (argNode.type === 'COLUMN') {
+            return calculateCountDistinct(dataset.rows, dataset.columns, argNode.name);
+        }
+        
+        // Otherwise, evaluate the expression for each row and collect distinct values
+        const values = [];
+        for (let i = 0; i < dataset.rows.length; i++) {
+            try {
+                const value = evaluate(argNode, dataset, i);
+                // Only include non-null, non-undefined values
+                if (value !== null && value !== undefined) {
+                    // Convert to string for comparison (handles different types)
+                    const valueStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                    values.push(valueStr);
+                }
+            } catch (error) {
+                // Skip rows that cause errors
+                continue;
+            }
+        }
+        
+        // Count distinct values using Set
+        const distinctValues = new Set(values);
+        return distinctValues.size;
+    }
+    
+    // Handle IF function specially
+    if (funcName === 'IF') {
+        if (args.length < 2 || args.length > 3) {
+            throw new Error('IF function expects 2 or 3 arguments: IF(condition, value_if_true, [value_if_false])');
+        }
+        
+        // If rowIndex is provided, evaluate per-row
+        if (rowIndex !== null) {
+            const condition = evaluate(args[0], dataset, rowIndex);
+            // Treat non-zero as true, zero as false
+            const isTrue = condition !== 0 && !isNaN(condition) && condition !== null && condition !== undefined;
+            
+            if (isTrue) {
+                return evaluate(args[1], dataset, rowIndex);
+            } else {
+                // If third argument exists, use it; otherwise return null
+                if (args.length === 3 && args[2].type !== 'NULL') {
+                    return evaluate(args[2], dataset, rowIndex);
+                }
+                return null;
+            }
+        }
+        
+        // Otherwise, evaluate once for the whole dataset (backward compatibility)
         const condition = evaluate(args[0], dataset);
         // Treat non-zero as true, zero as false
-        const isTrue = condition !== 0 && !isNaN(condition);
+        const isTrue = condition !== 0 && !isNaN(condition) && condition !== null && condition !== undefined;
         
         if (isTrue) {
             return evaluate(args[1], dataset);
         } else {
-            return evaluate(args[2], dataset);
+            // If third argument exists, use it; otherwise return null
+            if (args.length === 3 && args[2].type !== 'NULL') {
+                return evaluate(args[2], dataset);
+            }
+            return null;
         }
     }
     
@@ -460,6 +551,15 @@ function evaluateFunction(funcName, args, dataset) {
         
         // Get the column index
         const columnIndex = dataset.columns.indexOf(columnName);
+        
+        // If rowIndex is provided, get value from that specific row
+        if (rowIndex !== null && dataset.rows && rowIndex < dataset.rows.length) {
+            if (dataset.rows[rowIndex] && columnIndex < dataset.rows[rowIndex].length) {
+                const value = dataset.rows[rowIndex][columnIndex];
+                return value !== null && value !== undefined ? String(value) : '';
+            }
+            return '';
+        }
         
         // Return first non-null value as string, or empty string if no values
         if (dataset.rows && dataset.rows.length > 0) {
@@ -517,10 +617,6 @@ function evaluateFunction(funcName, args, dataset) {
             
         case 'COUNT':
             return calculateCount(dataset.rows, dataset.columns, columnName);
-            
-        case 'COUNT_DISTINCT':
-        case 'COUNTDISTINCT':
-            return calculateCountDistinct(dataset.rows, dataset.columns, columnName);
             
         default:
             throw new Error(`Unknown function: ${funcName}. Supported functions: SUM, MEAN, MIN, MAX, STDDEV, COUNT, COUNT_DISTINCT, IF, TEXT`);
