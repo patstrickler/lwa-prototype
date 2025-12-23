@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     
     // Initialize components
-    const tableBrowser = new TableBrowser('#table-browser');
+    const tableBrowser = new TableBrowser('#table-browser', '#saved-datasets-container');
     
     // Initialize dataset browsers for both pages
     const datasetBrowserAnalysis = new DatasetBrowser('#dataset-browser-analysis');
