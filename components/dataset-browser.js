@@ -283,15 +283,23 @@ export class DatasetBrowser {
                         if (dataset) {
                             this.selectedDataset = dataset;
                             // Use requestAnimationFrame for smooth updates
+                            // But only render if dropdown is not open (shouldn't be after change event)
                             requestAnimationFrame(() => {
-                                this.render();
+                                // Double-check dropdown is not open before rendering
+                                const dropdown = this.container.querySelector('.dataset-browser-select');
+                                if (!dropdown || document.activeElement !== dropdown) {
+                                    this.render();
+                                }
                                 this.notifyDatasetSelected(dataset);
                             });
                         }
                     } else {
                         this.selectedDataset = null;
                         requestAnimationFrame(() => {
-                            this.render();
+                            const dropdown = this.container.querySelector('.dataset-browser-select');
+                            if (!dropdown || document.activeElement !== dropdown) {
+                                this.render();
+                            }
                         });
                     }
                 }, 150); // Small delay to debounce rapid changes
@@ -452,6 +460,24 @@ export class DatasetBrowser {
     }
     
     refresh() {
+        // Check if dropdown is currently open - don't refresh if it is
+        const dropdown = this.container?.querySelector('.dataset-browser-select');
+        if (dropdown && document.activeElement === dropdown) {
+            // Defer refresh until dropdown closes
+            if (this._pendingRefresh) {
+                return; // Already have a pending refresh
+            }
+            this._pendingRefresh = true;
+            const handleBlur = () => {
+                dropdown.removeEventListener('blur', handleBlur);
+                this._pendingRefresh = false;
+                // Refresh after a small delay to ensure dropdown is fully closed
+                setTimeout(() => this.refresh(), 100);
+            };
+            dropdown.addEventListener('blur', handleBlur, { once: true });
+            return;
+        }
+        
         // Preserve columns expanded state
         const wasExpanded = this.columnsExpanded;
         
