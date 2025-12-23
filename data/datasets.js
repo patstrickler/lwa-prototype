@@ -82,6 +82,40 @@ class DatasetStore {
         return Array.from(this.datasets.values());
     }
     
+    /**
+     * Updates an existing dataset
+     * @param {string} id - Dataset ID
+     * @param {Object} updates - Fields to update (name, sql, columns, rows)
+     * @returns {Object|null} Updated dataset or null if not found
+     */
+    update(id, updates) {
+        const dataset = this.datasets.get(id);
+        if (!dataset) {
+            return null;
+        }
+        
+        // Update fields
+        if (updates.name !== undefined) {
+            dataset.name = updates.name;
+        }
+        if (updates.sql !== undefined) {
+            dataset.sql = updates.sql;
+        }
+        if (updates.columns !== undefined) {
+            dataset.columns = updates.columns;
+        }
+        if (updates.rows !== undefined) {
+            dataset.rows = updates.rows;
+        }
+        
+        // Update timestamp
+        dataset.updatedAt = new Date().toISOString();
+        
+        this.datasets.set(id, dataset);
+        this.saveToStorage();
+        return dataset;
+    }
+    
     delete(id) {
         const deleted = this.datasets.delete(id);
         if (deleted) {

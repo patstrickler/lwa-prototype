@@ -13,17 +13,26 @@ export class QueryBuilder {
         this.suggestions = [];
         this.selectedSuggestionIndex = -1;
         this.autocompleteVisible = false;
+        this.currentDatasetId = null; // Track if we're editing an existing dataset
         this.init();
     }
     
     init() {
         this.render();
         this.attachEventListeners();
+        this.loadSavedQueries();
     }
     
     render() {
         this.container.innerHTML = `
             <div class="query-builder">
+                <div class="saved-queries-panel">
+                    <div class="saved-queries-header">
+                        <h3>Saved Queries</h3>
+                        <button id="refresh-queries" class="btn-icon" title="Refresh">🔄</button>
+                    </div>
+                    <div id="saved-queries-list" class="saved-queries-list"></div>
+                </div>
                 <div class="sql-editor-wrapper">
                     <textarea id="sql-editor" placeholder="Enter your SQL query here..."></textarea>
                     <div id="autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
@@ -45,6 +54,7 @@ export class QueryBuilder {
                     </div>
                     <div class="results-actions">
                         <button id="save-dataset" class="btn btn-primary" disabled>Save as Dataset</button>
+                        <button id="update-dataset" class="btn btn-secondary" disabled style="display: none;">Update Dataset</button>
                     </div>
                 </div>
             </div>
@@ -55,11 +65,15 @@ export class QueryBuilder {
         const runBtn = this.container.querySelector('#run-query');
         const clearBtn = this.container.querySelector('#clear-query');
         const saveBtn = this.container.querySelector('#save-dataset');
+        const updateBtn = this.container.querySelector('#update-dataset');
+        const refreshBtn = this.container.querySelector('#refresh-queries');
         const sqlEditor = this.container.querySelector('#sql-editor');
         
         runBtn.addEventListener('click', () => this.executeQuery());
         clearBtn.addEventListener('click', () => this.clearQuery());
         saveBtn.addEventListener('click', () => this.saveAsDataset());
+        updateBtn.addEventListener('click', () => this.updateDataset());
+        refreshBtn.addEventListener('click', () => this.loadSavedQueries());
         
         // Autocomplete event listeners
         sqlEditor.addEventListener('input', (e) => this.handleInput(e));
@@ -329,6 +343,7 @@ export class QueryBuilder {
         const thead = this.container.querySelector('#results-thead');
         const tbody = this.container.querySelector('#results-tbody');
         const saveBtn = this.container.querySelector('#save-dataset');
+        const updateBtn = this.container.querySelector('#update-dataset');
         
         sqlEditor.value = '';
         thead.innerHTML = '';
@@ -338,7 +353,11 @@ export class QueryBuilder {
             </tr>
         `;
         saveBtn.disabled = true;
+        saveBtn.style.display = 'inline-block';
+        updateBtn.style.display = 'none';
+        updateBtn.disabled = true;
         this.currentResult = null;
+        this.currentDatasetId = null;
     }
     
     async saveAsDataset() {
@@ -371,6 +390,9 @@ export class QueryBuilder {
         
         // Notify listeners
         this.notifyDatasetCreated(dataset);
+        
+        // Refresh saved queries list
+        this.loadSavedQueries();
         
         // Show success message
         await Modal.alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
@@ -575,6 +597,180 @@ export class QueryBuilder {
         // Focus editor and update suggestions
         sqlEditor.focus();
         this.updateSuggestions();
+    }
+    
+    /**
+     * Loads and displays saved queries
+     */
+    async loadSavedQueries() {
+        const { datasetStore } = await import('../data/datasets.js');
+        const queriesList = this.container.querySelector('#saved-queries-list');
+        const datasets = datasetStore.getAll();
+        
+        if (datasets.length === 0) {
+            queriesList.innerHTML = '<div class="empty-message">No saved queries yet.</div>';
+            return;
+        }
+        
+        // Sort by creation date (newest first)
+        datasets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        queriesList.innerHTML = datasets.map(dataset => {
+            const date = new Date(dataset.createdAt).toLocaleString();
+            const sqlPreview = dataset.sql.length > 60 
+                ? dataset.sql.substring(0, 60) + '...' 
+                : dataset.sql;
+            
+            return `
+                <div class="saved-query-item" data-id="${dataset.id}">
+                    <div class="saved-query-header">
+                        <div class="saved-query-name">${this.escapeHtml(dataset.name)}</div>
+                        <div class="saved-query-actions">
+                            <button class="btn-icon edit-query" data-id="${dataset.id}" title="Edit">✏️</button>
+                            <button class="btn-icon delete-query" data-id="${dataset.id}" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="saved-query-sql">${this.escapeHtml(sqlPreview)}</div>
+                    <div class="saved-query-meta">
+                        <span>${dataset.columns.length} columns</span>
+                        <span>•</span>
+                        <span>${dataset.rows.length} rows</span>
+                        <span>•</span>
+                        <span>${date}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Attach event listeners
+        queriesList.querySelectorAll('.edit-query').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const datasetId = btn.dataset.id;
+                this.loadQuery(datasetId);
+            });
+        });
+        
+        queriesList.querySelectorAll('.delete-query').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const datasetId = btn.dataset.id;
+                this.deleteQuery(datasetId);
+            });
+        });
+    }
+    
+    /**
+     * Loads a saved query into the editor for editing
+     * @param {string} datasetId - Dataset ID to load
+     */
+    async loadQuery(datasetId) {
+        const { datasetStore } = await import('../data/datasets.js');
+        const dataset = datasetStore.get(datasetId);
+        
+        if (!dataset) {
+            await Modal.alert('Query not found.');
+            return;
+        }
+        
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        const saveBtn = this.container.querySelector('#save-dataset');
+        const updateBtn = this.container.querySelector('#update-dataset');
+        
+        // Load SQL into editor
+        sqlEditor.value = dataset.sql;
+        
+        // Set current dataset ID for updating
+        this.currentDatasetId = datasetId;
+        
+        // Show update button, hide save button
+        saveBtn.style.display = 'none';
+        updateBtn.style.display = 'inline-block';
+        updateBtn.disabled = false;
+        
+        // Execute the query to show results
+        await this.executeQuery();
+        
+        // Focus editor
+        sqlEditor.focus();
+    }
+    
+    /**
+     * Updates an existing dataset with current query results
+     */
+    async updateDataset() {
+        if (!this.currentDatasetId || !this.currentResult) {
+            return;
+        }
+        
+        const { datasetStore } = await import('../data/datasets.js');
+        const sqlEditor = this.container.querySelector('#sql-editor');
+        const query = sqlEditor.value.trim();
+        
+        if (!query) {
+            await Modal.alert('Please enter a SQL query.');
+            return;
+        }
+        
+        // Convert data to rows
+        const columns = this.currentResult.columns || [];
+        const data = this.currentResult.data || [];
+        const rows = data.map(row => {
+            return columns.map(column => row[column]);
+        });
+        
+        // Update dataset
+        const updated = datasetStore.update(this.currentDatasetId, {
+            sql: query,
+            columns: columns,
+            rows: rows
+        });
+        
+        if (updated) {
+            await Modal.alert(`Dataset "${updated.name}" updated successfully!`);
+            this.loadSavedQueries();
+            
+            // Notify listeners
+            this.notifyDatasetCreated(updated);
+        } else {
+            await Modal.alert('Failed to update dataset.');
+        }
+    }
+    
+    /**
+     * Deletes a saved query
+     * @param {string} datasetId - Dataset ID to delete
+     */
+    async deleteQuery(datasetId) {
+        const { datasetStore } = await import('../data/datasets.js');
+        const dataset = datasetStore.get(datasetId);
+        
+        if (!dataset) {
+            await Modal.alert('Query not found.');
+            return;
+        }
+        
+        const confirmed = await Modal.confirm(
+            `Are you sure you want to delete "${dataset.name}"?`
+        );
+        
+        if (!confirmed) {
+            return;
+        }
+        
+        const deleted = datasetStore.delete(datasetId);
+        
+        if (deleted) {
+            await Modal.alert(`Query "${dataset.name}" deleted successfully.`);
+            this.loadSavedQueries();
+            
+            // If we were editing this query, clear the editor
+            if (this.currentDatasetId === datasetId) {
+                this.clearQuery();
+            }
+        } else {
+            await Modal.alert('Failed to delete query.');
+        }
     }
 }
 
