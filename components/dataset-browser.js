@@ -62,6 +62,9 @@ export class DatasetBrowser {
             }
         }
         
+        // Preserve scroll positions before re-rendering (only if we're actually rendering)
+        const scrollPositions = this.preserveScrollPositions();
+        
         const datasets = datasetStore.getAll();
         
         // Filter out any datasets that don't exist (safety check)
@@ -99,6 +102,9 @@ export class DatasetBrowser {
                 </div>
             </div>
         `;
+        
+        // Restore scroll positions after rendering
+        this.restoreScrollPositions(scrollPositions);
     }
     
     renderDatasetDetails(dataset) {
@@ -670,5 +676,59 @@ export class DatasetBrowser {
         } else if (emptyState) {
             emptyState.style.display = 'none';
         }
+    }
+    
+    preserveScrollPositions() {
+        const positions = {};
+        if (!this.container) return positions;
+        
+        // Preserve scroll position for columns list
+        const columnsList = this.container.querySelector('.columns-list-scrollable');
+        if (columnsList) {
+            positions.columns = columnsList.scrollTop;
+        }
+        
+        // Preserve scroll positions for metrics and scripts lists
+        const metricsList = this.container.querySelector('.metrics-section .editable-items');
+        if (metricsList) {
+            positions.metrics = metricsList.scrollTop;
+        }
+        
+        const scriptsList = this.container.querySelector('.scripts-section .editable-items');
+        if (scriptsList) {
+            positions.scripts = scriptsList.scrollTop;
+        }
+        
+        return positions;
+    }
+    
+    restoreScrollPositions(positions) {
+        if (!positions || !this.container) return;
+        
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+            // Restore scroll position for columns list
+            if (positions.columns !== undefined) {
+                const columnsList = this.container.querySelector('.columns-list-scrollable');
+                if (columnsList) {
+                    columnsList.scrollTop = positions.columns;
+                }
+            }
+            
+            // Restore scroll positions for metrics and scripts lists
+            if (positions.metrics !== undefined) {
+                const metricsList = this.container.querySelector('.metrics-section .editable-items');
+                if (metricsList) {
+                    metricsList.scrollTop = positions.metrics;
+                }
+            }
+            
+            if (positions.scripts !== undefined) {
+                const scriptsList = this.container.querySelector('.scripts-section .editable-items');
+                if (scriptsList) {
+                    scriptsList.scrollTop = positions.scripts;
+                }
+            }
+        });
     }
 }

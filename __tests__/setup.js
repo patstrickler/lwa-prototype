@@ -71,9 +71,12 @@ const localStorageMock = (() => {
 })();
 global.localStorage = localStorageMock;
 
-// Reset localStorage before each test
-beforeEach(() => {
-    localStorage.clear();
-    jest.clearAllMocks();
-});
+// Mock Modal utility
+jest.mock('../utils/modal.js', () => ({
+    Modal: {
+        alert: jest.fn(() => Promise.resolve()),
+        confirm: jest.fn(() => Promise.resolve(true)),
+        prompt: jest.fn(() => Promise.resolve('default'))
+    }
+}));
 
