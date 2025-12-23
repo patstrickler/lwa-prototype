@@ -5,6 +5,7 @@ import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
 import { debounceRAF } from '../utils/debounce.js';
 import { Modal } from '../utils/modal.js';
+import { calculateMetric } from '../utils/metric-calculator.js';
 
 export class VisualizationPanel {
     constructor(containerSelector) {
@@ -1002,7 +1003,8 @@ export class VisualizationPanel {
             return;
         }
         
-        // Handle case where Y is a metric but X is a column - show reference line
+        // Handle case where Y is a metric but X is a column
+        // Group by X and recalculate metric for each group
         // Only for Highcharts chart types (not table, scorecard)
         if (yAxis.type === 'metric' && xAxis.type === 'column' && 
             (chartType === 'line' || chartType === 'bar' || chartType === 'scatter')) {
@@ -1012,6 +1014,101 @@ export class VisualizationPanel {
             const data = this.getDatasetData(dataset);
             if (!data || data.length === 0) return;
             
+            // If metric has operation and column, group by X and recalculate for each group
+            if (metric.operation && metric.column) {
+                // Group data by X column
+                const groups = {};
+                data.forEach(row => {
+                    const xValue = row[xAxis.value];
+                    if (xValue === null || xValue === undefined) return;
+                    const xKey = String(xValue);
+                    if (!groups[xKey]) {
+                        groups[xKey] = [];
+                    }
+                    groups[xKey].push(row);
+                });
+                
+                // Recalculate metric for each group
+                const aggregated = [];
+                Object.entries(groups).forEach(([xKey, groupRows]) => {
+                    // Convert group rows to dataset format for metric calculation
+                    const groupRowsArray = groupRows.map(row => {
+                        return dataset.columns.map(col => row[col]);
+                    });
+                    
+                    try {
+                        // Calculate metric for this group
+                        const metricValue = calculateMetric(
+                            groupRowsArray,
+                            dataset.columns,
+                            metric.column,
+                            metric.operation
+                        );
+                        
+                        aggregated.push({
+                            x: groupRows[0][xAxis.value],
+                            y: metricValue !== null && metricValue !== undefined ? metricValue : 0
+                        });
+                    } catch (error) {
+                        console.error('Error calculating metric for group:', error);
+                        aggregated.push({
+                            x: groupRows[0][xAxis.value],
+                            y: 0
+                        });
+                    }
+                });
+                
+                // Sort by X value
+                aggregated.sort((a, b) => {
+                    if (typeof a.x === 'number' && typeof b.x === 'number') {
+                        return a.x - b.x;
+                    }
+                    return String(a.x).localeCompare(String(b.x));
+                });
+                
+                // Convert to Highcharts format
+                const isXNumeric = typeof aggregated[0]?.x === 'number';
+                let chartData, categories;
+                
+                if (chartType === 'line') {
+                    if (isXNumeric) {
+                        chartData = aggregated.map(p => [parseFloat(p.x) || 0, p.y]);
+                    } else {
+                        categories = aggregated.map(p => String(p.x));
+                        chartData = aggregated.map(p => p.y);
+                    }
+                } else if (chartType === 'bar') {
+                    categories = aggregated.map(p => String(p.x));
+                    chartData = aggregated.map(p => p.y);
+                } else {
+                    // Scatter
+                    chartData = aggregated.map(p => [parseFloat(p.x) || 0, p.y]);
+                }
+                
+                const seriesData = { chartData, isXNumeric, categories };
+                
+                const chartId = `chart_${Date.now()}`;
+                const chartContainer = document.createElement('div');
+                chartContainer.id = chartId;
+                chartContainer.className = 'chart-wrapper';
+                
+                const chartsContainer = this.container.querySelector('#charts-container');
+                chartsContainer.appendChild(chartContainer);
+                
+                const stylingOptions = this.getStylingOptions();
+                const yLabel = stylingOptions.yLabel || metric.name;
+                
+                this.renderHighchart(chartId, chartType, seriesData, {
+                    xLabel: stylingOptions.xLabel || this.formatColumnName(xAxis.value),
+                    yLabel: yLabel,
+                    title: stylingOptions.title || `${yLabel} by ${this.formatColumnName(xAxis.value)}`,
+                    color: stylingOptions.color,
+                    showTrendline: stylingOptions.showTrendline
+                });
+                return;
+            }
+            
+            // Fallback: metric doesn't have operation/column, show as reference line
             // Find a numeric column for the main series
             const numericColumns = dataset.columns.filter(col => {
                 const sampleValue = data[0] && data[0][col];
