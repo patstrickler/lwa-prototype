@@ -165,10 +165,20 @@ export class UnifiedAnalysisBuilder {
                 break;
                 
             case 'Enter':
-            case 'Tab':
                 if (this.selectedSuggestionIndex >= 0) {
                     e.preventDefault();
                     this.insertMetricSuggestion(this.metricSuggestions[this.selectedSuggestionIndex]);
+                }
+                break;
+                
+            case 'Tab':
+                // Tab should accept the first suggestion if none is selected, or the selected one
+                e.preventDefault();
+                const indexToUse = this.selectedSuggestionIndex >= 0 
+                    ? this.selectedSuggestionIndex 
+                    : 0; // Use first suggestion if none selected
+                if (indexToUse < this.metricSuggestions.length) {
+                    this.insertMetricSuggestion(this.metricSuggestions[indexToUse]);
                 }
                 break;
                 
