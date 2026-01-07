@@ -81,9 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Dataset Browser (Analysis) → Edit Metric
-    datasetBrowserAnalysis.onEditMetric((metricId) => {
+    datasetBrowserAnalysis.onEditMetric((metricId, isDuplicate) => {
         if (analysisPanel.unifiedBuilder) {
-            analysisPanel.unifiedBuilder.editMetric(metricId);
+            analysisPanel.unifiedBuilder.editMetric(metricId, isDuplicate);
         }
     });
     

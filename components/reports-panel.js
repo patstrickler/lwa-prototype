@@ -336,6 +336,8 @@ export class ReportsPanel {
         const addFilterBtn = this.container.querySelector('#add-filter-btn');
         const addUserBtn = this.container.querySelector('#add-user-btn');
         const addGroupBtn = this.container.querySelector('#add-group-btn');
+        const addCustomTextBtn = this.container.querySelector('#add-custom-text-btn');
+        const addCustomButtonBtn = this.container.querySelector('#add-custom-button-btn');
         
         if (backBtn) {
             backBtn.addEventListener('click', () => this.backToList());
@@ -360,6 +362,43 @@ export class ReportsPanel {
         if (addGroupBtn) {
             addGroupBtn.addEventListener('click', () => this.addAccessItem('group'));
         }
+        
+        if (addCustomTextBtn) {
+            addCustomTextBtn.addEventListener('click', () => this.addCustomText());
+        }
+        
+        if (addCustomButtonBtn) {
+            addCustomButtonBtn.addEventListener('click', () => this.addCustomButton());
+        }
+        
+        // Custom text and button event listeners
+        this.container.querySelectorAll('.remove-custom-text-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.getAttribute('data-index'));
+                this.removeCustomText(index);
+            });
+        });
+        
+        this.container.querySelectorAll('.remove-custom-button-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.getAttribute('data-index'));
+                this.removeCustomButton(index);
+            });
+        });
+        
+        this.container.querySelectorAll('.edit-custom-text-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.getAttribute('data-index'));
+                this.editCustomText(index);
+            });
+        });
+        
+        this.container.querySelectorAll('.edit-custom-button-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.getAttribute('data-index'));
+                this.editCustomButton(index);
+            });
+        });
         
         // Remove filter buttons
         this.container.querySelectorAll('.remove-filter-btn').forEach(btn => {
@@ -482,12 +521,18 @@ export class ReportsPanel {
         // Get access
         const access = report ? report.access : { users: [], groups: [] };
         
+        // Get custom texts and buttons
+        const customTexts = report ? (report.customTexts || []) : [];
+        const customButtons = report ? (report.customButtons || []) : [];
+        
         // Update report
         reportsStore.update(this.currentReport.id, {
             title,
             visualizationIds,
             filters,
-            access
+            access,
+            customTexts,
+            customButtons
         });
         
         await Modal.alert('Report saved successfully!');
@@ -566,6 +611,26 @@ export class ReportsPanel {
                     </div>
                 </div>
                 
+                ${(report.customTexts && report.customTexts.length > 0) ? `
+                    <div class="preview-custom-texts">
+                        ${report.customTexts.map(textItem => `
+                            <div class="custom-text-block">${this.escapeHtml(textItem.text)}</div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
+                ${(report.customButtons && report.customButtons.length > 0) ? `
+                    <div class="preview-custom-buttons">
+                        ${report.customButtons.map((button, index) => `
+                            <button type="button" class="btn btn-primary custom-action-button" 
+                                    data-button-index="${index}" 
+                                    data-report-id="${report.id}">
+                                ${this.escapeHtml(button.label)}
+                            </button>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                
                 ${report.filters.length > 0 ? `
                     <div class="preview-filters">
                         <h3>Filters</h3>
@@ -610,6 +675,23 @@ export class ReportsPanel {
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener('click', () => this.clearFilters(report.id));
         }
+        
+        // Attach custom button click handlers
+        previewContainer.querySelectorAll('.custom-action-button').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const buttonIndex = parseInt(e.target.getAttribute('data-button-index'));
+                const reportId = e.target.getAttribute('data-report-id');
+                const report = reportsStore.get(reportId);
+                if (report && report.customButtons && report.customButtons[buttonIndex]) {
+                    await this.executeButtonAction(report.customButtons[buttonIndex], reportId);
+                }
+            });
+        });
+        
+        // Render visualizations after DOM is ready
+        setTimeout(() => {
+            this.renderVisualizationCharts(visualizations, report.id);
+        }, 100);
     }
     
     getFilterLabel(filter) {
@@ -1035,6 +1117,606 @@ export class ReportsPanel {
         
         this.currentReport = null;
         this.renderReportsList();
+    }
+    
+    renderCustomTexts(customTexts) {
+        if (customTexts.length === 0) {
+            return '<p class="empty-state">No custom text added.</p>';
+        }
+        
+        return customTexts.map((textItem, index) => `
+            <div class="custom-text-item" data-index="${index}">
+                <div class="custom-text-content">
+                    <strong>Text:</strong> ${this.escapeHtml(textItem.text || '').substring(0, 50)}${(textItem.text || '').length > 50 ? '...' : ''}
+                </div>
+                <div class="custom-text-actions">
+                    <button type="button" class="btn btn-sm btn-secondary edit-custom-text-btn" data-index="${index}">Edit</button>
+                    <button type="button" class="btn btn-sm btn-danger remove-custom-text-btn" data-index="${index}">Remove</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    renderCustomButtons(customButtons) {
+        if (customButtons.length === 0) {
+            return '<p class="empty-state">No custom buttons added.</p>';
+        }
+        
+        return customButtons.map((button, index) => `
+            <div class="custom-button-item" data-index="${index}">
+                <div class="custom-button-content">
+                    <strong>Label:</strong> ${this.escapeHtml(button.label || '')}
+                    <br><strong>Type:</strong> ${button.actionType || 'unknown'}
+                    ${button.actionType === 'report' ? `<br><strong>Report:</strong> ${button.targetReportId || 'N/A'}` : ''}
+                    ${button.actionType === 'lims' ? `<br><strong>LIMS:</strong> ${button.limsWindow || 'N/A'}` : ''}
+                </div>
+                <div class="custom-button-actions">
+                    <button type="button" class="btn btn-sm btn-secondary edit-custom-button-btn" data-index="${index}">Edit</button>
+                    <button type="button" class="btn btn-sm btn-danger remove-custom-button-btn" data-index="${index}">Remove</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    async addCustomText() {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report) return;
+        
+        const text = await Modal.prompt('Enter custom text:', '');
+        if (!text || !text.trim()) {
+            return;
+        }
+        
+        const customTexts = report.customTexts || [];
+        customTexts.push({
+            id: `text_${Date.now()}`,
+            text: text.trim(),
+            order: customTexts.length
+        });
+        
+        reportsStore.update(this.currentReport.id, { customTexts });
+        this.renderReportEditor();
+    }
+    
+    async editCustomText(index) {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report || !report.customTexts || !report.customTexts[index]) return;
+        
+        const currentText = report.customTexts[index].text || '';
+        const newText = await Modal.prompt('Edit custom text:', currentText);
+        if (newText === null) {
+            return; // User cancelled
+        }
+        
+        report.customTexts[index].text = newText.trim();
+        reportsStore.update(this.currentReport.id, { customTexts: report.customTexts });
+        this.renderReportEditor();
+    }
+    
+    removeCustomText(index) {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report || !report.customTexts) return;
+        
+        report.customTexts.splice(index, 1);
+        reportsStore.update(this.currentReport.id, { customTexts: report.customTexts });
+        this.renderReportEditor();
+    }
+    
+    async addCustomButton() {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report) return;
+        
+        const label = await Modal.prompt('Enter button label:', '');
+        if (!label || !label.trim()) {
+            return;
+        }
+        
+        // Get action type
+        const actionType = await Modal.select('Select button action:', [
+            { value: 'lims', label: 'Open LIMS Window/Workflow' },
+            { value: 'report', label: 'Open Another Report/Dashboard' }
+        ]);
+        
+        if (!actionType) {
+            return;
+        }
+        
+        const customButtons = report.customButtons || [];
+        const button = {
+            id: `button_${Date.now()}`,
+            label: label.trim(),
+            actionType: actionType,
+            order: customButtons.length
+        };
+        
+        if (actionType === 'lims') {
+            const limsWindow = await Modal.prompt('Enter LIMS window/workflow name or ID:', '');
+            if (limsWindow) {
+                button.limsWindow = limsWindow.trim();
+            }
+            const context = await Modal.prompt('Enter context data (JSON format, optional):', '{}');
+            if (context) {
+                try {
+                    button.context = JSON.parse(context);
+                } catch (e) {
+                    await Modal.alert('Invalid JSON format. Context will be empty.');
+                    button.context = {};
+                }
+            }
+        } else if (actionType === 'report') {
+            const reports = reportsStore.getAll();
+            const reportOptions = reports
+                .filter(r => r.id !== report.id)
+                .map(r => ({ value: r.id, label: r.title }));
+            
+            if (reportOptions.length === 0) {
+                await Modal.alert('No other reports available.');
+                return;
+            }
+            
+            const targetReportId = await Modal.select('Select target report:', reportOptions);
+            if (!targetReportId) {
+                return;
+            }
+            
+            button.targetReportId = targetReportId;
+            const context = await Modal.prompt('Enter context data (JSON format, optional):', '{}');
+            if (context) {
+                try {
+                    button.context = JSON.parse(context);
+                } catch (e) {
+                    await Modal.alert('Invalid JSON format. Context will be empty.');
+                    button.context = {};
+                }
+            }
+        }
+        
+        customButtons.push(button);
+        reportsStore.update(this.currentReport.id, { customButtons });
+        this.renderReportEditor();
+    }
+    
+    async editCustomButton(index) {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report || !report.customButtons || !report.customButtons[index]) return;
+        
+        const button = report.customButtons[index];
+        
+        const label = await Modal.prompt('Edit button label:', button.label || '');
+        if (label === null) {
+            return; // User cancelled
+        }
+        
+        button.label = label.trim();
+        
+        // Update action-specific fields
+        if (button.actionType === 'lims') {
+            const limsWindow = await Modal.prompt('Edit LIMS window/workflow:', button.limsWindow || '');
+            if (limsWindow !== null) {
+                button.limsWindow = limsWindow.trim();
+            }
+        } else if (button.actionType === 'report') {
+            const reports = reportsStore.getAll();
+            const reportOptions = reports
+                .filter(r => r.id !== report.id)
+                .map(r => ({ value: r.id, label: r.title }));
+            
+            if (reportOptions.length > 0) {
+                const targetReportId = await Modal.select('Select target report:', reportOptions, button.targetReportId);
+                if (targetReportId) {
+                    button.targetReportId = targetReportId;
+                }
+            }
+        }
+        
+        reportsStore.update(this.currentReport.id, { customButtons: report.customButtons });
+        this.renderReportEditor();
+    }
+    
+    removeCustomButton(index) {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report || !report.customButtons) return;
+        
+        report.customButtons.splice(index, 1);
+        reportsStore.update(this.currentReport.id, { customButtons: report.customButtons });
+        this.renderReportEditor();
+    }
+    
+    renderFilterControls(filters, datasets, reportId) {
+        if (filters.length === 0) {
+            return '<p class="empty-state">No filters configured.</p>';
+        }
+        
+        const activeFilters = this.activeFilters[reportId] || {};
+        
+        return filters.map((filter, index) => {
+            const filterKey = `${filter.datasetId}_${filter.field}`;
+            const currentValue = activeFilters[filterKey] || '';
+            
+            return `
+                <div class="filter-control" data-filter-index="${index}">
+                    <label>${this.getFilterLabel(filter)}:</label>
+                    ${this.renderFilterInput(filter, currentValue, filterKey)}
+                </div>
+            `;
+        }).join('');
+    }
+    
+    renderFilterInput(filter, value, filterKey) {
+        switch (filter.type) {
+            case 'date':
+                return `<input type="date" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}">`;
+            case 'number':
+                return `<input type="number" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}">`;
+            case 'select':
+                // For select, we'd need to get unique values from the dataset
+                return `<input type="text" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}" placeholder="Enter value">`;
+            case 'text':
+            default:
+                return `<input type="text" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}" placeholder="Enter text">`;
+        }
+    }
+    
+    applyFilters(reportId) {
+        const report = reportsStore.get(reportId);
+        if (!report) return;
+        
+        const filterInputs = this.container.querySelectorAll(`.filter-input`);
+        const newFilters = {};
+        
+        filterInputs.forEach(input => {
+            const filterKey = input.getAttribute('data-filter-key');
+            const value = input.value.trim();
+            if (value) {
+                newFilters[filterKey] = value;
+            }
+        });
+        
+        this.activeFilters[reportId] = newFilters;
+        this.dashboardFilters = { ...this.dashboardFilters, ...newFilters };
+        
+        // Re-render visualizations with filters
+        this.renderPreview(report);
+    }
+    
+    clearFilters(reportId) {
+        this.activeFilters[reportId] = {};
+        this.dashboardFilters = {};
+        
+        const report = reportsStore.get(reportId);
+        if (report) {
+            this.renderPreview(report);
+        }
+    }
+    
+    renderVisualizations(visualizations, reportId) {
+        if (visualizations.length === 0) {
+            return '<p class="empty-state">No visualizations in this report.</p>';
+        }
+        
+        // Combine active filters and dashboard filters
+        const allFilters = { ...(this.activeFilters[reportId] || {}), ...this.dashboardFilters };
+        
+        return visualizations.map((viz, index) => {
+            const vizContainerId = `viz-container-${viz.id}-${index}`;
+            return `
+                <div class="visualization-wrapper" data-viz-id="${viz.id}">
+                    <h4>${this.escapeHtml(viz.name)}</h4>
+                    <div id="${vizContainerId}" class="viz-container" data-viz-id="${viz.id}"></div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    async executeButtonAction(button, reportId) {
+        if (button.actionType === 'lims') {
+            // Open LIMS window/workflow
+            const context = button.context || {};
+            const limsWindow = button.limsWindow || '';
+            
+            // In a real implementation, this would integrate with LIMS API
+            // For now, we'll show an alert and log the action
+            console.log('Opening LIMS window/workflow:', limsWindow, 'with context:', context);
+            await Modal.alert(`Opening LIMS window/workflow: ${limsWindow}\n\nContext: ${JSON.stringify(context, null, 2)}`);
+            
+            // Dispatch custom event for potential integration
+            window.dispatchEvent(new CustomEvent('limsWindowOpen', {
+                detail: {
+                    window: limsWindow,
+                    context: context,
+                    reportId: reportId
+                }
+            }));
+            
+        } else if (button.actionType === 'report') {
+            // Navigate to another report with context
+            const targetReportId = button.targetReportId;
+            const context = button.context || {};
+            
+            if (!targetReportId) {
+                await Modal.alert('Target report not specified.');
+                return;
+            }
+            
+            const targetReport = reportsStore.get(targetReportId);
+            if (!targetReport) {
+                await Modal.alert('Target report not found.');
+                return;
+            }
+            
+            // Apply context as filters
+            this.dashboardFilters = context;
+            
+            // Navigate to reports page and show the target report
+            const navLink = document.querySelector('[data-page="reports"]');
+            if (navLink) {
+                navLink.click();
+            }
+            
+            // Wait a bit for navigation, then show the report
+            setTimeout(() => {
+                this.previewReport(targetReportId);
+            }, 100);
+        }
+    }
+    
+    applyVisualizationFilter(vizId, filterData) {
+        // filterData should contain: { field, value, datasetId }
+        // This will filter all visualizations in the current report
+        
+        const report = this.getCurrentReportFromPreview();
+        if (!report) return;
+        
+        // Add filter to dashboard filters
+        const filterKey = `${filterData.datasetId}_${filterData.field}`;
+        this.dashboardFilters[filterKey] = filterData.value;
+        
+        // Re-render preview with new filters
+        this.renderPreview(report);
+    }
+    
+    getCurrentReportFromPreview() {
+        const previewContainer = this.container.querySelector('#report-preview-container');
+        if (!previewContainer || previewContainer.style.display === 'none') {
+            return null;
+        }
+        
+        // Try to find report ID from the preview
+        const reportTitle = previewContainer.querySelector('.preview-header h2');
+        if (!reportTitle) return null;
+        
+        // Find report by title
+        const allReports = reportsStore.getAll();
+        return allReports.find(r => r.title === reportTitle.textContent) || null;
+    }
+    
+    async renderVisualizationCharts(visualizations, reportId) {
+        const previewContainer = this.container.querySelector('#report-preview-container');
+        if (!previewContainer) return;
+        
+        // Combine active filters and dashboard filters
+        const allFilters = { ...(this.activeFilters[reportId] || {}), ...this.dashboardFilters };
+        
+        for (const viz of visualizations) {
+            const containerId = `viz-container-${viz.id}`;
+            const container = previewContainer.querySelector(`#${containerId}`);
+            if (!container) continue;
+            
+            try {
+                // Get dataset
+                const dataset = viz.datasetId ? datasetStore.get(viz.datasetId) : null;
+                if (!dataset) {
+                    container.innerHTML = `<div class="chart-error">Dataset not found for visualization: ${this.escapeHtml(viz.name)}</div>`;
+                    continue;
+                }
+                
+                // Apply filters to dataset rows
+                let filteredRows = dataset.rows;
+                if (Object.keys(allFilters).length > 0) {
+                    filteredRows = this.applyFiltersToRows(dataset, allFilters);
+                }
+                
+                // Render based on visualization type
+                if (viz.type === 'table') {
+                    this.renderTableVisualization(container, viz, dataset, filteredRows, reportId);
+                } else {
+                    this.renderChartVisualization(container, viz, dataset, filteredRows, reportId);
+                }
+            } catch (error) {
+                console.error(`Error rendering visualization ${viz.id}:`, error);
+                container.innerHTML = `<div class="chart-error">Error rendering visualization: ${error.message}</div>`;
+            }
+        }
+    }
+    
+    applyFiltersToRows(dataset, filters) {
+        let filteredRows = dataset.rows;
+        
+        for (const [filterKey, filterValue] of Object.entries(filters)) {
+            const [datasetId, field] = filterKey.split('_');
+            if (datasetId !== dataset.id) continue;
+            
+            const fieldIndex = dataset.columns.indexOf(field);
+            if (fieldIndex === -1) continue;
+            
+            filteredRows = filteredRows.filter(row => {
+                const cellValue = String(row[fieldIndex] || '').toLowerCase();
+                const filterVal = String(filterValue || '').toLowerCase();
+                return cellValue.includes(filterVal);
+            });
+        }
+        
+        return filteredRows;
+    }
+    
+    renderTableVisualization(container, viz, dataset, rows, reportId) {
+        const config = viz.config || {};
+        const tableFields = config.tableFields || dataset.columns;
+        
+        let html = '<table class="report-table"><thead><tr>';
+        tableFields.forEach(field => {
+            html += `<th>${this.escapeHtml(field)}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+        
+        rows.forEach((row, rowIndex) => {
+            html += '<tr>';
+            tableFields.forEach(field => {
+                const colIndex = dataset.columns.indexOf(field);
+                const cellValue = colIndex >= 0 ? (row[colIndex] || '') : '';
+                html += `<td class="table-cell-clickable" data-field="${this.escapeHtml(field)}" data-value="${this.escapeHtml(String(cellValue))}" data-dataset-id="${dataset.id}">${this.escapeHtml(String(cellValue))}</td>`;
+            });
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        
+        // Add click handlers to table cells
+        container.querySelectorAll('.table-cell-clickable').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                const field = e.target.getAttribute('data-field');
+                const value = e.target.getAttribute('data-value');
+                const datasetId = e.target.getAttribute('data-dataset-id');
+                
+                this.applyVisualizationFilter(viz.id, {
+                    field: field,
+                    value: value,
+                    datasetId: datasetId
+                });
+            });
+        });
+    }
+    
+    renderChartVisualization(container, viz, dataset, rows, reportId) {
+        const config = viz.config || {};
+        const chartType = viz.type || 'bar';
+        
+        // Extract chart data based on config
+        const xField = config.xAxis?.field || config.xField;
+        const yField = config.yAxis?.field || config.yField;
+        
+        if (!xField || !yField) {
+            container.innerHTML = `<div class="chart-error">Chart configuration incomplete</div>`;
+            return;
+        }
+        
+        const xIndex = dataset.columns.indexOf(xField);
+        const yIndex = dataset.columns.indexOf(yField);
+        
+        if (xIndex === -1 || yIndex === -1) {
+            container.innerHTML = `<div class="chart-error">Chart fields not found in dataset</div>`;
+            return;
+        }
+        
+        // Prepare chart data
+        const chartData = rows.map(row => ({
+            name: String(row[xIndex] || ''),
+            y: parseFloat(row[yIndex]) || 0,
+            rowIndex: rows.indexOf(row)
+        }));
+        
+        // Create chart configuration
+        const chartConfig = {
+            chart: {
+                type: chartType === 'pie' || chartType === 'donut' ? 'pie' : chartType,
+                renderTo: container,
+                events: {
+                    click: (e) => {
+                        // Handle chart click
+                        if (e.point) {
+                            this.handleChartPointClick(e.point, xField, yField, dataset.id, reportId);
+                        }
+                    }
+                }
+            },
+            title: {
+                text: config.title || viz.name || 'Chart'
+            },
+            xAxis: chartType !== 'pie' && chartType !== 'donut' ? {
+                title: { text: config.xAxis?.label || xField },
+                categories: chartType === 'bar' || chartType === 'line' ? [...new Set(chartData.map(d => d.name))] : undefined
+            } : undefined,
+            yAxis: chartType !== 'pie' && chartType !== 'donut' ? {
+                title: { text: config.yAxis?.label || yField }
+            } : undefined,
+            series: chartType === 'pie' || chartType === 'donut' ? [{
+                name: config.yAxis?.label || yField,
+                data: chartData.map(d => ({ name: d.name, y: d.y }))
+            }] : [{
+                name: config.yAxis?.label || yField,
+                data: chartData.map(d => d.y),
+                point: {
+                    events: {
+                        click: (e) => {
+                            this.handleChartPointClick(e.point, xField, yField, dataset.id, reportId);
+                        }
+                    }
+                }
+            }],
+            plotOptions: {
+                series: {
+                    cursor: 'pointer',
+                    point: {
+                        events: {
+                            click: (e) => {
+                                this.handleChartPointClick(e.point, xField, yField, dataset.id, reportId);
+                            }
+                        }
+                    }
+                },
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true
+                    }
+                }
+            },
+            tooltip: {
+                enabled: true
+            },
+            credits: {
+                enabled: false
+            }
+        };
+        
+        // Render chart
+        try {
+            if (typeof Highcharts !== 'undefined') {
+                new Highcharts.Chart(chartConfig);
+            } else {
+                container.innerHTML = `<div class="chart-error">Highcharts library not loaded</div>`;
+            }
+        } catch (error) {
+            console.error('Error rendering chart:', error);
+            container.innerHTML = `<div class="chart-error">Error rendering chart: ${error.message}</div>`;
+        }
+    }
+    
+    handleChartPointClick(point, xField, yField, datasetId, reportId) {
+        // Extract clicked data point information
+        let filterData = {};
+        
+        if (point.category !== undefined) {
+            // For bar/line charts
+            filterData = {
+                field: xField,
+                value: String(point.category || ''),
+                datasetId: datasetId
+            };
+        } else if (point.name !== undefined) {
+            // For pie/donut charts
+            filterData = {
+                field: xField,
+                value: String(point.name || ''),
+                datasetId: datasetId
+            };
+        }
+        
+        if (filterData.field && filterData.value) {
+            this.applyVisualizationFilter(null, filterData);
+        }
     }
     
     escapeHtml(text) {

@@ -58,7 +58,7 @@ class VisualizationsStore {
      * @param {string} datasetId - Associated dataset ID
      * @returns {Object} Visualization object
      */
-    create(name, type, config, datasetId = null) {
+    create(name, type, config, datasetId = null, accessControl = null) {
         if (!name || typeof name !== 'string' || !name.trim()) {
             throw new Error('Visualization name is required');
         }
@@ -74,6 +74,7 @@ class VisualizationsStore {
             type,
             config: { ...config }, // Deep copy
             datasetId,
+            accessControl: accessControl || { users: [], groups: [] },
             createdAt: new Date().toISOString()
         };
         
@@ -87,6 +88,23 @@ class VisualizationsStore {
         }
         
         return visualization;
+    }
+    
+    duplicate(id) {
+        const original = this.visualizations.get(id);
+        if (!original) {
+            return null;
+        }
+        
+        // Create a copy with a new name
+        const newName = `${original.name} (Copy)`;
+        return this.create(
+            newName,
+            original.type,
+            { ...original.config },
+            original.datasetId,
+            { ...original.accessControl }
+        );
     }
     
     get(id) {
@@ -130,6 +148,9 @@ class VisualizationsStore {
         }
         if (updates.datasetId !== undefined) {
             visualization.datasetId = updates.datasetId;
+        }
+        if (updates.accessControl !== undefined) {
+            visualization.accessControl = { ...visualization.accessControl, ...updates.accessControl };
         }
         
         visualization.updatedAt = new Date().toISOString();

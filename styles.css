@@ -1305,6 +1305,57 @@ main {
     font-weight: var(--font-weight-semibold);
 }
 
+.preview-filters .help-text {
+    margin: 0 0 var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.filters-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.filter-control-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.filter-control-group label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text);
+}
+
+.filter-control-group .filter-input {
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.filter-control-group .filter-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.filter-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
 .filters-display {
     display: flex;
     flex-direction: column;
@@ -1344,6 +1395,56 @@ main {
     border-radius: var(--radius-md);
     text-align: center;
     color: var(--color-text-secondary);
+}
+
+.viz-preview-container {
+    margin-top: var(--spacing-sm);
+}
+
+.viz-preview-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.viz-preview-info {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.viz-preview-info span {
+    padding: 4px 8px;
+    background-color: var(--color-bg);
+    border-radius: var(--radius-sm);
+}
+
+.viz-preview-table {
+    overflow-x: auto;
+    margin: var(--spacing-sm) 0;
+}
+
+.viz-preview-table .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.viz-preview-table .data-table th,
+.viz-preview-table .data-table td {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    text-align: left;
+}
+
+.viz-preview-table .data-table th {
+    background-color: var(--color-bg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.viz-preview-table .data-table tbody tr:hover {
+    background-color: var(--color-bg);
 }
 
 .empty-state {

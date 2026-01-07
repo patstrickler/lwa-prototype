@@ -55,6 +55,7 @@ export class VisualizationPanel {
                         
                         <div class="form-group" style="display: flex; gap: 8px;">
                             <button type="button" class="btn btn-secondary" id="clear-selections-btn">Clear Selections</button>
+                            <button type="button" class="btn btn-secondary" id="preview-visualization-btn">Preview</button>
                             <button type="button" class="btn btn-primary" id="save-visualization-btn">Save Visualization</button>
                         </div>
                     </div>
@@ -138,6 +139,11 @@ export class VisualizationPanel {
         
         if (clearBtn) {
             clearBtn.addEventListener('click', () => this.clearSelections());
+        }
+        
+        const previewBtn = this.container.querySelector('#preview-visualization-btn');
+        if (previewBtn) {
+            previewBtn.addEventListener('click', () => this.previewVisualization());
         }
         
         const saveBtn = this.container.querySelector('#save-visualization-btn');
@@ -3342,6 +3348,11 @@ export class VisualizationPanel {
     /**
      * Saves the current visualization
      */
+    previewVisualization() {
+        // Render the chart in preview mode (temporary, not saved)
+        this.autoRender();
+    }
+    
     async saveVisualization() {
         const chartTypeSelect = this.container.querySelector('#chart-type-select');
         const chartType = chartTypeSelect ? chartTypeSelect.value : '';
