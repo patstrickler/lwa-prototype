@@ -434,6 +434,32 @@ main {
     background-color: #e7f3ff;
 }
 
+.table-column.draggable-column {
+    cursor: grab;
+}
+
+.table-column.draggable-column:active {
+    cursor: grabbing;
+}
+
+.table-column.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.drag-handle {
+    margin-left: auto;
+    font-size: 16px;
+    opacity: 0.4;
+    color: #6c757d;
+    cursor: grab;
+    flex-shrink: 0;
+}
+
+.table-column:hover .drag-handle {
+    opacity: 0.7;
+}
+
 .column-icon {
     font-size: 16px;
     opacity: 0.7;
