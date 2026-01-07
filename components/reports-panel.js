@@ -1068,11 +1068,11 @@ export class ReportsPanel {
                 filteredData = this.applyFiltersToDataset(dataset, allFilters, reportId);
             }
             
-            // Render visualization (simplified - in production would use actual chart rendering)
+            // Render visualization with container for chart rendering
             return `
                 <div class="preview-viz-item" data-viz-id="${viz.id}">
                     <h4>${this.escapeHtml(viz.name)}</h4>
-                    <div class="viz-preview-container">
+                    <div id="viz-container-${viz.id}" class="viz-preview-container">
                         ${this.renderVisualizationPreview(viz, filteredData || dataset)}
                     </div>
                 </div>
