@@ -490,33 +490,58 @@ main {
 }
 
 .dataset-details-panel {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #dee2e6;
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-xl);
+    border-top: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0; /* Allow flex children to shrink */
-    overflow: hidden; /* Don't scroll the panel itself */
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 280px); /* Fixed height, accounting for header and selector */
+    padding-right: var(--spacing-sm);
+}
+
+/* Custom scrollbar for dataset details panel */
+.dataset-details-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.dataset-details-panel::-webkit-scrollbar-track {
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+}
+
+.dataset-details-panel::-webkit-scrollbar-thumb {
+    background: var(--color-border-hover);
+    border-radius: var(--radius-sm);
+}
+
+.dataset-details-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
 }
 
 .dataset-info-header {
-    margin-bottom: 15px;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border-light);
+    flex-shrink: 0; /* Don't shrink header */
 }
 
 .dataset-info-header h4 {
-    margin: 0 0 8px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
 }
 
 .dataset-stats {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #6c757d;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
 }
 
 .dataset-stats span {
@@ -592,11 +617,11 @@ main {
 }
 
 .columns-section {
-    margin-top: 15px;
+    margin-top: var(--spacing-lg);
     display: flex;
     flex-direction: column;
-    flex: 1; /* Take available space */
-    min-height: 0; /* Allow shrinking */
+    flex: 0 1 auto; /* Don't grow, allow shrinking */
+    min-height: 0;
 }
 
 .section-title {
@@ -640,12 +665,12 @@ main {
 .columns-list-scrollable {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    flex: 1; /* Take available space */
-    min-height: 0; /* Allow shrinking */
+    gap: var(--spacing-sm);
+    max-height: 400px; /* Fixed max height for columns list */
     overflow-y: auto;
     overflow-x: hidden;
-    padding-right: 5px;
+    padding-right: var(--spacing-xs);
+    margin-bottom: var(--spacing-lg);
 }
 
 .columns-list-scrollable::-webkit-scrollbar {
