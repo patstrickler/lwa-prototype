@@ -435,8 +435,11 @@ main {
 }
 
 .column-icon {
-    font-size: 12px;
-    opacity: 0.6;
+    font-size: 16px;
+    opacity: 0.7;
+    color: #6c757d;
+    vertical-align: middle;
+    margin-right: 6px;
 }
 
 .column-name {

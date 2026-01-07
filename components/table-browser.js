@@ -3,6 +3,65 @@
 
 import { getAllTables } from '../utils/sql-engine.js';
 
+/**
+ * Determines the data type of a column based on its name
+ * @param {string} columnName - Name of the column
+ * @returns {string} Data type: 'text', 'numeric', 'boolean', 'date', 'email', 'id'
+ */
+function getColumnType(columnName) {
+    const colLower = columnName.toLowerCase();
+    
+    // Date columns
+    if (colLower.includes('date') || colLower.includes('_at') || colLower.includes('time')) {
+        return 'date';
+    }
+    
+    // ID columns
+    if (colLower.includes('_id') || colLower.endsWith('id')) {
+        return 'id';
+    }
+    
+    // Email columns
+    if (colLower.includes('email')) {
+        return 'email';
+    }
+    
+    // Numeric columns
+    if (colLower.includes('value') || colLower.includes('result') || 
+        colLower.includes('price') || colLower.includes('amount') || 
+        colLower.includes('total') || colLower.includes('quantity') || 
+        colLower.includes('count') || colLower.includes('unit') ||
+        colLower.includes('range')) {
+        return 'numeric';
+    }
+    
+    // Boolean-like columns
+    if (colLower === 'status' || colLower.includes('is_') || colLower.includes('has_')) {
+        return 'boolean';
+    }
+    
+    // Default to text
+    return 'text';
+}
+
+/**
+ * Gets Material UI icon for a column type
+ * @param {string} columnType - Type of column
+ * @returns {string} Material icon name
+ */
+function getColumnTypeIcon(columnType) {
+    const iconMap = {
+        'text': 'short_text',
+        'numeric': 'numbers',
+        'boolean': 'toggle_on',
+        'date': 'calendar_today',
+        'email': 'email',
+        'id': 'label'
+    };
+    
+    return iconMap[columnType] || 'short_text';
+}
+
 export class TableBrowser {
     constructor(containerSelector, savedDatasetsContainerSelector = null) {
         this.container = document.querySelector(containerSelector);
@@ -102,12 +161,16 @@ export class TableBrowser {
     }
     
     renderTable(table) {
-        const columnsHtml = table.columns.map(col => `
+        const columnsHtml = table.columns.map(col => {
+            const columnType = getColumnType(col);
+            const iconName = getColumnTypeIcon(columnType);
+            return `
             <div class="table-column" data-table="${table.name}" data-column="${col}">
-                <span class="column-icon">📊</span>
+                <span class="material-symbols-outlined column-icon" title="${columnType}">${iconName}</span>
                 <span class="column-name">${col}</span>
             </div>
-        `).join('');
+        `;
+        }).join('');
         
         return `
             <div class="table-item" data-table="${table.name}">
