@@ -3,7 +3,6 @@ import { QueryBuilder } from './components/query-builder.js';
 import { AnalysisPanel } from './components/analysis-panel.js';
 import { VisualizationPanel } from './components/visualization-panel.js';
 import { ReportsPanel } from './components/reports-panel.js';
-import { AdminPanel } from './components/admin-panel.js';
 import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
 
@@ -51,7 +50,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
     const reportsPanel = new ReportsPanel('#reports-panel');
-    const adminPanel = new AdminPanel('#admin-panel');
+    
+    // Lazy load admin panel only when admin page is accessed
+    let adminPanel = null;
+    const adminPageLink = document.querySelector('[data-page="admin"]');
+    if (adminPageLink) {
+        adminPageLink.addEventListener('click', async () => {
+            if (!adminPanel) {
+                try {
+                    const { AdminPanel } = await import('./components/admin-panel.js');
+                    const adminPage = document.getElementById('admin-page');
+                    if (adminPage && !adminPanel) {
+                        adminPanel = new AdminPanel('#admin-panel');
+                    }
+                } catch (error) {
+                    console.error('Failed to load admin panel:', error);
+                }
+            }
+        });
+    }
     
     // Table Browser → Query Builder
     tableBrowser.onTableClick((tableName) => {
