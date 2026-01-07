@@ -578,7 +578,7 @@ export class VisualizationPanel {
         
         // Add field button for tables
         if (chartType === 'table') {
-            const addFieldBtn = this.container.querySelector('#add-table-field-btn');
+            const addFieldBtn = searchContainer.querySelector('#add-table-field-btn');
             if (addFieldBtn) {
                 addFieldBtn.addEventListener('click', () => {
                     this.tableFields.push(null);
@@ -587,7 +587,7 @@ export class VisualizationPanel {
             }
             
             // Remove field buttons
-            const removeBtns = this.container.querySelectorAll('.remove-field-btn');
+            const removeBtns = searchContainer.querySelectorAll('.remove-field-btn');
             removeBtns.forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
