@@ -49,6 +49,10 @@ export class DatasetBrowser {
     }
     
     init() {
+        if (!this.container) {
+            console.warn('DatasetBrowser: Container not found, skipping initialization');
+            return;
+        }
         this.attachEventListeners();
         this.render();
         // Ensure details are visible if a dataset is already selected
@@ -56,7 +60,11 @@ export class DatasetBrowser {
             this.ensureDetailsVisible();
         }
         // Refresh periodically to catch new datasets and metrics
-        setInterval(() => this.refresh(), 2000);
+        setInterval(() => {
+            if (this.container) {
+                this.refresh();
+            }
+        }, 2000);
     }
     
     async render(force = false) {
@@ -514,8 +522,11 @@ export class DatasetBrowser {
     
     
     refresh() {
+        if (!this.container) {
+            return; // Container doesn't exist, skip refresh
+        }
         // Check if dropdown is currently open - don't refresh if it is
-        const dropdown = this.container?.querySelector('.dataset-browser-select');
+        const dropdown = this.container.querySelector('.dataset-browser-select');
         if (dropdown && document.activeElement === dropdown) {
             // Defer refresh until dropdown closes
             if (this._pendingRefresh) {
