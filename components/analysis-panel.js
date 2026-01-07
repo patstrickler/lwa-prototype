@@ -5,7 +5,6 @@ import { UnifiedAnalysisBuilder } from './unified-analysis-builder.js';
 import { metricsStore } from '../data/metrics.js';
 import { datasetStore } from '../data/datasets.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
-import { scriptsStore } from '../data/scripts.js';
 import { executeSQL } from '../utils/sql-engine.js';
 
 export class AnalysisPanel {
@@ -23,7 +22,6 @@ export class AnalysisPanel {
         this.attachEventListeners();
         this.initDatasetSelector();
         this.initUnifiedBuilder();
-        this.updateScriptsList();
     }
     
     render() {
@@ -52,9 +50,6 @@ export class AnalysisPanel {
         this.unifiedBuilder.onMetricCreated((metric) => {
             // Refresh dataset browser to show new metric
             this.notifyMetricsUpdated([metric]);
-        });
-        this.unifiedBuilder.onScriptSaved(() => {
-            // Scripts are displayed in side panel, no action needed
         });
     }
     
@@ -242,27 +237,6 @@ export class AnalysisPanel {
         // Handled by unified builder now
     }
     
-    updateScriptsList() {
-        // Scripts are now displayed in the side panel (dataset browser)
-        // This method is kept for compatibility but does nothing
-    }
-    
-    formatScriptResult(result) {
-        if (!result) return 'N/A';
-        
-        switch (result.type) {
-            case 'scalar':
-                return typeof result.value === 'number' 
-                    ? result.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 })
-                    : String(result.value);
-            case 'series':
-                return `[${result.value.length} values]`;
-            case 'image':
-                return 'Chart/Plot';
-            default:
-                return 'Unknown';
-        }
-    }
     
     onMetricsUpdated(callback) {
         this.metricsCallbacks.push(callback);

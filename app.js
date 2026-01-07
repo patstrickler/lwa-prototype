@@ -79,16 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
         analysisPanel.refreshDatasetSelector();
     });
     
-    // Dataset Browser (Analysis) → Edit Metric/Script
+    // Dataset Browser (Analysis) → Edit Metric
     datasetBrowserAnalysis.onEditMetric((metricId) => {
         if (analysisPanel.unifiedBuilder) {
             analysisPanel.unifiedBuilder.editMetric(metricId);
-        }
-    });
-    
-    datasetBrowserAnalysis.onEditScript((scriptId) => {
-        if (analysisPanel.unifiedBuilder) {
-            analysisPanel.unifiedBuilder.editScript(scriptId);
         }
     });
     

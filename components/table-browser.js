@@ -55,6 +55,8 @@ export class TableBrowser {
                 </select>
                 <div class="dataset-dropdown-actions">
                     <button id="edit-dataset-btn" class="btn-icon" title="Edit" disabled>✏️</button>
+                    <button id="duplicate-dataset-btn" class="btn-icon" title="Duplicate" disabled>📋</button>
+                    <button id="manage-access-btn" class="btn-icon" title="Manage Access" disabled>👥</button>
                     <button id="delete-dataset-btn" class="btn-icon" title="Delete" disabled>🗑️</button>
                     <button id="refresh-datasets-btn" class="btn-icon" title="Refresh">🔄</button>
                 </div>
@@ -118,10 +120,12 @@ export class TableBrowser {
         const searchContainer = this.savedDatasetsContainer || this.container;
         const datasetSelect = searchContainer.querySelector('#saved-datasets-select');
         const editBtn = searchContainer.querySelector('#edit-dataset-btn');
+        const duplicateBtn = searchContainer.querySelector('#duplicate-dataset-btn');
+        const manageAccessBtn = searchContainer.querySelector('#manage-access-btn');
         const deleteBtn = searchContainer.querySelector('#delete-dataset-btn');
         const refreshBtn = searchContainer.querySelector('#refresh-datasets-btn');
         
-        if (!datasetSelect || !editBtn || !deleteBtn || !refreshBtn) {
+        if (!datasetSelect || !editBtn || !duplicateBtn || !manageAccessBtn || !deleteBtn || !refreshBtn) {
             console.warn('Saved datasets controls not found');
             return;
         }
@@ -130,10 +134,14 @@ export class TableBrowser {
             const datasetId = e.target.value;
             if (datasetId) {
                 editBtn.disabled = false;
+                duplicateBtn.disabled = false;
+                manageAccessBtn.disabled = false;
                 deleteBtn.disabled = false;
                 this.notifyDatasetSelect(datasetId);
             } else {
                 editBtn.disabled = true;
+                duplicateBtn.disabled = true;
+                manageAccessBtn.disabled = true;
                 deleteBtn.disabled = true;
             }
         });
@@ -146,7 +154,23 @@ export class TableBrowser {
             } else {
                 // If no dataset selected, disable buttons
                 editBtn.disabled = true;
+                duplicateBtn.disabled = true;
+                manageAccessBtn.disabled = true;
                 deleteBtn.disabled = true;
+            }
+        });
+        
+        duplicateBtn.addEventListener('click', async () => {
+            const datasetId = datasetSelect.value;
+            if (datasetId) {
+                await this.duplicateDataset(datasetId);
+            }
+        });
+        
+        manageAccessBtn.addEventListener('click', async () => {
+            const datasetId = datasetSelect.value;
+            if (datasetId) {
+                await this.manageDatasetAccess(datasetId);
             }
         });
         

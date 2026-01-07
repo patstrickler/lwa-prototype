@@ -1,8 +1,7 @@
 // Unified Analysis Builder Component
-// Combines metric definition and script editing in a single interface
+// Metric definition interface
 
 import { MetricDefinitionDialog } from './metric-definition-dialog.js';
-import { ScriptExecutionPanel } from './script-execution-panel.js';
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
@@ -13,9 +12,7 @@ import { executeSQL } from '../utils/sql-engine.js';
 export class UnifiedAnalysisBuilder {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
-        this.mode = 'metric'; // 'metric' or 'script'
         this.metricDialog = null;
-        this.scriptPanel = null;
         this.currentDataset = null;
         this.metricSuggestions = [];
         this.selectedSuggestionIndex = -1;
@@ -35,22 +32,8 @@ export class UnifiedAnalysisBuilder {
     render() {
         this.container.innerHTML = `
             <div class="unified-analysis-builder">
-                <div class="builder-header">
-                    <div class="mode-selector">
-                        <label for="analysis-mode">Analysis Type:</label>
-                        <select id="analysis-mode" class="form-control">
-                            <option value="metric" selected>Metric</option>
-                            <option value="script">Custom Script</option>
-                        </select>
-                    </div>
-                </div>
-                
                 <div id="metric-builder-container" class="builder-content" style="display: block;">
                     <!-- Metric builder will be rendered here -->
-                </div>
-                
-                <div id="script-builder-container" class="builder-content" style="display: none;">
-                    <!-- Script builder will be rendered here -->
                 </div>
             </div>
         `;
@@ -59,50 +42,10 @@ export class UnifiedAnalysisBuilder {
     initComponents() {
         // Initialize metric dialog (it creates its own modal, used for notifications)
         this.metricDialog = new MetricDefinitionDialog();
-        
-        // Initialize script panel when switching to script mode
-        // Don't initialize immediately to avoid rendering issues
-    }
-    
-    initScriptPanel() {
-        if (this.scriptPanel) {
-            return; // Already initialized
-        }
-        
-        const scriptContainer = this.container.querySelector('#script-builder-container');
-        if (scriptContainer && scriptContainer.style.display !== 'none') {
-            // Only initialize if container is visible
-            this.scriptPanel = new ScriptExecutionPanel('#script-builder-container');
-            if (this.currentDataset && this.scriptPanel) {
-                this.scriptPanel.setDataset(this.currentDataset);
-            }
-        }
     }
     
     attachEventListeners() {
-        const modeSelect = this.container.querySelector('#analysis-mode');
-        modeSelect.addEventListener('change', (e) => {
-            this.setMode(e.target.value);
-        });
-    }
-    
-    setMode(mode) {
-        this.mode = mode;
-        const metricContainer = this.container.querySelector('#metric-builder-container');
-        const scriptContainer = this.container.querySelector('#script-builder-container');
-        
-        if (mode === 'metric') {
-            metricContainer.style.display = 'block';
-            scriptContainer.style.display = 'none';
-            // Render metric builder if not already rendered
-            if (!metricContainer.querySelector('.metric-script-builder')) {
-                this.renderMetricBuilder();
-            }
-        } else {
-            metricContainer.style.display = 'none';
-            scriptContainer.style.display = 'block';
-            this.initScriptPanel();
-        }
+        // No mode selector needed - only metrics are supported
     }
     
     renderMetricBuilder() {
@@ -560,20 +503,10 @@ export class UnifiedAnalysisBuilder {
             }
         }
         
-        // Update metric builder if in metric mode
-        if (this.mode === 'metric') {
-            this.updateDatasetDisplay();
-            this.updateMetricSuggestions();
-            this.updateCreateButtonState();
-        }
-        
-        // Update script panel (initialize if needed)
-        if (this.mode === 'script') {
-            this.initScriptPanel();
-        }
-        if (this.scriptPanel) {
-            this.scriptPanel.setDataset(dataset);
-        }
+        // Update metric builder
+        this.updateDatasetDisplay();
+        this.updateMetricSuggestions();
+        this.updateCreateButtonState();
     }
     
     onMetricCreated(callback) {
@@ -582,16 +515,7 @@ export class UnifiedAnalysisBuilder {
         }
     }
     
-    onScriptSaved(callback) {
-        if (this.scriptPanel) {
-            this.scriptPanel.onSaved(callback);
-        }
-    }
-    
     editMetric(metricId) {
-        // Switch to metric mode
-        this.setMode('metric');
-        
         // Load metric into editor
         const metric = metricsStore.get(metricId);
         if (!metric) return;
@@ -629,16 +553,6 @@ export class UnifiedAnalysisBuilder {
         
         this.updateCreateButtonState();
         this.updateMetricSuggestions();
-    }
-    
-    editScript(scriptId) {
-        // Switch to script mode
-        this.setMode('script');
-        
-        // Load script for editing
-        if (this.scriptPanel) {
-            this.scriptPanel.loadScriptForEditing(scriptId);
-        }
     }
     
     /**

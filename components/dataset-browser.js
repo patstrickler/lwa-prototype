@@ -3,7 +3,6 @@
 
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
-import { scriptsStore } from '../data/scripts.js';
 import { Modal } from '../utils/modal.js';
 
 export class DatasetBrowser {
@@ -13,7 +12,6 @@ export class DatasetBrowser {
         this.onDatasetSelectCallbacks = [];
         this.onItemSelectCallbacks = [];
         this.onEditMetricCallbacks = [];
-        this.onEditScriptCallbacks = [];
         this.columnsExpanded = true; // Default to expanded
         this.init();
     }
@@ -114,9 +112,6 @@ export class DatasetBrowser {
         }
         
         const metrics = metricsStore.getByDataset(dataset.id);
-        // Get scripts for this dataset if method exists, otherwise show all
-        const scripts = scriptsStore.getByDataset ? scriptsStore.getByDataset(dataset.id) : 
-                       (scriptsStore.getAll ? scriptsStore.getAll().filter(s => s.datasetId === dataset.id) : []);
         
         return `
             <div class="dataset-details-panel">
@@ -188,33 +183,6 @@ export class DatasetBrowser {
                                 </div>
                             `).join('')
                             : '<div class="empty-state-small">No metrics defined</div>'
-                        }
-                    </div>
-                </div>
-                
-                <div class="scripts-section">
-                    <div class="section-title">
-                        <span class="section-icon">📝</span>
-                        <span>Scripts</span>
-                    </div>
-                    <div class="items-list editable-items">
-                        ${scripts && scripts.length > 0
-                            ? scripts.map(script => `
-                                <div class="editable-item script-item" 
-                                     data-type="script"
-                                     data-id="${script.id}">
-                                    <span class="item-icon">📝</span>
-                                    <div class="item-info">
-                                        <span class="item-name">${this.escapeHtml(script.name)}</span>
-                                        <span class="item-language">${script.language || 'N/A'}</span>
-                                    </div>
-                                    <div class="item-actions">
-                                        <button class="edit-btn" title="Edit script">✏️</button>
-                                        <button class="delete-btn" title="Delete script">🗑️</button>
-                                    </div>
-                                </div>
-                            `).join('')
-                            : '<div class="empty-state-small">No scripts defined</div>'
                         }
                     </div>
                 </div>
@@ -394,8 +362,6 @@ export class DatasetBrowser {
                     
                     if (type === 'metric') {
                         this.notifyEditMetric(id);
-                    } else if (type === 'script') {
-                        this.notifyEditScript(id);
                     }
                     e.stopPropagation();
                     return;
@@ -412,8 +378,6 @@ export class DatasetBrowser {
                     
                     if (type === 'metric') {
                         this.handleDeleteMetric(id, editableItem);
-                    } else if (type === 'script') {
-                        this.handleDeleteScript(id, editableItem);
                     }
                     e.stopPropagation();
                     return;
@@ -491,13 +455,6 @@ export class DatasetBrowser {
         this.onEditMetricCallbacks.forEach(callback => callback(metricId));
     }
     
-    onEditScript(callback) {
-        this.onEditScriptCallbacks.push(callback);
-    }
-    
-    notifyEditScript(scriptId) {
-        this.onEditScriptCallbacks.forEach(callback => callback(scriptId));
-    }
     
     refresh() {
         // Check if dropdown is currently open - don't refresh if it is
@@ -588,12 +545,6 @@ export class DatasetBrowser {
             metricsSection.style.display = 'block';
         }
         
-        // Ensure scripts section is visible
-        const scriptsSection = this.container.querySelector('.scripts-section');
-        if (scriptsSection) {
-            scriptsSection.style.display = 'block';
-        }
-        
         // Ensure dataset details panel is visible
         const detailsPanel = this.container.querySelector('.dataset-details-panel');
         if (detailsPanel) {
@@ -622,26 +573,6 @@ export class DatasetBrowser {
         }
     }
     
-    async handleDeleteScript(scriptId, element) {
-        const script = scriptsStore.get(scriptId);
-        if (!script) {
-            return;
-        }
-        
-        const scriptName = script.name || 'this script';
-        const confirmed = await Modal.confirm(
-            `Are you sure you want to delete "${scriptName}"? This action cannot be undone.`
-        );
-        if (confirmed) {
-            const deleted = scriptsStore.delete(scriptId);
-            if (deleted) {
-                // Refresh the display
-                if (this.selectedDataset) {
-                    this.render();
-                }
-            }
-        }
-    }
     
     filterColumns(searchTerm) {
         const columnsList = this.container.querySelector('.columns-list-scrollable');
@@ -688,15 +619,10 @@ export class DatasetBrowser {
             positions.columns = columnsList.scrollTop;
         }
         
-        // Preserve scroll positions for metrics and scripts lists
+        // Preserve scroll positions for metrics list
         const metricsList = this.container.querySelector('.metrics-section .editable-items');
         if (metricsList) {
             positions.metrics = metricsList.scrollTop;
-        }
-        
-        const scriptsList = this.container.querySelector('.scripts-section .editable-items');
-        if (scriptsList) {
-            positions.scripts = scriptsList.scrollTop;
         }
         
         return positions;
@@ -715,18 +641,11 @@ export class DatasetBrowser {
                 }
             }
             
-            // Restore scroll positions for metrics and scripts lists
+            // Restore scroll positions for metrics list
             if (positions.metrics !== undefined) {
                 const metricsList = this.container.querySelector('.metrics-section .editable-items');
                 if (metricsList) {
                     metricsList.scrollTop = positions.metrics;
-                }
-            }
-            
-            if (positions.scripts !== undefined) {
-                const scriptsList = this.container.querySelector('.scripts-section .editable-items');
-                if (scriptsList) {
-                    scriptsList.scrollTop = positions.scripts;
                 }
             }
         });
