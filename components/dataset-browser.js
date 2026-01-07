@@ -161,10 +161,10 @@ export class DatasetBrowser {
                 </div>
                 
                 <div class="columns-section">
-                    <div class="section-title clickable" data-toggle="columns">
-                        <span class="material-icons section-icon">table_chart</span>
+                    <div class="section-title clickable" data-toggle="columns" style="font-size: 0.85rem; padding: 6px 0;">
+                        <span class="material-icons section-icon" style="font-size: 1rem;">table_chart</span>
                         <span>Columns</span>
-                        <span class="material-icons toggle-icon">expand_more</span>
+                        <span class="material-icons toggle-icon" style="font-size: 1rem;">expand_more</span>
                     </div>
                     <div class="column-search-container">
                         <input type="text" 
