@@ -268,6 +268,8 @@ export class TableBrowser {
             const searchContainer = this.savedDatasetsContainer || this.container;
             const datasetSelect = searchContainer.querySelector('#saved-datasets-select');
             const editBtn = searchContainer.querySelector('#edit-dataset-btn');
+            const duplicateBtn = searchContainer.querySelector('#duplicate-dataset-btn');
+            const manageAccessBtn = searchContainer.querySelector('#manage-access-btn');
             const deleteBtn = searchContainer.querySelector('#delete-dataset-btn');
             if (datasetSelect) {
                 datasetSelect.value = '';
