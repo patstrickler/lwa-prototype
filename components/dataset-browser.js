@@ -395,12 +395,12 @@ export class DatasetBrowser {
             if (toggleTitle && toggleTitle.getAttribute('data-toggle') === 'columns') {
                 this.columnsExpanded = !this.columnsExpanded;
                 // Preserve search value when toggling
-                const searchInput = this.container.querySelector('#column-search-input');
+                const searchInput = this._searchInputId ? this.container.querySelector(`#${this._searchInputId}`) : this.container.querySelector('.column-search-input');
                 const searchValue = searchInput ? searchInput.value : '';
                 this.render(); // Re-render to show/hide search and columns
                 // Restore search value if columns are expanded
                 if (this.columnsExpanded && searchValue) {
-                    const newSearchInput = this.container.querySelector('#column-search-input');
+                    const newSearchInput = this._searchInputId ? this.container.querySelector(`#${this._searchInputId}`) : this.container.querySelector('.column-search-input');
                     if (newSearchInput) {
                         newSearchInput.value = searchValue;
                         this.filterColumns(searchValue);

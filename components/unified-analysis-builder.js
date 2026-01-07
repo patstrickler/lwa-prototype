@@ -101,8 +101,8 @@ export class UnifiedAnalysisBuilder {
     }
     
     attachMetricListeners() {
-        const nameInput = this.container.querySelector('#metric-name-input');
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         const previewBtn = this.container.querySelector('#preview-metric');
         const createBtn = this.container.querySelector('#create-metric');
         const clearBtn = this.container.querySelector('#clear-metric-form');
@@ -138,7 +138,7 @@ export class UnifiedAnalysisBuilder {
     }
     
     handleMetricKeyDown(e) {
-        const suggestionsDiv = this.container.querySelector('#metric-autocomplete-suggestions');
+        const suggestionsDiv = this.container.querySelector(`#${this._metricAutocompleteId}`);
         
         if (!this.autocompleteVisible || this.metricSuggestions.length === 0) {
             return;
@@ -252,7 +252,7 @@ export class UnifiedAnalysisBuilder {
     
     showMetricSuggestions() {
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
-        const suggestionsDiv = this.container.querySelector('#metric-autocomplete-suggestions');
+        const suggestionsDiv = this.container.querySelector(`#${this._metricAutocompleteId}`);
         
         if (!suggestionsDiv || this.metricSuggestions.length === 0) {
             return;
@@ -282,7 +282,7 @@ export class UnifiedAnalysisBuilder {
     }
     
     hideMetricSuggestions() {
-        const suggestionsDiv = this.container.querySelector('#metric-autocomplete-suggestions');
+        const suggestionsDiv = this.container.querySelector(`#${this._metricAutocompleteId}`);
         if (suggestionsDiv) {
             suggestionsDiv.style.display = 'none';
         }
@@ -291,7 +291,7 @@ export class UnifiedAnalysisBuilder {
     }
     
     highlightMetricSuggestion() {
-        const suggestionsDiv = this.container.querySelector('#metric-autocomplete-suggestions');
+        const suggestionsDiv = this.container.querySelector(`#${this._metricAutocompleteId}`);
         if (!suggestionsDiv) return;
         
         const items = suggestionsDiv.querySelectorAll('.suggestion-item');
@@ -307,7 +307,7 @@ export class UnifiedAnalysisBuilder {
     
     positionMetricSuggestions() {
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
-        const suggestionsDiv = this.container.querySelector('#metric-autocomplete-suggestions');
+        const suggestionsDiv = this.container.querySelector(`#${this._metricAutocompleteId}`);
         const editorContainer = expressionEditor ? expressionEditor.closest('.metric-editor-container') : null;
         
         if (!expressionEditor || !suggestionsDiv || !editorContainer) return;
@@ -365,8 +365,8 @@ export class UnifiedAnalysisBuilder {
     updateCreateButtonState() {
         const createBtn = this.container.querySelector('#create-metric');
         const previewBtn = this.container.querySelector('#preview-metric');
-        const nameInput = this.container.querySelector('#metric-name-input');
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         
         if (!createBtn) return;
         
@@ -428,8 +428,8 @@ export class UnifiedAnalysisBuilder {
     }
     
     async createMetric() {
-        const nameInput = this.container.querySelector('#metric-name-input');
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         const resultContainer = this.container.querySelector('#metric-result');
         
         if (!this.currentDataset) {
@@ -530,8 +530,8 @@ export class UnifiedAnalysisBuilder {
     }
     
     clearMetricForm() {
-        const nameInput = this.container.querySelector('#metric-name-input');
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         const resultContainer = this.container.querySelector('#metric-result');
         
         if (nameInput) nameInput.value = '';
@@ -577,8 +577,8 @@ export class UnifiedAnalysisBuilder {
             }
         }
         
-        const nameInput = this.container.querySelector('#metric-name-input');
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         
         // If duplicating, append " (Copy)" to the name
         if (nameInput) {
