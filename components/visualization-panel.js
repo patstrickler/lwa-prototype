@@ -337,9 +337,10 @@ export class VisualizationPanel {
             `;
         } else {
             // Bar, Line, Pie, Donut: X and Y
+            const isPieOrDonut = chartType === 'pie' || chartType === 'donut';
             html = `
                 <div class="form-group">
-                    <label>X Axis:</label>
+                    <label>${isPieOrDonut ? 'Category Field (X):' : 'X Axis:'}</label>
                     <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
@@ -348,7 +349,7 @@ export class VisualizationPanel {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Y Axis:</label>
+                    <label>${isPieOrDonut ? 'Value Field (Y - Aggregated):' : 'Y Axis:'}</label>
                     <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
@@ -3054,18 +3055,34 @@ export class VisualizationPanel {
      * @param {string} xColumn - X column name (categories)
      * @param {string} yColumn - Y column name (values)
      * @param {string} chartType - 'pie' or 'donut'
-     * @param {Array} preAggregatedData - Pre-aggregated data (optional)
+     * @param {Array} preAggregatedData - Pre-aggregated data in row format (optional)
      * @param {string} aggregation - Aggregation function used (for display)
      */
     renderPieChart(dataset, xColumn, yColumn, chartType, preAggregatedData = null, aggregation = 'SUM') {
-        const data = preAggregatedData || this.getDatasetData(dataset);
-        if (!data || data.length === 0) return;
-        
-        // If data is already aggregated (from applyAggregation), use it directly
-        // Otherwise, aggregate by summing (fallback for backward compatibility)
         let pieData;
-        if (preAggregatedData && preAggregatedData.length > 0 && preAggregatedData[0].hasOwnProperty(xColumn) && preAggregatedData[0].hasOwnProperty(yColumn)) {
-            // Data is in row format from applyAggregation
+        
+        if (preAggregatedData && preAggregatedData.length > 0) {
+            // Data is in row format from applyAggregation conversion
+            // Each row has {[xColumn]: category, [yColumn]: aggregatedValue}
+            const aggregated = {};
+            preAggregatedData.forEach(row => {
+                const category = String(row[xColumn] || 'Unknown');
+                const value = parseFloat(row[yColumn]) || 0;
+                if (!aggregated[category]) {
+                    aggregated[category] = 0;
+                }
+                aggregated[category] += value;
+            });
+            
+            pieData = Object.entries(aggregated).map(([name, value]) => ({
+                name: name,
+                y: value
+            }));
+        } else {
+            // Fallback: aggregate from raw data (shouldn't happen with new flow)
+            const data = this.getDatasetData(dataset);
+            if (!data || data.length === 0) return;
+            
             const aggregated = {};
             data.forEach(row => {
                 const category = String(row[xColumn] || 'Unknown');
@@ -3080,14 +3097,9 @@ export class VisualizationPanel {
                 name: name,
                 y: value
             }));
-        } else {
-            // Data is already in aggregated format from applyAggregation
-            // It should be in {x: category, y: value} format
-            pieData = data.map(item => ({
-                name: String(item.x || 'Unknown'),
-                y: parseFloat(item.y) || 0
-            }));
         }
+        
+        if (pieData.length === 0) return;
         
         if (pieData.length === 0) return;
         
