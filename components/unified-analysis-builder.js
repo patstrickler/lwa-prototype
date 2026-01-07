@@ -18,6 +18,10 @@ export class UnifiedAnalysisBuilder {
         this.selectedSuggestionIndex = -1;
         this.autocompleteVisible = false;
         this.fullDatasetCache = new Map(); // Cache full datasets to avoid re-execution
+        // Use unique IDs to avoid conflicts with other components
+        this._metricNameInputId = `metric-name-input-builder-${Math.random().toString(36).substr(2, 9)}`;
+        this._metricExpressionEditorId = `metric-expression-editor-builder-${Math.random().toString(36).substr(2, 9)}`;
+        this._metricAutocompleteId = `metric-autocomplete-suggestions-builder-${Math.random().toString(36).substr(2, 9)}`;
         this.init();
     }
     
@@ -59,16 +63,16 @@ export class UnifiedAnalysisBuilder {
             <div class="metric-script-builder">
                 <div class="metric-controls">
                     <div class="form-group">
-                        <label for="metric-name-input">Metric Name:</label>
-                        <input type="text" id="metric-name-input" class="form-control" placeholder="e.g., Average Sales">
+                        <label for="${this._metricNameInputId}">Metric Name:</label>
+                        <input type="text" id="${this._metricNameInputId}" class="form-control" placeholder="e.g., Average Sales">
                     </div>
                 </div>
                 
                 <div class="form-group metric-editor-wrapper">
-                    <label for="metric-expression-editor">Metric Expression:</label>
+                    <label for="${this._metricExpressionEditorId}">Metric Expression:</label>
                     <div class="metric-editor-container">
-                        <textarea id="metric-expression-editor" class="metric-expression-editor" placeholder="Enter metric expression, e.g., MEAN(sales) or SUM(revenue) / COUNT(orders)"></textarea>
-                        <div id="metric-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
+                        <textarea id="${this._metricExpressionEditorId}" class="metric-expression-editor" placeholder="Enter metric expression, e.g., MEAN(sales) or SUM(revenue) / COUNT(orders)"></textarea>
+                        <div id="${this._metricAutocompleteId}" class="autocomplete-suggestions" style="display: none;"></div>
                     </div>
                     <div class="metric-help">
                         <strong>Available Functions:</strong> SUM(), MEAN(), MIN(), MAX(), STDDEV(), COUNT(), COUNT_DISTINCT(), IF()<br>

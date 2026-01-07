@@ -31,14 +31,13 @@ export class ReportsPanel {
     
     render() {
         this.isViewer = userContext.isViewer();
-        // Always show button for now - access control can be handled in the create function if needed
-        const showButton = !this.isViewer;
+        // Always show button - access control handled in create function
         this.container.innerHTML = `
             <div class="reports-panel">
                 <div class="reports-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px 0;">
                     <h2 style="margin: 0;">Reports & Dashboards</h2>
-                    <button type="button" class="btn btn-primary btn-lg" id="create-report-btn" ${!showButton ? 'style="display: none;"' : ''}>
-                        <strong>+ New Report</strong>
+                    <button type="button" class="btn btn-primary btn-lg" id="create-report-btn" ${this.isViewer ? 'style="display: none;"' : ''}>
+                        <strong>+ New Report/Dashboard</strong>
                     </button>
                 </div>
                 
@@ -170,18 +169,198 @@ export class ReportsPanel {
             return;
         }
         
-        const title = await Modal.prompt('Enter report/dashboard title:', 'New Report');
-        if (!title || !title.trim()) {
-            return;
-        }
+        // Get available visualizations and datasets
+        const visualizations = visualizationsStore.getAll();
+        const datasets = datasetStore.getAll();
         
-        try {
-            this.currentReport = reportsStore.create(title.trim(), [], [], { users: [], groups: [] }, [], []);
-            this.showReportEditor();
-        } catch (error) {
-            console.error('Error creating report:', error);
-            await Modal.alert(`Error creating report: ${error.message || 'Unknown error'}`);
-        }
+        return new Promise((resolve) => {
+            // Create backdrop
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop';
+            backdrop.style.display = 'flex';
+            
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.maxWidth = '700px';
+            modal.style.width = '90%';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            // Header
+            const modalHeader = document.createElement('div');
+            modalHeader.className = 'modal-header';
+            const modalTitle = document.createElement('h3');
+            modalTitle.className = 'modal-title';
+            modalTitle.textContent = 'Create New Report/Dashboard';
+            modalHeader.appendChild(modalTitle);
+            
+            // Body
+            const modalBody = document.createElement('div');
+            modalBody.className = 'modal-body';
+            modalBody.style.maxHeight = '70vh';
+            modalBody.style.overflowY = 'auto';
+            
+            // Title input
+            const titleGroup = document.createElement('div');
+            titleGroup.style.marginBottom = '20px';
+            const titleLabel = document.createElement('label');
+            titleLabel.style.display = 'block';
+            titleLabel.style.marginBottom = '8px';
+            titleLabel.style.fontWeight = '600';
+            titleLabel.textContent = 'Report/Dashboard Title:';
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.id = 'new-report-title';
+            titleInput.className = 'form-control';
+            titleInput.placeholder = 'Enter report title';
+            titleInput.value = 'New Report';
+            titleInput.style.width = '100%';
+            titleInput.style.padding = '8px';
+            titleGroup.appendChild(titleLabel);
+            titleGroup.appendChild(titleInput);
+            modalBody.appendChild(titleGroup);
+            
+            // Visualizations section
+            const vizGroup = document.createElement('div');
+            vizGroup.style.marginBottom = '20px';
+            const vizLabel = document.createElement('label');
+            vizLabel.style.display = 'block';
+            vizLabel.style.marginBottom = '8px';
+            vizLabel.style.fontWeight = '600';
+            vizLabel.textContent = 'Visualizations to Display:';
+            const vizContainer = document.createElement('div');
+            vizContainer.id = 'new-report-visualizations';
+            vizContainer.style.maxHeight = '200px';
+            vizContainer.style.overflowY = 'auto';
+            vizContainer.style.border = '1px solid #ddd';
+            vizContainer.style.borderRadius = '4px';
+            vizContainer.style.padding = '10px';
+            vizContainer.style.background = '#f9f9f9';
+            
+            if (visualizations.length === 0) {
+                const noVizMsg = document.createElement('p');
+                noVizMsg.style.color = '#666';
+                noVizMsg.style.fontStyle = 'italic';
+                noVizMsg.style.margin = '0';
+                noVizMsg.textContent = 'No saved visualizations. Create visualizations first in the Visualization page.';
+                vizContainer.appendChild(noVizMsg);
+            } else {
+                visualizations.forEach(viz => {
+                    const label = document.createElement('label');
+                    label.style.display = 'block';
+                    label.style.padding = '8px';
+                    label.style.marginBottom = '4px';
+                    label.style.cursor = 'pointer';
+                    label.style.borderRadius = '4px';
+                    label.addEventListener('mouseenter', () => label.style.background = '#e9ecef');
+                    label.addEventListener('mouseleave', () => label.style.background = 'transparent');
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'new-report-viz-checkbox';
+                    checkbox.value = viz.id;
+                    checkbox.style.marginRight = '8px';
+                    
+                    const span = document.createElement('span');
+                    span.innerHTML = `${this.escapeHtml(viz.name)} <span style="color: #666;">(${viz.type})</span>`;
+                    
+                    label.appendChild(checkbox);
+                    label.appendChild(span);
+                    vizContainer.appendChild(label);
+                });
+            }
+            
+            vizGroup.appendChild(vizLabel);
+            vizGroup.appendChild(vizContainer);
+            modalBody.appendChild(vizGroup);
+            
+            // Filters section
+            const filterGroup = document.createElement('div');
+            filterGroup.style.marginBottom = '20px';
+            const filterLabel = document.createElement('label');
+            filterLabel.style.display = 'block';
+            filterLabel.style.marginBottom = '8px';
+            filterLabel.style.fontWeight = '600';
+            filterLabel.textContent = 'Filters to Apply:';
+            const filterContainer = document.createElement('div');
+            filterContainer.id = 'new-report-filters';
+            filterContainer.style.minHeight = '100px';
+            filterContainer.style.border = '1px solid #ddd';
+            filterContainer.style.borderRadius = '4px';
+            filterContainer.style.padding = '10px';
+            filterContainer.style.background = '#f9f9f9';
+            const filterMsg = document.createElement('p');
+            filterMsg.style.color = '#666';
+            filterMsg.style.fontStyle = 'italic';
+            filterMsg.style.margin = '0';
+            filterMsg.textContent = 'No filters added. You can add filters after creating the report.';
+            filterContainer.appendChild(filterMsg);
+            filterGroup.appendChild(filterLabel);
+            filterGroup.appendChild(filterContainer);
+            modalBody.appendChild(filterGroup);
+            
+            // Footer
+            const modalFooter = document.createElement('div');
+            modalFooter.className = 'modal-footer';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-secondary';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => {
+                Modal.closeModal(backdrop);
+                resolve(false);
+            });
+            const createBtn = document.createElement('button');
+            createBtn.className = 'btn btn-primary';
+            createBtn.textContent = 'Create Report';
+            createBtn.addEventListener('click', async () => {
+                const title = titleInput.value.trim();
+                if (!title) {
+                    await Modal.alert('Report title is required.');
+                    return;
+                }
+                
+                const vizCheckboxes = modalBody.querySelectorAll('.new-report-viz-checkbox:checked');
+                const visualizationIds = Array.from(vizCheckboxes).map(cb => cb.value);
+                const filters = [];
+                
+                try {
+                    this.currentReport = reportsStore.create(title, visualizationIds, filters, { users: [], groups: [] }, [], []);
+                    Modal.closeModal(backdrop);
+                    await Modal.alert(`Report "${title}" created successfully!`);
+                    this.showReportEditor();
+                    resolve(true);
+                } catch (error) {
+                    console.error('Error creating report:', error);
+                    await Modal.alert(`Error creating report: ${error.message || 'Unknown error'}`);
+                }
+            });
+            modalFooter.appendChild(cancelBtn);
+            modalFooter.appendChild(createBtn);
+            
+            // Assemble modal
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(modalBody);
+            modalContent.appendChild(modalFooter);
+            modal.appendChild(modalContent);
+            backdrop.appendChild(modal);
+            document.body.appendChild(backdrop);
+            
+            // Focus title input
+            setTimeout(() => {
+                titleInput.focus();
+                titleInput.select();
+            }, 100);
+            
+            // Close on backdrop click
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) {
+                    Modal.closeModal(backdrop);
+                    resolve(false);
+                }
+            });
+        });
     }
     
     showReportEditor() {

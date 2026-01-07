@@ -127,7 +127,12 @@ export class DatasetBrowser {
         if (!this._selectId) {
             this._selectId = `dataset-browser-select-${Math.random().toString(36).substr(2, 9)}`;
         }
+        // Use a unique ID for the column search input to avoid conflicts
+        if (!this._searchInputId) {
+            this._searchInputId = `column-search-input-${Math.random().toString(36).substr(2, 9)}`;
+        }
         const selectId = this._selectId;
+        const searchInputId = this._searchInputId;
         
         this.container.innerHTML = `
             <div class="dataset-browser">
@@ -180,7 +185,7 @@ export class DatasetBrowser {
                     </div>
                     <div class="column-search-container">
                         <input type="text" 
-                               id="column-search-input" 
+                               id="${searchInputId}" 
                                class="column-search-input" 
                                placeholder="Search columns..."
                                data-dataset="${dataset.id}">
@@ -378,7 +383,7 @@ export class DatasetBrowser {
         
         // Column search functionality
         this.container.addEventListener('input', (e) => {
-            if (e.target.id === 'column-search-input') {
+            if (e.target.id === this._searchInputId || e.target.classList.contains('column-search-input')) {
                 this.filterColumns(e.target.value);
             }
         });
