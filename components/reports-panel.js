@@ -31,11 +31,15 @@ export class ReportsPanel {
     
     render() {
         this.isViewer = userContext.isViewer();
+        // Always show button for now - access control can be handled in the create function if needed
+        const showButton = !this.isViewer;
         this.container.innerHTML = `
             <div class="reports-panel">
-                <div class="reports-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div></div>
-                    <button type="button" class="btn btn-primary" id="create-report-btn" style="display: ${this.isViewer ? 'none' : 'block'};">New Report</button>
+                <div class="reports-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px 0;">
+                    <h2 style="margin: 0;">Reports & Dashboards</h2>
+                    <button type="button" class="btn btn-primary btn-lg" id="create-report-btn" ${!showButton ? 'style="display: none;"' : ''}>
+                        <strong>+ New Report</strong>
+                    </button>
                 </div>
                 
                 <div class="reports-list-container" id="reports-list-container">
@@ -151,13 +155,24 @@ export class ReportsPanel {
     }
     
     async showCreateReportDialog() {
+        // Check if user is viewer - if so, show message
+        if (this.isViewer) {
+            await Modal.alert('Only analysts can create reports. Please contact an administrator to change your role.');
+            return;
+        }
+        
         const title = await Modal.prompt('Enter report/dashboard title:', 'New Report');
         if (!title || !title.trim()) {
             return;
         }
         
-        this.currentReport = reportsStore.create(title.trim(), [], [], { users: [], groups: [] }, [], []);
-        this.showReportEditor();
+        try {
+            this.currentReport = reportsStore.create(title.trim(), [], [], { users: [], groups: [] }, [], []);
+            this.showReportEditor();
+        } catch (error) {
+            console.error('Error creating report:', error);
+            await Modal.alert(`Error creating report: ${error.message || 'Unknown error'}`);
+        }
     }
     
     showReportEditor() {
