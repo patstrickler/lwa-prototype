@@ -775,20 +775,22 @@ main {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
     min-width: 0;
 }
 
 .editable-item .item-name {
     color: #495057;
     font-weight: 500;
-    font-size: 13px;
+    font-size: 11px;
+    line-height: 1.2;
 }
 
 .editable-item .item-value {
-    font-size: 12px;
+    font-size: 10px;
     color: #007bff;
     font-weight: 600;
+    line-height: 1.2;
 }
 
 .editable-item .item-language {
@@ -798,11 +800,12 @@ main {
 }
 
 .editable-item .item-operation {
-    font-size: 11px;
+    font-size: 9px;
     color: #6c757d;
     background-color: #e9ecef;
-    padding: 2px 6px;
-    border-radius: 3px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
 }
 
 .item-actions {
