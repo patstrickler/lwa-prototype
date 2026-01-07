@@ -130,9 +130,16 @@ export class MetricDefinitionDialog {
         createBtn.addEventListener('click', () => this.createMetric());
     }
     
-    populateDatasets() {
+    async populateDatasets() {
         const datasetSelect = this.dialog.querySelector('#metric-dataset-select');
-        const datasets = datasetStore.getAll();
+        const allDatasets = datasetStore.getAll();
+        
+        // Filter datasets based on access control
+        const { UserManager } = await import('../utils/user-manager.js');
+        const userManager = new UserManager();
+        const datasets = allDatasets.filter(dataset => {
+            return userManager.hasAccessToDataset(dataset);
+        });
         
         datasets.forEach(dataset => {
             const option = document.createElement('option');

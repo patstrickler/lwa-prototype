@@ -56,9 +56,11 @@ class ReportsStore {
      * @param {Array<string>} visualizationIds - Array of visualization IDs to display
      * @param {Array<Object>} filters - Array of filter configurations
      * @param {Object} access - Access control settings
+     * @param {Array<Object>} customTexts - Array of custom text elements
+     * @param {Array<Object>} customButtons - Array of custom button elements
      * @returns {Object} Report object
      */
-    create(title, visualizationIds = [], filters = [], access = { users: [], groups: [] }) {
+    create(title, visualizationIds = [], filters = [], access = { users: [], groups: [] }, customTexts = [], customButtons = []) {
         if (!title || typeof title !== 'string' || !title.trim()) {
             throw new Error('Report title is required');
         }
@@ -81,6 +83,8 @@ class ReportsStore {
                 users: access.users ? [...access.users] : [],
                 groups: access.groups ? [...access.groups] : []
             },
+            customTexts: Array.isArray(customTexts) ? customTexts.map(t => ({ ...t })) : [],
+            customButtons: Array.isArray(customButtons) ? customButtons.map(b => ({ ...b })) : [],
             createdAt: new Date().toISOString()
         };
         
@@ -131,6 +135,12 @@ class ReportsStore {
                 groups: updates.access.groups ? [...updates.access.groups] : []
             };
         }
+        if (updates.customTexts !== undefined) {
+            report.customTexts = Array.isArray(updates.customTexts) ? updates.customTexts.map(t => ({ ...t })) : [];
+        }
+        if (updates.customButtons !== undefined) {
+            report.customButtons = Array.isArray(updates.customButtons) ? updates.customButtons.map(b => ({ ...b })) : [];
+        }
         
         report.updatedAt = new Date().toISOString();
         
@@ -157,7 +167,9 @@ class ReportsStore {
             {
                 users: [...report.access.users],
                 groups: [...report.access.groups]
-            }
+            },
+            report.customTexts ? report.customTexts.map(t => ({ ...t })) : [],
+            report.customButtons ? report.customButtons.map(b => ({ ...b })) : []
         );
     }
     

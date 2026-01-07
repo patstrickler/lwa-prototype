@@ -132,6 +132,9 @@ class DatasetStore {
         if (updates.rows !== undefined) {
             dataset.rows = updates.rows;
         }
+        if (updates.accessControl !== undefined) {
+            dataset.accessControl = updates.accessControl;
+        }
         
         // Update timestamp
         dataset.updatedAt = new Date().toISOString();
@@ -139,6 +142,36 @@ class DatasetStore {
         this.datasets.set(id, dataset);
         this.saveToStorage();
         return dataset;
+    }
+    
+    /**
+     * Duplicates an existing dataset
+     * @param {string} id - Dataset ID to duplicate
+     * @param {string} newName - Name for the duplicated dataset
+     * @returns {Object|null} New dataset or null if not found
+     */
+    duplicate(id, newName) {
+        const original = this.datasets.get(id);
+        if (!original) {
+            return null;
+        }
+        
+        // Create a deep copy of the dataset
+        const duplicated = this.create(
+            newName,
+            original.sql,
+            [...original.columns],
+            original.rows.map(row => [...row])
+        );
+        
+        // Copy access control if it exists
+        if (original.accessControl) {
+            duplicated.accessControl = JSON.parse(JSON.stringify(original.accessControl));
+            this.datasets.set(duplicated.id, duplicated);
+            this.saveToStorage();
+        }
+        
+        return duplicated;
     }
     
     /**

@@ -102,7 +102,14 @@ export class DatasetSelector {
             return;
         }
         
-        const datasets = datasetStore.getAll();
+        // Filter datasets based on access control
+        const allDatasets = datasetStore.getAll();
+        const { UserManager } = await import('../utils/user-manager.js');
+        const userManager = new UserManager();
+        const datasets = allDatasets.filter(dataset => {
+            return userManager.hasAccessToDataset(dataset);
+        });
+        
         const currentValue = dropdown.value;
         
         // Use document fragment for better performance

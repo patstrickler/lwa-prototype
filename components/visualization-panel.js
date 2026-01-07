@@ -632,15 +632,23 @@ export class VisualizationPanel {
         this.autoRender();
     }
     
-    refreshDatasetList() {
+    async refreshDatasetList() {
         const datasetSelect = this.container.querySelector('#dataset-select');
         if (!datasetSelect) return;
         
         const currentValue = datasetSelect.value;
-        const datasets = datasetStore.getAll();
+        const allDatasets = datasetStore.getAll();
         
-        // Filter out deleted datasets
-        const validDatasets = datasets.filter(ds => datasetStore.exists(ds.id));
+        // Filter datasets based on access control
+        const { UserManager } = await import('../utils/user-manager.js');
+        const userManager = new UserManager();
+        
+        // Filter out deleted datasets and check access control
+        const validDatasets = allDatasets.filter(ds => {
+            if (!datasetStore.exists(ds.id)) return false;
+            const dataset = datasetStore.get(ds.id);
+            return userManager.hasAccessToDataset(dataset);
+        });
         
         // Use document fragment for better performance
         const fragment = document.createDocumentFragment();

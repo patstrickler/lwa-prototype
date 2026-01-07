@@ -3907,3 +3907,68 @@ main {
 }
 
 /* Error handling styles */
+
+/* Access Management Form Styles */
+.access-management-form {
+    margin: 0;
+}
+
+.access-management-form .form-group {
+    margin-bottom: 15px;
+}
+
+.access-management-form .form-group label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+    margin-bottom: 10px;
+}
+
+.access-management-form .form-group input[type="radio"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.access-management-form .form-group input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.access-management-form .checkbox-list {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.access-management-form .checkbox-list label {
+    display: block;
+    margin: 5px 0;
+    font-weight: normal;
+    padding: 4px 0;
+}
+
+.access-management-form .checkbox-list label:hover {
+    background-color: #e9ecef;
+    border-radius: 3px;
+    padding-left: 4px;
+}
+
+#restricted-access-options {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+#restricted-access-options .form-group {
+    margin-bottom: 20px;
+}
+
+#restricted-access-options .form-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+}

@@ -5,6 +5,7 @@ import { VisualizationPanel } from './components/visualization-panel.js';
 import { ReportsPanel } from './components/reports-panel.js';
 import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
+import { userContext } from './utils/user-context.js';
 
 // Page routing/navigation functionality
 function initNavigation() {

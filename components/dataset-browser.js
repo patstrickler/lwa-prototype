@@ -27,7 +27,7 @@ export class DatasetBrowser {
         setInterval(() => this.refresh(), 2000);
     }
     
-    render(force = false) {
+    async render(force = false) {
         if (!this.container) {
             console.warn('DatasetBrowser: Container not found');
             return;
@@ -63,12 +63,17 @@ export class DatasetBrowser {
         // Preserve scroll positions before re-rendering (only if we're actually rendering)
         const scrollPositions = this.preserveScrollPositions();
         
-        const datasets = datasetStore.getAll();
+        const allDatasets = datasetStore.getAll();
         
-        // Filter out any datasets that don't exist (safety check)
-        const validDatasets = datasets.filter(ds => {
+        // Filter datasets based on access control
+        const { UserManager } = await import('../utils/user-manager.js');
+        const userManager = new UserManager();
+        
+        // Filter out any datasets that don't exist and check access control
+        const validDatasets = allDatasets.filter(ds => {
             const dataset = datasetStore.get(ds.id);
-            return dataset !== undefined;
+            if (!dataset) return false;
+            return userManager.hasAccessToDataset(dataset);
         });
         
         const selectedId = this.selectedDataset ? this.selectedDataset.id : '';

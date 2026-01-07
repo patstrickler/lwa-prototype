@@ -209,6 +209,88 @@ export class Modal {
     }
     
     /**
+     * Shows a custom modal with HTML content
+     * @param {Object} options - Modal options
+     * @param {string} options.title - Modal title
+     * @param {string} options.content - HTML content
+     * @param {Array} options.buttons - Array of button configs: [{text, class, value}]
+     * @returns {Promise<any>} - Returns the value of the clicked button
+     */
+    static custom({ title, content, buttons = [] }) {
+        return new Promise((resolve) => {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop';
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            const modalHeader = document.createElement('div');
+            modalHeader.className = 'modal-header';
+            
+            const modalTitle = document.createElement('h3');
+            modalTitle.className = 'modal-title';
+            modalTitle.textContent = title;
+            modalHeader.appendChild(modalTitle);
+            
+            const modalBody = document.createElement('div');
+            modalBody.className = 'modal-body';
+            modalBody.innerHTML = content;
+            
+            const modalFooter = document.createElement('div');
+            modalFooter.className = 'modal-footer';
+            
+            buttons.forEach(buttonConfig => {
+                const btn = document.createElement('button');
+                btn.className = `btn ${buttonConfig.class || 'btn-secondary'}`;
+                btn.textContent = buttonConfig.text;
+                btn.addEventListener('click', () => {
+                    this.closeModal(backdrop);
+                    resolve(buttonConfig.value);
+                });
+                modalFooter.appendChild(btn);
+            });
+            
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(modalBody);
+            modalContent.appendChild(modalFooter);
+            modal.appendChild(modalContent);
+            backdrop.appendChild(modal);
+            
+            // Close on backdrop click
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) {
+                    this.closeModal(backdrop);
+                    resolve(false);
+                }
+            });
+            
+            // Handle radio button changes for access type
+            const accessTypeRadios = modalBody.querySelectorAll('input[name="access-type"]');
+            const restrictedOptions = modalBody.querySelector('#restricted-access-options');
+            if (accessTypeRadios.length > 0 && restrictedOptions) {
+                accessTypeRadios.forEach(radio => {
+                    radio.addEventListener('change', () => {
+                        if (radio.value === 'restricted') {
+                            restrictedOptions.style.display = 'block';
+                        } else {
+                            restrictedOptions.style.display = 'none';
+                        }
+                    });
+                });
+            }
+            
+            document.body.appendChild(backdrop);
+            setTimeout(() => {
+                const firstBtn = modalFooter.querySelector('button');
+                if (firstBtn) firstBtn.focus();
+            }, 100);
+        });
+    }
+    
+    /**
      * Closes and removes a modal
      * @param {HTMLElement} modal - Modal element to close
      */

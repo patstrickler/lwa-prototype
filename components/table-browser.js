@@ -33,7 +33,16 @@ export class TableBrowser {
     
     async loadSavedDatasets() {
         const { datasetStore } = await import('../data/datasets.js');
-        this.savedDatasets = datasetStore.getAll() || [];
+        const { UserManager } = await import('../utils/user-manager.js');
+        
+        const allDatasets = datasetStore.getAll() || [];
+        
+        // Filter datasets based on access control
+        const userManager = new UserManager();
+        this.savedDatasets = allDatasets.filter(dataset => {
+            return userManager.hasAccessToDataset(dataset);
+        });
+        
         // Sort by creation date (newest first)
         this.savedDatasets.sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
@@ -266,6 +275,12 @@ export class TableBrowser {
             if (editBtn) {
                 editBtn.disabled = true;
             }
+            if (duplicateBtn) {
+                duplicateBtn.disabled = true;
+            }
+            if (manageAccessBtn) {
+                manageAccessBtn.disabled = true;
+            }
             if (deleteBtn) {
                 deleteBtn.disabled = true;
             }
@@ -274,6 +289,168 @@ export class TableBrowser {
             this.notifyDatasetDeleted(datasetId, dataset);
         } else {
             await Modal.alert('Failed to delete dataset.');
+        }
+    }
+    
+    async duplicateDataset(datasetId) {
+        const { datasetStore } = await import('../data/datasets.js');
+        const { Modal } = await import('../utils/modal.js');
+        const dataset = datasetStore.get(datasetId);
+        
+        if (!dataset) {
+            await Modal.alert('Dataset not found.');
+            return;
+        }
+        
+        // Get new name from user
+        const newName = await Modal.prompt(
+            'Enter a name for the duplicated dataset:',
+            `${dataset.name} (Copy)`
+        );
+        
+        if (!newName || !newName.trim()) {
+            return; // User cancelled or entered empty name
+        }
+        
+        try {
+            // Create duplicate using datasetStore.duplicate method
+            const duplicated = datasetStore.duplicate(datasetId, newName.trim());
+            
+            if (duplicated) {
+                await Modal.alert(`Dataset "${newName}" duplicated successfully! (ID: ${duplicated.id})`);
+                
+                // Refresh saved datasets dropdown
+                await this.loadSavedDatasets();
+                this.render();
+                this.attachEventListeners();
+                
+                // Select the new dataset
+                const searchContainer = this.savedDatasetsContainer || this.container;
+                const datasetSelect = searchContainer.querySelector('#saved-datasets-select');
+                if (datasetSelect) {
+                    datasetSelect.value = duplicated.id;
+                    // Trigger change event to enable buttons
+                    datasetSelect.dispatchEvent(new Event('change'));
+                }
+            } else {
+                await Modal.alert('Failed to duplicate dataset.');
+            }
+        } catch (error) {
+            console.error('Error duplicating dataset:', error);
+            await Modal.alert(`Failed to duplicate dataset: ${error.message || 'Unknown error'}`);
+        }
+    }
+    
+    async manageDatasetAccess(datasetId) {
+        const { datasetStore } = await import('../data/datasets.js');
+        const { Modal } = await import('../utils/modal.js');
+        const { UserManager } = await import('../utils/user-manager.js');
+        
+        const dataset = datasetStore.get(datasetId);
+        
+        if (!dataset) {
+            await Modal.alert('Dataset not found.');
+            return;
+        }
+        
+        // Get available users and groups
+        const userManager = new UserManager();
+        const allUsers = userManager.getAllUsers();
+        const allGroups = userManager.getAllGroups();
+        
+        // Get current access control (default to empty if not set)
+        const accessControl = dataset.accessControl || {
+            type: 'public', // 'public', 'restricted'
+            users: [],
+            userGroups: []
+        };
+        
+        // Build HTML for access management modal
+        const accessHtml = `
+            <div class="access-management-form">
+                <div class="form-group">
+                    <label>
+                        <input type="radio" name="access-type" value="public" ${accessControl.type === 'public' ? 'checked' : ''}>
+                        Public (All users can access)
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="radio" name="access-type" value="restricted" ${accessControl.type === 'restricted' ? 'checked' : ''}>
+                        Restricted (Selected users/groups only)
+                    </label>
+                </div>
+                
+                <div id="restricted-access-options" style="display: ${accessControl.type === 'restricted' ? 'block' : 'none'}; margin-top: 15px;">
+                    <div class="form-group">
+                        <label><strong>Allowed Users:</strong></label>
+                        <div class="checkbox-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                            ${allUsers.map(user => `
+                                <label style="display: block; margin: 5px 0;">
+                                    <input type="checkbox" name="allowed-users" value="${user.id}" ${accessControl.users.includes(user.id) ? 'checked' : ''}>
+                                    ${this.escapeHtml(user.name)} (${user.email})
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><strong>Allowed User Groups:</strong></label>
+                        <div class="checkbox-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                            ${allGroups.map(group => `
+                                <label style="display: block; margin: 5px 0;">
+                                    <input type="checkbox" name="allowed-groups" value="${group.id}" ${accessControl.userGroups.includes(group.id) ? 'checked' : ''}>
+                                    ${this.escapeHtml(group.name)}
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const result = await Modal.custom({
+            title: `Manage Access: ${this.escapeHtml(dataset.name)}`,
+            content: accessHtml,
+            buttons: [
+                { text: 'Cancel', class: 'btn-secondary', value: false },
+                { text: 'Save', class: 'btn-primary', value: true }
+            ]
+        });
+        
+        if (!result) {
+            return; // User cancelled
+        }
+        
+        // Get form values
+        const form = document.querySelector('.access-management-form');
+        if (!form) {
+            return;
+        }
+        
+        const accessType = form.querySelector('input[name="access-type"]:checked')?.value || 'public';
+        
+        let newAccessControl = {
+            type: accessType,
+            users: [],
+            userGroups: []
+        };
+        
+        if (accessType === 'restricted') {
+            const userCheckboxes = form.querySelectorAll('input[name="allowed-users"]:checked');
+            const groupCheckboxes = form.querySelectorAll('input[name="allowed-groups"]:checked');
+            
+            newAccessControl.users = Array.from(userCheckboxes).map(cb => cb.value);
+            newAccessControl.userGroups = Array.from(groupCheckboxes).map(cb => cb.value);
+        }
+        
+        // Update dataset with new access control
+        try {
+            datasetStore.update(datasetId, { accessControl: newAccessControl });
+            await Modal.alert('Access settings updated successfully!');
+        } catch (error) {
+            console.error('Error updating access control:', error);
+            await Modal.alert(`Failed to update access settings: ${error.message || 'Unknown error'}`);
         }
     }
     
