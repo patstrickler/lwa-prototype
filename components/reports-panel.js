@@ -35,7 +35,7 @@ export class ReportsPanel {
             <div class="reports-panel">
                 <div class="reports-header">
                     <h2>Reports & Dashboards</h2>
-                    ${!this.isViewer ? '<button type="button" class="btn btn-primary" id="create-report-btn">Create New Report</button>' : ''}
+                    ${!this.isViewer ? '<button type="button" class="btn btn-primary" id="create-report-btn">New</button>' : ''}
                 </div>
                 
                 <div class="reports-list-container" id="reports-list-container">

@@ -5,6 +5,7 @@ import { VisualizationPanel } from './components/visualization-panel.js';
 import { ReportsPanel } from './components/reports-panel.js';
 import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
+import { datasetSelectionManager } from './utils/dataset-selection-manager.js';
 
 // Page routing/navigation functionality
 function initNavigation() {
@@ -27,6 +28,14 @@ function initNavigation() {
             const targetPage = document.getElementById(`${pageId}-page`);
             if (targetPage) {
                 targetPage.classList.add('active');
+                
+                // Sync dataset selection when switching pages
+                const selectedDatasetId = datasetSelectionManager.getSelectedDatasetId();
+                if (selectedDatasetId) {
+                    // Trigger a sync by notifying selection change
+                    // This will update all dataset browsers on the new page
+                    datasetSelectionManager.notifySelectionChanged(selectedDatasetId);
+                }
             }
         });
     });
@@ -121,6 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Query Builder → Analysis Panel & Dataset Browsers
     queryBuilder.onDatasetCreated((dataset) => {
+        // Update global selection to the newly created dataset
+        datasetSelectionManager.setSelectedDatasetId(dataset.id);
+        
         analysisPanel.setDataset(dataset);
         analysisPanel.refreshDatasetSelector();
         datasetBrowserAnalysis.refresh();

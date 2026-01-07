@@ -6,6 +6,7 @@ import { metricsStore } from '../data/metrics.js';
 import { datasetStore } from '../data/datasets.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
 import { executeSQL } from '../utils/sql-engine.js';
+import { datasetSelectionManager } from '../utils/dataset-selection-manager.js';
 
 export class AnalysisPanel {
     constructor(containerSelector) {
@@ -82,6 +83,8 @@ export class AnalysisPanel {
         if (dataset && !datasetStore.exists(dataset.id)) {
             this.showDatasetMissingError(dataset);
             this.currentDataset = null;
+            // Update global selection manager
+            datasetSelectionManager.setSelectedDatasetId(null);
             if (this.datasetSelector) {
                 this.datasetSelector.setSelectedDataset(null);
             }
@@ -94,6 +97,12 @@ export class AnalysisPanel {
         }
         
         this.currentDataset = dataset;
+        // Update global selection manager
+        if (dataset) {
+            datasetSelectionManager.setSelectedDatasetId(dataset.id);
+        } else {
+            datasetSelectionManager.setSelectedDatasetId(null);
+        }
         if (this.datasetSelector) {
             this.datasetSelector.setSelectedDataset(dataset);
         }

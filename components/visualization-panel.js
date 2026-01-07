@@ -8,6 +8,7 @@ import { debounceRAF } from '../utils/debounce.js';
 import { Modal } from '../utils/modal.js';
 import { calculateMetric } from '../utils/metric-calculator.js';
 import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
+import { datasetSelectionManager } from '../utils/dataset-selection-manager.js';
 
 export class VisualizationPanel {
     constructor(containerSelector) {
@@ -2072,11 +2073,19 @@ export class VisualizationPanel {
         if (dataset && !datasetStore.exists(dataset.id)) {
             this.showDatasetMissingError(dataset);
             this.currentDataset = null;
+            // Update global selection manager
+            datasetSelectionManager.setSelectedDatasetId(null);
             this.refreshCharts();
             return;
         }
         
         this.currentDataset = dataset;
+        // Update global selection manager
+        if (dataset) {
+            datasetSelectionManager.setSelectedDatasetId(dataset.id);
+        } else {
+            datasetSelectionManager.setSelectedDatasetId(null);
+        }
         // Update selection if this dataset is currently selected
         const datasetSelect = this.container.querySelector('#dataset-select');
         if (datasetSelect && dataset && datasetSelect.value === dataset.id) {

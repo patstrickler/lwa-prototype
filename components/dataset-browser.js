@@ -4,6 +4,7 @@
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
 import { Modal } from '../utils/modal.js';
+import { datasetSelectionManager } from '../utils/dataset-selection-manager.js';
 
 export class DatasetBrowser {
     constructor(containerSelector) {
@@ -13,7 +14,38 @@ export class DatasetBrowser {
         this.onItemSelectCallbacks = [];
         this.onEditMetricCallbacks = [];
         this.columnsExpanded = true; // Default to expanded
+        
+        // Listen to global selection changes
+        datasetSelectionManager.onSelectionChanged((datasetId) => {
+            this.syncWithGlobalSelection(datasetId);
+        });
+        
         this.init();
+    }
+    
+    /**
+     * Syncs this browser's selection with the global selection manager
+     * @param {string|null} datasetId - Dataset ID from global selection
+     */
+    syncWithGlobalSelection(datasetId) {
+        if (!datasetId) {
+            if (this.selectedDataset) {
+                this.selectedDataset = null;
+                this.render();
+            }
+            return;
+        }
+        
+        // Only update if different from current selection
+        if (!this.selectedDataset || this.selectedDataset.id !== datasetId) {
+            const dataset = datasetStore.get(datasetId);
+            if (dataset) {
+                this.selectedDataset = dataset;
+                this.render(true);
+                // Don't notify callbacks here to avoid infinite loops
+                // The global selection manager will handle notifications
+            }
+        }
     }
     
     init() {
@@ -281,6 +313,9 @@ export class DatasetBrowser {
                             this.selectedDataset = dataset;
                             this.columnsExpanded = true; // Ensure columns are expanded
                             
+                            // Update global selection manager
+                            datasetSelectionManager.setSelectedDatasetId(datasetId);
+                            
                             // Force render immediately - bypass dropdown check
                             // The dropdown is closed by the time change event fires
                             this.render(true);
@@ -296,6 +331,8 @@ export class DatasetBrowser {
                         }
                     } else {
                         this.selectedDataset = null;
+                        // Clear global selection
+                        datasetSelectionManager.setSelectedDatasetId(null);
                         this.render();
                     }
                 }, 150); // Small delay to debounce rapid changes
@@ -537,6 +574,8 @@ export class DatasetBrowser {
         const dataset = datasetStore.get(datasetId);
         if (dataset) {
             this.selectedDataset = dataset;
+            // Update global selection manager
+            datasetSelectionManager.setSelectedDatasetId(datasetId);
             // Ensure columns are expanded when dataset is selected
             this.columnsExpanded = true;
             this.render();
