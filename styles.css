@@ -1006,24 +1006,16 @@ main {
         max-height: 400px;
     }
     
-    .analysis-layout {
-        flex-direction: column;
-    }
-    
-    .dataset-browser-sidebar {
+    /* Bootstrap handles responsive grid automatically - sticky sidebars become normal on mobile */
+    .col-lg-3:has(.dataset-browser-sidebar),
+    .col-lg-3:has(#dataset-browser-analysis),
+    .col-lg-3:has(#dataset-browser-visualization),
+    .col-lg-3:has(.visualization-builder-sidebar),
+    .col-lg-3:has(#visualization-builder-container) {
         position: relative;
         top: 0;
         max-height: 400px;
-        flex: 0 0 100%;
         margin-bottom: 20px;
-    }
-    
-    .visualization-layout {
-        flex-direction: column;
-    }
-    
-    .reports-layout {
-        flex-direction: column;
     }
 }
 
@@ -2208,51 +2200,23 @@ main {
     margin-top: var(--spacing-md);
 }
 
+/* Button enhancements - Bootstrap handles base styles */
+/* Override Bootstrap buttons only where needed for custom styling */
 .btn {
-    padding: var(--spacing-md) var(--spacing-xl);
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-medium);
-    font-family: var(--font-family);
-    cursor: pointer;
-    transition: all var(--transition-base);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: var(--spacing-sm);
-    line-height: 1.5;
-    box-shadow: var(--shadow-sm);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-base);
 }
 
-.btn-primary {
-    background-color: var(--color-primary);
-    color: white;
-}
-
-.btn-primary:hover {
-    background-color: var(--color-primary-hover);
-    box-shadow: var(--shadow-md);
+.btn:hover:not(:disabled) {
     transform: translateY(-1px);
-}
-
-.btn-primary:active {
-    transform: translateY(0);
-    box-shadow: var(--shadow-sm);
-}
-
-.btn-secondary {
-    background-color: var(--color-text-secondary);
-    color: white;
-}
-
-.btn-secondary:hover {
-    background-color: #5a6268;
     box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
 }
 
-.btn-secondary:active {
+.btn:active:not(:disabled) {
     transform: translateY(0);
     box-shadow: var(--shadow-sm);
 }
@@ -2325,7 +2289,9 @@ main {
     box-shadow: none !important;
 }
 
+/* Use Bootstrap alert classes instead - these kept for backwards compatibility */
 .error {
+    /* Bootstrap handles this via .alert-danger */
     color: #dc3545;
     padding: 10px;
     background-color: #f8d7da;
@@ -2334,6 +2300,7 @@ main {
 }
 
 .error-message {
+    /* Bootstrap handles this via .alert-warning */
     display: flex;
     align-items: center;
     gap: 12px;
