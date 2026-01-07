@@ -165,9 +165,14 @@ export class TableBrowser {
             const columnType = getColumnType(col);
             const iconName = getColumnTypeIcon(columnType);
             return `
-            <div class="table-column" data-table="${table.name}" data-column="${col}">
+            <div class="table-column draggable-column" 
+                 draggable="true" 
+                 data-table="${table.name}" 
+                 data-column="${col}"
+                 data-column-type="${columnType}">
                 <span class="material-symbols-outlined column-icon" title="${columnType}">${iconName}</span>
                 <span class="column-name">${col}</span>
+                <span class="material-symbols-outlined drag-handle" title="Drag to query builder">drag_indicator</span>
             </div>
         `;
         }).join('');
@@ -288,9 +293,30 @@ export class TableBrowser {
             });
         });
         
-        // Column click to insert into SQL
+        // Make columns draggable
         this.container.querySelectorAll('.table-column').forEach(column => {
+            // Drag start
+            column.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('application/json', JSON.stringify({
+                    table: column.dataset.table,
+                    column: column.dataset.column,
+                    columnType: column.dataset.columnType
+                }));
+                column.classList.add('dragging');
+            });
+            
+            // Drag end
+            column.addEventListener('dragend', (e) => {
+                column.classList.remove('dragging');
+            });
+            
+            // Column click to insert into SQL (keep for backward compatibility)
             column.addEventListener('click', (e) => {
+                // Don't trigger click if dragging
+                if (e.target.classList.contains('drag-handle')) {
+                    return;
+                }
                 e.stopPropagation();
                 const table = column.dataset.table;
                 const columnName = column.dataset.column;

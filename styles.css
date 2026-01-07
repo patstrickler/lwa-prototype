@@ -2146,6 +2146,34 @@ main {
     margin-bottom: 15px;
 }
 
+.sql-editor-wrapper.drag-over {
+    border: 2px dashed #007bff;
+    border-radius: 4px;
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.drop-zone-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 30px;
+    background-color: rgba(0, 123, 255, 0.1);
+    border: 2px dashed #007bff;
+    border-radius: 8px;
+    color: #007bff;
+    font-weight: 500;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.drop-zone-indicator .material-symbols-outlined {
+    font-size: 24px;
+}
+
 #sql-autocomplete-suggestions {
     position: absolute;
     z-index: 1000;

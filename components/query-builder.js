@@ -16,6 +16,8 @@ export class QueryBuilder {
         this.columnMetadata = {}; // Store metadata for hover tooltips
         this.fullQuery = null; // Store the full query without LIMIT
         this.totalRecordCount = null; // Store total record count
+        this.selectedColumns = []; // Track selected columns for auto-query generation
+        this.selectedTables = new Set(); // Track selected tables
         this.init();
     }
     
@@ -27,8 +29,12 @@ export class QueryBuilder {
     render() {
         this.container.innerHTML = `
             <div class="query-builder">
-                <div class="sql-editor-wrapper">
-                    <textarea id="sql-editor" class="sql-editor" placeholder="Enter your SQL query here..."></textarea>
+                <div class="sql-editor-wrapper" id="query-drop-zone">
+                    <div class="drop-zone-indicator" id="drop-zone-indicator" style="display: none;">
+                        <span class="material-symbols-outlined">add_circle</span>
+                        <span>Drop column here to add to query</span>
+                    </div>
+                    <textarea id="sql-editor" class="sql-editor" placeholder="Enter your SQL query here or drag columns from the database tables..."></textarea>
                     <div id="sql-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
                 </div>
                 <div class="query-actions">
@@ -104,6 +110,218 @@ export class QueryBuilder {
         clearBtn.addEventListener('click', () => this.clearQuery());
         saveBtn.addEventListener('click', () => this.saveAsDataset());
         updateBtn.addEventListener('click', () => this.updateDataset());
+        
+        // Drag and drop handlers
+        this.setupDragAndDrop();
+    }
+    
+    setupDragAndDrop() {
+        const dropZone = this.container.querySelector('#query-drop-zone');
+        const dropIndicator = this.container.querySelector('#drop-zone-indicator');
+        
+        if (!dropZone) return;
+        
+        // Prevent default drag behavior
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            dropIndicator.style.display = 'flex';
+            dropZone.classList.add('drag-over');
+        });
+        
+        dropZone.addEventListener('dragleave', (e) => {
+            // Only hide if we're leaving the drop zone entirely
+            if (!dropZone.contains(e.relatedTarget)) {
+                dropIndicator.style.display = 'none';
+                dropZone.classList.remove('drag-over');
+            }
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropIndicator.style.display = 'none';
+            dropZone.classList.remove('drag-over');
+            
+            try {
+                const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                if (data.table && data.column) {
+                    this.addColumnToQuery(data.table, data.column);
+                }
+            } catch (error) {
+                console.error('Error parsing drag data:', error);
+            }
+        });
+    }
+    
+    /**
+     * Adds a column to the query and regenerates SQL
+     * @param {string} tableName - Name of the table
+     * @param {string} columnName - Name of the column
+     */
+    addColumnToQuery(tableName, columnName) {
+        // Check if column is already selected
+        const existingIndex = this.selectedColumns.findIndex(
+            col => col.table === tableName && col.column === columnName
+        );
+        
+        if (existingIndex === -1) {
+            // Add new column
+            this.selectedColumns.push({ table: tableName, column: columnName });
+            this.selectedTables.add(tableName);
+        } else {
+            // Remove if already selected (toggle behavior)
+            this.selectedColumns.splice(existingIndex, 1);
+            // Check if table is still needed
+            const tableStillNeeded = this.selectedColumns.some(col => col.table === tableName);
+            if (!tableStillNeeded) {
+                this.selectedTables.delete(tableName);
+            }
+        }
+        
+        // Regenerate query
+        this.generateQueryFromSelections();
+    }
+    
+    /**
+     * Generates SQL query from selected columns and tables
+     */
+    generateQueryFromSelections() {
+        if (this.selectedColumns.length === 0) {
+            this.editor.value = '';
+            return;
+        }
+        
+        // Build SELECT clause
+        const selectClause = this.selectedColumns
+            .map(col => `${col.table}.${col.column}`)
+            .join(', ');
+        
+        // Determine primary table (first table selected)
+        const primaryTable = Array.from(this.selectedTables)[0];
+        
+        // Build FROM clause
+        let fromClause = primaryTable;
+        
+        // Build JOIN clauses
+        const joinClauses = this.buildJoinClauses(primaryTable);
+        
+        // Combine into full query
+        const query = `SELECT ${selectClause}\nFROM ${fromClause}${joinClauses.length > 0 ? '\n' + joinClauses.join('\n') : ''}`;
+        
+        // Update editor
+        this.editor.value = query;
+        
+        // Trigger input event to update autocomplete
+        this.editor.dispatchEvent(new Event('input'));
+    }
+    
+    /**
+     * Builds JOIN clauses based on table relationships
+     * @param {string} primaryTable - Primary table name
+     * @returns {string[]} Array of JOIN clause strings
+     */
+    buildJoinClauses(primaryTable) {
+        const joins = [];
+        const allTables = getAllTables();
+        const tableMap = {};
+        allTables.forEach(t => {
+            tableMap[t.name.toLowerCase()] = t;
+        });
+        
+        // Define relationships (foreign key patterns)
+        const relationships = {
+            'results': [
+                { foreignKey: 'sample_id', references: 'samples', referenceKey: 'sample_id' },
+                { foreignKey: 'test_id', references: 'tests', referenceKey: 'test_id' },
+                { foreignKey: 'technician_id', references: 'technicians', referenceKey: 'technician_id' }
+            ],
+            'samples': [
+                { foreignKey: 'lab_id', references: 'labs', referenceKey: 'lab_id' }
+            ],
+            'technicians': [
+                { foreignKey: 'lab_id', references: 'labs', referenceKey: 'lab_id' }
+            ]
+        };
+        
+        const processedTables = new Set([primaryTable.toLowerCase()]);
+        const tablesToProcess = Array.from(this.selectedTables).filter(t => t.toLowerCase() !== primaryTable.toLowerCase());
+        
+        // Try to join tables in order
+        for (const table of tablesToProcess) {
+            const tableLower = table.toLowerCase();
+            if (processedTables.has(tableLower)) continue;
+            
+            // Find a relationship path
+            const joinPath = this.findJoinPath(primaryTable, table, relationships, tableMap, processedTables);
+            if (joinPath) {
+                joins.push(...joinPath);
+                processedTables.add(tableLower);
+            }
+        }
+        
+        return joins;
+    }
+    
+    /**
+     * Finds a join path between two tables
+     * @param {string} fromTable - Starting table
+     * @param {string} toTable - Target table
+     * @param {Object} relationships - Relationship definitions
+     * @param {Object} tableMap - Map of table names to table definitions
+     * @param {Set} processedTables - Set of already processed tables
+     * @returns {string[]|null} Array of JOIN clauses or null if no path found
+     */
+    findJoinPath(fromTable, toTable, relationships, tableMap, processedTables) {
+        const fromLower = fromTable.toLowerCase();
+        const toLower = toTable.toLowerCase();
+        
+        // Direct relationship from fromTable to toTable
+        if (relationships[fromLower]) {
+            const rel = relationships[fromLower].find(r => r.references.toLowerCase() === toLower);
+            if (rel) {
+                return [`LEFT JOIN ${toTable} ON ${fromTable}.${rel.foreignKey} = ${toTable}.${rel.referenceKey}`];
+            }
+        }
+        
+        // Reverse relationship (toTable has FK to fromTable)
+        if (relationships[toLower]) {
+            const rel = relationships[toLower].find(r => r.references.toLowerCase() === fromLower);
+            if (rel) {
+                return [`LEFT JOIN ${toTable} ON ${fromTable}.${rel.referenceKey} = ${toTable}.${rel.foreignKey}`];
+            }
+        }
+        
+        // Try intermediate tables
+        for (const [tableName, rels] of Object.entries(relationships)) {
+            if (processedTables.has(tableName.toLowerCase())) continue;
+            
+            // Check if this table connects fromTable to toTable
+            const fromRel = rels.find(r => r.references.toLowerCase() === fromLower);
+            const toRel = rels.find(r => r.references.toLowerCase() === toLower);
+            
+            if (fromRel && toRel) {
+                const joins = [];
+                joins.push(`LEFT JOIN ${tableName} ON ${fromTable}.${fromRel.referenceKey} = ${tableName}.${fromRel.foreignKey}`);
+                joins.push(`LEFT JOIN ${toTable} ON ${tableName}.${toRel.foreignKey} = ${toTable}.${toRel.referenceKey}`);
+                return joins;
+            }
+        }
+        
+        // Default: try common ID patterns
+        const fromTableDef = tableMap[fromLower];
+        const toTableDef = tableMap[toLower];
+        
+        if (fromTableDef && toTableDef) {
+            // Try to find a common column name pattern
+            const fromIdCol = fromTableDef.columns.find(col => col.toLowerCase().includes('_id') || col.toLowerCase().endsWith('id'));
+            const toIdCol = toTableDef.columns.find(col => col.toLowerCase().includes('_id') || col.toLowerCase().endsWith('id'));
+            
+            if (fromIdCol && toIdCol && fromIdCol === toIdCol) {
+                return [`LEFT JOIN ${toTable} ON ${fromTable}.${fromIdCol} = ${toTable}.${toIdCol}`];
+            }
+        }
+        
+        return null;
     }
     
     handleInput(e) {
@@ -771,6 +989,10 @@ export class QueryBuilder {
         if (this.editor) {
             this.editor.value = '';
         }
+        
+        // Reset selections
+        this.selectedColumns = [];
+        this.selectedTables.clear();
         
         const thead = this.container.querySelector('#results-thead');
         const tbody = this.container.querySelector('#results-tbody');
