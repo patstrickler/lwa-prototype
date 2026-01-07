@@ -150,6 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle dataset deletion - refresh all components
     tableBrowser.onDatasetDeleted((datasetId, dataset) => {
+        // Clear global selection if deleted dataset was selected
+        const currentSelection = datasetSelectionManager.getSelectedDatasetId();
+        if (currentSelection === datasetId) {
+            datasetSelectionManager.clearSelection();
+        }
+        
         // Refresh dataset browsers
         datasetBrowserAnalysis.refresh();
         datasetBrowserVisualization.refresh();
@@ -171,6 +177,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     queryBuilder.onDatasetDeleted((datasetId, dataset) => {
+        // Clear global selection if deleted dataset was selected
+        const currentSelection = datasetSelectionManager.getSelectedDatasetId();
+        if (currentSelection === datasetId) {
+            datasetSelectionManager.clearSelection();
+        }
+        
         // Refresh dataset browsers
         datasetBrowserAnalysis.refresh();
         datasetBrowserVisualization.refresh();
