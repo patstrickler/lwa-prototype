@@ -503,7 +503,7 @@ export class AdminPanel {
                 </div>
                 <div class="card-body">
                     <div class="card-meta">
-                        <span class="meta-item"><strong>Groups:</strong> ${user.groups.length}</span>
+                        <span class="meta-item"><strong>Groups:</strong> ${user.groups && Array.isArray(user.groups) ? user.groups.length : 0}</span>
                         <span class="meta-item"><strong>Created:</strong> ${createdDate}</span>
                         ${user.lastLogin ? `<span class="meta-item"><strong>Last Login:</strong> ${new Date(user.lastLogin).toLocaleDateString()}</span>` : ''}
                     </div>
@@ -520,7 +520,7 @@ export class AdminPanel {
     
     renderGroupCard(group) {
         const createdDate = new Date(group.createdAt).toLocaleDateString();
-        const userCount = group.userIds.length;
+        const userCount = group.userIds && Array.isArray(group.userIds) ? group.userIds.length : 0;
         
         return `
             <div class="group-card" data-group-id="${group.id}">
