@@ -307,10 +307,12 @@ export class VisualizationPanel {
         
         if (panel.style.display === 'none') {
             panel.style.display = 'block';
-            icon.textContent = '▲';
+            icon.textContent = 'expand_less';
+            icon.className = 'material-icons toggle-icon';
         } else {
             panel.style.display = 'none';
             icon.textContent = 'expand_more';
+            icon.className = 'material-icons toggle-icon';
             icon.className = 'material-icons toggle-icon';
         }
     }

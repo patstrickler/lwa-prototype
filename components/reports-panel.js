@@ -954,7 +954,7 @@ export class ReportsPanel {
         
         // Render visualizations after DOM is ready
         setTimeout(() => {
-            this.renderVisualizationCharts(visualizations, report.id);
+            this.renderVisualizationCharts(visualizations, report.id, '#preview-visualizations');
         }, 100);
     }
     
@@ -1736,16 +1736,20 @@ export class ReportsPanel {
         return allReports.find(r => r.title === reportTitle.textContent) || null;
     }
     
-    async renderVisualizationCharts(visualizations, reportId) {
-        const previewContainer = this.container.querySelector('#report-preview-container');
-        if (!previewContainer) return;
+    async renderVisualizationCharts(visualizations, reportId, containerSelector = '#preview-visualizations') {
+        // Find the parent container (preview or view mode)
+        const parentContainer = containerSelector === '#view-mode-visualizations' 
+            ? this.container.querySelector('#report-view-mode')
+            : this.container.querySelector('#report-preview-container');
+        
+        if (!parentContainer) return;
         
         // Combine active filters and dashboard filters
         const allFilters = { ...(this.activeFilters[reportId] || {}), ...this.dashboardFilters };
         
         for (const viz of visualizations) {
             const containerId = `viz-container-${viz.id}`;
-            const container = previewContainer.querySelector(`#${containerId}`);
+            const container = parentContainer.querySelector(`#${containerId}`);
             if (!container) continue;
             
             // Clear container before rendering

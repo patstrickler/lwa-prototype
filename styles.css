@@ -661,7 +661,14 @@ main {
 .items-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--spacing-sm);
+}
+
+.item-icon {
+    font-size: 20px;
+    color: var(--color-text-secondary);
+    margin-right: var(--spacing-sm);
+    flex-shrink: 0;
 }
 
 .columns-list-scrollable {
