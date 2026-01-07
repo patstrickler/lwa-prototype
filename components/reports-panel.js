@@ -31,12 +31,13 @@ export class ReportsPanel {
     
     render() {
         this.isViewer = userContext.isViewer();
-        // Always show button - access control handled in create function
+        console.log('Reports Panel - User role:', userContext.getRole(), 'isViewer:', this.isViewer);
+        
         this.container.innerHTML = `
             <div class="reports-panel">
-                <div class="reports-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px 0;">
+                <div class="reports-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px 0; border-bottom: 2px solid #e0e0e0;">
                     <h2 style="margin: 0;">Reports & Dashboards</h2>
-                    <button type="button" class="btn btn-primary btn-lg" id="create-report-btn" ${this.isViewer ? 'style="display: none;"' : ''}>
+                    <button type="button" class="btn btn-primary btn-lg" id="create-report-btn" style="display: block; padding: 12px 24px; font-size: 16px;">
                         <strong>+ New Report/Dashboard</strong>
                     </button>
                 </div>
@@ -73,15 +74,27 @@ export class ReportsPanel {
         const container = this.container.querySelector('#reports-list-container');
         let reports = reportsStore.getAll();
         
+        console.log('Total reports:', reports.length);
+        
         // Filter reports based on user access if viewer
         if (this.isViewer) {
             reports = reports.filter(report => userContext.hasAccess(report.access));
+            console.log('Filtered reports for viewer:', reports.length);
         }
         
         if (reports.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <p>${this.isViewer ? 'No reports/dashboards available to you.' : 'No reports/dashboards yet. Create one to get started!'}</p>
+                <div class="empty-state" style="text-align: center; padding: 60px 20px; background: #f9f9f9; border-radius: 8px; margin-top: 20px;">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ccc; margin-bottom: 20px;">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="9" y1="9" x2="15" y2="9"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <h3 style="color: #666; margin-bottom: 10px;">No Reports Yet</h3>
+                    <p style="color: #999; margin-bottom: 20px;">Get started by creating your first report/dashboard</p>
+                    <button type="button" class="btn btn-primary btn-lg" onclick="document.getElementById('create-report-btn').click()">
+                        <strong>+ Create Your First Report</strong>
+                    </button>
                 </div>
             `;
             return;
