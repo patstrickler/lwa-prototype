@@ -132,7 +132,6 @@ export class DatasetBrowser {
             this._searchInputId = `column-search-input-${Math.random().toString(36).substr(2, 9)}`;
         }
         const selectId = this._selectId;
-        const searchInputId = this._searchInputId;
         
         this.container.innerHTML = `
             <div class="dataset-browser">
@@ -185,7 +184,7 @@ export class DatasetBrowser {
                     </div>
                     <div class="column-search-container">
                         <input type="text" 
-                               id="${searchInputId}" 
+                               id="${this._searchInputId}" 
                                class="column-search-input" 
                                placeholder="Search columns..."
                                data-dataset="${dataset.id}">
