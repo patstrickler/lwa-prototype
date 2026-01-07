@@ -566,7 +566,7 @@ export class VisualizationPanel {
                 if (!e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item') && !e.target.closest('.remove-field-btn')) {
                     const axis = newDisplay.getAttribute('data-axis');
                     const fieldIndex = newDisplay.getAttribute('data-field-index');
-                    const btn = display.querySelector('.axis-select-btn');
+                    const btn = newDisplay.querySelector('.axis-select-btn');
                     if (btn && axis) {
                         this.showAxisSelectionDropdown(axis, btn);
                     } else if (btn && fieldIndex !== null) {
