@@ -456,15 +456,28 @@ export class VisualizationPanel {
             });
         } else {
             // For other chart types, preserve X, Y, Z as applicable
+            // Use data-axis attribute to find elements since IDs include chart type
+            const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+            const searchContainer = sidebarContainer || this.container;
+            
             if (this.xAxisSelection && (chartType === 'scatter' || chartType === 'line' || chartType === 'bar' || chartType === 'pie' || chartType === 'donut')) {
-                this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
+                const xDisplay = searchContainer.querySelector('.axis-selection-display[data-axis="x"]');
+                if (xDisplay) {
+                    this.updateAxisDisplay(xDisplay.id || 'x-axis-display', this.xAxisSelection);
+                }
             }
             if (this.yAxisSelection) {
                 // Y axis is used in all chart types
-                this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+                const yDisplay = searchContainer.querySelector('.axis-selection-display[data-axis="y"]');
+                if (yDisplay) {
+                    this.updateAxisDisplay(yDisplay.id || 'y-axis-display', this.yAxisSelection);
+                }
             }
             if (this.zAxisSelection && chartType === 'scatter') {
-                this.updateAxisDisplay('z-axis-display', this.zAxisSelection);
+                const zDisplay = searchContainer.querySelector('.axis-selection-display[data-axis="z"]');
+                if (zDisplay) {
+                    this.updateAxisDisplay(zDisplay.id || 'z-axis-display', this.zAxisSelection);
+                }
             }
         }
     }
@@ -511,8 +524,12 @@ export class VisualizationPanel {
      * @param {string} chartType - The chart type
      */
     attachFieldSelectionListeners(chartType) {
+        // Find elements in sidebar or main container
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const searchContainer = sidebarContainer || this.container;
+        
         // Setup drag and drop for all axis displays
-        const axisDisplays = this.container.querySelectorAll('.axis-selection-display');
+        const axisDisplays = searchContainer.querySelectorAll('.axis-selection-display');
         axisDisplays.forEach(display => {
             const axis = display.getAttribute('data-axis');
             if (axis) {
@@ -521,26 +538,34 @@ export class VisualizationPanel {
         });
         
         // Click handlers for axis selection buttons
-        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
+        const axisSelectBtns = searchContainer.querySelectorAll('.axis-select-btn');
         axisSelectBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            // Remove existing listeners by cloning
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const axis = btn.getAttribute('data-axis');
-                const fieldIndex = btn.getAttribute('data-field-index');
+                const axis = newBtn.getAttribute('data-axis');
+                const fieldIndex = newBtn.getAttribute('data-field-index');
                 if (axis) {
-                    this.showAxisSelectionDropdown(axis, btn);
+                    this.showAxisSelectionDropdown(axis, newBtn);
                 } else if (fieldIndex !== null) {
-                    this.showTableFieldDropdown(parseInt(fieldIndex), btn);
+                    this.showTableFieldDropdown(parseInt(fieldIndex), newBtn);
                 }
             });
         });
         
         // Click on axis display to show dropdown
         axisDisplays.forEach(display => {
-            display.addEventListener('click', (e) => {
+            // Remove existing listeners by cloning
+            const newDisplay = display.cloneNode(true);
+            display.parentNode.replaceChild(newDisplay, display);
+            
+            newDisplay.addEventListener('click', (e) => {
                 if (!e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item') && !e.target.closest('.remove-field-btn')) {
-                    const axis = display.getAttribute('data-axis');
-                    const fieldIndex = display.getAttribute('data-field-index');
+                    const axis = newDisplay.getAttribute('data-axis');
+                    const fieldIndex = newDisplay.getAttribute('data-field-index');
                     const btn = display.querySelector('.axis-select-btn');
                     if (btn && axis) {
                         this.showAxisSelectionDropdown(axis, btn);
