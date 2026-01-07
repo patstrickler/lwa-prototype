@@ -758,10 +758,14 @@ export class VisualizationPanel {
             const yAxisSelect = this.container.querySelector('#y-axis-select');
             
             if (!datasetId) {
-                xAxisSelect.disabled = true;
-                yAxisSelect.disabled = true;
-                xAxisSelect.innerHTML = '<option value="">-- Select X Axis --</option>';
-                yAxisSelect.innerHTML = '<option value="">-- Select Y Axis --</option>';
+                if (xAxisSelect) {
+                    xAxisSelect.disabled = true;
+                    xAxisSelect.innerHTML = '<option value="">-- Select X Axis --</option>';
+                }
+                if (yAxisSelect) {
+                    yAxisSelect.disabled = true;
+                    yAxisSelect.innerHTML = '<option value="">-- Select Y Axis --</option>';
+                }
                 this.currentDataset = null;
                 return;
             }
@@ -775,11 +779,14 @@ export class VisualizationPanel {
             
             // Populate both X and Y axis selectors with columns and metrics
             // Use document fragment for better performance
-            this.populateAxisSelector(xAxisSelect, dataset);
-            this.populateAxisSelector(yAxisSelect, dataset);
-            
-            xAxisSelect.disabled = false;
-            yAxisSelect.disabled = false;
+            if (xAxisSelect) {
+                this.populateAxisSelector(xAxisSelect, dataset);
+                xAxisSelect.disabled = false;
+            }
+            if (yAxisSelect) {
+                this.populateAxisSelector(yAxisSelect, dataset);
+                yAxisSelect.disabled = false;
+            }
         });
     }
     
@@ -825,6 +832,10 @@ export class VisualizationPanel {
         
         // Batch DOM update
         requestAnimationFrame(() => {
+            if (!selector) {
+                console.warn('populateAxisSelector: selector element not found');
+                return;
+            }
             selector.innerHTML = '';
             selector.appendChild(fragment);
         });

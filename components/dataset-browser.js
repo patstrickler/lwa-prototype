@@ -28,6 +28,10 @@ export class DatasetBrowser {
      * @param {string|null} datasetId - Dataset ID from global selection
      */
     syncWithGlobalSelection(datasetId) {
+        if (!this.container) {
+            return; // Container doesn't exist, skip sync
+        }
+        
         if (!datasetId) {
             if (this.selectedDataset) {
                 this.selectedDataset = null;
