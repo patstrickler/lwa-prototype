@@ -190,9 +190,112 @@ class HealthMetricsStore {
     }
     
     /**
+     * Seeds dummy data for demonstration purposes
+     */
+    seedDummyData() {
+        // Only seed if we have very few metrics
+        if (this.metrics.length > 10) {
+            return;
+        }
+        
+        const now = Date.now();
+        const operations = ['page_load', 'query_execution', 'api_call', 'dataset_creation', 'visualization_render'];
+        const errorSources = ['api', 'query', 'component', 'database', 'authentication'];
+        const errorMessages = [
+            'Connection timeout to database server',
+            'Invalid SQL syntax in query',
+            'Component initialization failed',
+            'Authentication token expired',
+            'Rate limit exceeded',
+            'Memory allocation error',
+            'File not found',
+            'Permission denied'
+        ];
+        
+        // Generate errors from the last 60 minutes
+        for (let i = 0; i < 15; i++) {
+            const minutesAgo = Math.floor(Math.random() * 60);
+            const timestamp = new Date(now - minutesAgo * 60 * 1000).toISOString();
+            const source = errorSources[Math.floor(Math.random() * errorSources.length)];
+            const message = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+            const severities = ['error', 'warning', 'info'];
+            const severity = severities[Math.floor(Math.random() * severities.length)];
+            
+            this.metrics.push({
+                id: `metric_${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+                type: 'error',
+                timestamp,
+                message,
+                source,
+                severity
+            });
+        }
+        
+        // Generate load time metrics from the last 60 minutes
+        for (let i = 0; i < 50; i++) {
+            const minutesAgo = Math.floor(Math.random() * 60);
+            const timestamp = new Date(now - minutesAgo * 60 * 1000).toISOString();
+            const operation = operations[Math.floor(Math.random() * operations.length)];
+            
+            // Different operations have different typical durations
+            let baseDuration = 100;
+            if (operation === 'page_load') baseDuration = 200 + Math.random() * 300;
+            else if (operation === 'query_execution') baseDuration = 50 + Math.random() * 500;
+            else if (operation === 'api_call') baseDuration = 30 + Math.random() * 200;
+            else if (operation === 'dataset_creation') baseDuration = 100 + Math.random() * 400;
+            else if (operation === 'visualization_render') baseDuration = 80 + Math.random() * 250;
+            
+            const duration = baseDuration + (Math.random() - 0.5) * baseDuration * 0.3; // ±30% variation
+            
+            this.metrics.push({
+                id: `metric_${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+                type: 'load_time',
+                timestamp,
+                operation,
+                duration: Math.round(duration),
+                unit: 'ms'
+            });
+        }
+        
+        // Generate some API call metrics
+        for (let i = 0; i < 20; i++) {
+            const minutesAgo = Math.floor(Math.random() * 60);
+            const timestamp = new Date(now - minutesAgo * 60 * 1000).toISOString();
+            const endpoints = ['/api/datasets', '/api/metrics', '/api/users', '/api/reports', '/api/health'];
+            const endpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
+            const statusCodes = [200, 200, 200, 200, 201, 400, 404, 500]; // Mostly success, some errors
+            const statusCode = statusCodes[Math.floor(Math.random() * statusCodes.length)];
+            
+            this.metrics.push({
+                id: `metric_${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+                type: 'api_call',
+                timestamp,
+                endpoint,
+                statusCode,
+                duration: Math.round(20 + Math.random() * 150)
+            });
+        }
+        
+        // Sort by timestamp (newest first)
+        this.metrics.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Keep only the most recent 1000
+        if (this.metrics.length > MAX_METRICS) {
+            this.metrics = this.metrics.slice(0, MAX_METRICS);
+        }
+        
+        this.saveToStorage();
+    }
+    
+    /**
      * Starts collecting automatic metrics (page load time, etc.)
      */
     startCollecting() {
+        // Seed dummy data if store is empty
+        if (this.metrics.length === 0) {
+            this.seedDummyData();
+        }
+        
         // Record page load time
         if (typeof window !== 'undefined' && window.performance) {
             window.addEventListener('load', () => {

@@ -601,6 +601,22 @@ export class AdminPanel {
         const perfSummary = healthMetricsStore.getPerformanceSummary(60);
         const recentMetrics = healthMetricsStore.getRecent(60);
         
+        // Get API call metrics
+        const apiCalls = recentMetrics.filter(m => m.type === 'api_call');
+        const apiCallSummary = {
+            total: apiCalls.length,
+            success: apiCalls.filter(m => m.statusCode >= 200 && m.statusCode < 300).length,
+            errors: apiCalls.filter(m => m.statusCode >= 400).length,
+            avgDuration: apiCalls.length > 0 
+                ? Math.round(apiCalls.reduce((sum, m) => sum + (m.duration || 0), 0) / apiCalls.length)
+                : 0
+        };
+        
+        // Get error sources breakdown
+        const errorSources = Object.entries(errorSummary.bySource || {})
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        
         tabContent.innerHTML = `
             <div class="admin-section">
                 <div class="section-header">
@@ -621,6 +637,14 @@ export class AdminPanel {
                                 ).join('')
                                 : '<span>No errors</span>'
                             }
+                            ${errorSources.length > 0 ? `
+                                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border);">
+                                    <strong>Top Sources:</strong>
+                                    ${errorSources.map(([source, count]) => 
+                                        `<div style="font-size: 11px; margin-top: 4px;">${this.escapeHtml(source)}: ${count}</div>`
+                                    ).join('')}
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                     
@@ -631,16 +655,35 @@ export class AdminPanel {
                         <div class="metric-value">${perfSummary.total} operations</div>
                         <div class="metric-details">
                             ${Object.keys(perfSummary.byOperation).length > 0
-                                ? Object.entries(perfSummary.byOperation).slice(0, 3).map(([op, stats]) => 
+                                ? Object.entries(perfSummary.byOperation).slice(0, 5).map(([op, stats]) => 
                                     `<div class="perf-item">
                                         <strong>${this.escapeHtml(op)}:</strong> 
                                         Avg: ${Math.round(stats.avg)}ms, 
                                         Min: ${Math.round(stats.min)}ms, 
                                         Max: ${Math.round(stats.max)}ms
+                                        <span style="color: var(--color-text-muted); font-size: 10px;">(${stats.count} calls)</span>
                                     </div>`
                                 ).join('')
                                 : '<span>No performance data</span>'
                             }
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-header">
+                            <h4>API Calls (Last 60 min)</h4>
+                        </div>
+                        <div class="metric-value">${apiCallSummary.total}</div>
+                        <div class="metric-details">
+                            <div class="perf-item">
+                                <strong>Success:</strong> ${apiCallSummary.success}
+                            </div>
+                            <div class="perf-item">
+                                <strong>Errors:</strong> ${apiCallSummary.errors}
+                            </div>
+                            <div class="perf-item">
+                                <strong>Avg Duration:</strong> ${apiCallSummary.avgDuration}ms
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -667,14 +710,27 @@ export class AdminPanel {
         const timestamp = new Date(metric.timestamp).toLocaleString();
         const typeClass = `event-type-${metric.type}`;
         
+        // Determine display text based on metric type
+        let displayText = '';
+        if (metric.type === 'error') {
+            displayText = `${metric.source || 'unknown'}: ${metric.message || 'Error occurred'}`;
+        } else if (metric.type === 'load_time') {
+            displayText = `${metric.operation || 'operation'}: ${Math.round(metric.duration || 0)}ms`;
+        } else if (metric.type === 'api_call') {
+            const statusClass = metric.statusCode >= 400 ? 'error' : 'success';
+            displayText = `${metric.endpoint || 'API call'}: ${metric.statusCode || 'N/A'} (${Math.round(metric.duration || 0)}ms)`;
+        } else {
+            displayText = metric.message || metric.operation || metric.type;
+        }
+        
         return `
             <div class="event-item ${typeClass}">
                 <div class="event-time">${timestamp}</div>
-                <div class="event-type">${this.escapeHtml(metric.type)}</div>
+                <div class="event-type">${this.escapeHtml(metric.type.replace('_', ' ').toUpperCase())}</div>
                 <div class="event-details">
-                    ${metric.message ? `<div class="event-message">${this.escapeHtml(metric.message)}</div>` : ''}
-                    ${metric.operation ? `<div class="event-operation">${this.escapeHtml(metric.operation)}</div>` : ''}
-                    ${metric.duration ? `<div class="event-duration">${Math.round(metric.duration)}ms</div>` : ''}
+                    <div class="event-message">${this.escapeHtml(displayText)}</div>
+                    ${metric.severity ? `<div class="event-severity severity-${metric.severity}">${this.escapeHtml(metric.severity)}</div>` : ''}
+                    ${metric.statusCode ? `<div class="event-status status-${metric.statusCode >= 400 ? 'error' : 'success'}">Status: ${metric.statusCode}</div>` : ''}
                 </div>
             </div>
         `;
