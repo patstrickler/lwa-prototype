@@ -337,8 +337,8 @@ export class VisualizationPanel {
             // Scatter plot: X, Y, Z
             html = `
                 <div class="form-group">
-                    <label>X Axis:</label>
-                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false">
+                    <label for="x-axis-display">X Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false" role="button" tabindex="0" aria-label="X Axis selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -346,8 +346,8 @@ export class VisualizationPanel {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Y Axis:</label>
-                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false">
+                    <label for="y-axis-display">Y Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="Y Axis selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -355,8 +355,8 @@ export class VisualizationPanel {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Z Axis (Size):</label>
-                    <div class="axis-selection-display droppable-axis" id="z-axis-display" data-axis="z" draggable="false">
+                    <label for="z-axis-display">Z Axis (Size):</label>
+                    <div class="axis-selection-display droppable-axis" id="z-axis-display" data-axis="z" draggable="false" role="button" tabindex="0" aria-label="Z Axis selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select (optional)</span>
                         </div>
@@ -368,8 +368,8 @@ export class VisualizationPanel {
             // Table: Multiple fields
             html = `
                 <div class="form-group">
-                    <label>Table Fields:</label>
-                    <div id="table-fields-list" class="table-fields-list">
+                    <label for="table-fields-list">Table Fields:</label>
+                    <div id="table-fields-list" class="table-fields-list" role="group" aria-label="Table fields">
                         ${this.tableFields.length > 0 ? this.tableFields.map((field, idx) => `
                             <div class="table-field-item">
                                 <div class="axis-selection-display droppable-axis" data-field-index="${idx}" draggable="false">

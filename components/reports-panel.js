@@ -746,19 +746,22 @@ export class ReportsPanel {
             let filterControl = '';
             const label = filter.label || filter.field || 'Unnamed Filter';
             
+            // Use filterKey instead of index to ensure unique IDs
+            const filterId = `filter-${filterKey.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            
             if (filter.type === 'date') {
                 filterControl = `
                     <div class="filter-control-group">
-                        <label for="filter-${index}">${this.escapeHtml(label)}</label>
-                        <input type="date" id="filter-${index}" class="form-control filter-input" 
+                        <label for="${filterId}">${this.escapeHtml(label)}</label>
+                        <input type="date" id="${filterId}" class="form-control filter-input" 
                                data-filter-key="${filterKey}" value="${currentValue}">
                     </div>
                 `;
             } else if (filter.type === 'select' && options.length > 0) {
                 filterControl = `
                     <div class="filter-control-group">
-                        <label for="filter-${index}">${this.escapeHtml(label)}</label>
-                        <select id="filter-${index}" class="form-control filter-input" 
+                        <label for="${filterId}">${this.escapeHtml(label)}</label>
+                        <select id="${filterId}" class="form-control filter-input" 
                                 data-filter-key="${filterKey}">
                             <option value="">All</option>
                             ${options.map(opt => `
@@ -772,8 +775,8 @@ export class ReportsPanel {
             } else if (filter.type === 'number') {
                 filterControl = `
                     <div class="filter-control-group">
-                        <label for="filter-${index}">${this.escapeHtml(label)}</label>
-                        <input type="number" id="filter-${index}" class="form-control filter-input" 
+                        <label for="${filterId}">${this.escapeHtml(label)}</label>
+                        <input type="number" id="${filterId}" class="form-control filter-input" 
                                data-filter-key="${filterKey}" value="${currentValue}" placeholder="Enter number">
                     </div>
                 `;
@@ -781,8 +784,8 @@ export class ReportsPanel {
                 // Text input
                 filterControl = `
                     <div class="filter-control-group">
-                        <label for="filter-${index}">${this.escapeHtml(label)}</label>
-                        <input type="text" id="filter-${index}" class="form-control filter-input" 
+                        <label for="${filterId}">${this.escapeHtml(label)}</label>
+                        <input type="text" id="${filterId}" class="form-control filter-input" 
                                data-filter-key="${filterKey}" value="${currentValue}" 
                                placeholder="Enter text to filter">
                     </div>
@@ -1358,28 +1361,30 @@ export class ReportsPanel {
         return filters.map((filter, index) => {
             const filterKey = `${filter.datasetId}_${filter.field}`;
             const currentValue = activeFilters[filterKey] || '';
+            const filterId = `active-filter-${filterKey.replace(/[^a-zA-Z0-9]/g, '-')}`;
             
             return `
                 <div class="filter-control" data-filter-index="${index}">
-                    <label>${this.getFilterLabel(filter)}:</label>
-                    ${this.renderFilterInput(filter, currentValue, filterKey)}
+                    <label for="${filterId}">${this.getFilterLabel(filter)}:</label>
+                    ${this.renderFilterInput(filter, currentValue, filterKey, filterId)}
                 </div>
             `;
         }).join('');
     }
     
-    renderFilterInput(filter, value, filterKey) {
+    renderFilterInput(filter, value, filterKey, filterId = null) {
+        const idAttr = filterId ? `id="${filterId}"` : '';
         switch (filter.type) {
             case 'date':
-                return `<input type="date" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}">`;
+                return `<input type="date" ${idAttr} class="form-control filter-input" data-filter-key="${filterKey}" value="${value}">`;
             case 'number':
-                return `<input type="number" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}">`;
+                return `<input type="number" ${idAttr} class="form-control filter-input" data-filter-key="${filterKey}" value="${value}">`;
             case 'select':
                 // For select, we'd need to get unique values from the dataset
-                return `<input type="text" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}" placeholder="Enter value">`;
+                return `<input type="text" ${idAttr} class="form-control filter-input" data-filter-key="${filterKey}" value="${value}" placeholder="Enter value">`;
             case 'text':
             default:
-                return `<input type="text" class="form-control filter-input" data-filter-key="${filterKey}" value="${value}" placeholder="Enter text">`;
+                return `<input type="text" ${idAttr} class="form-control filter-input" data-filter-key="${filterKey}" value="${value}" placeholder="Enter text">`;
         }
     }
     

@@ -120,12 +120,11 @@ export class DatasetBrowser {
         this.container.innerHTML = `
             <div class="dataset-browser">
                 <div class="browser-header">
-                    <h3>Dataset Selection</h3>
+                    <h4 style="margin: 0; font-size: 1rem;">Dataset</h4>
                 </div>
                 <div class="browser-content">
-                    <div class="dataset-selector-section">
-                        <label for="${selectId}">Select Dataset:</label>
-                        <select id="${selectId}" class="form-control dataset-browser-select">
+                    <div class="dataset-selector-section" style="margin-bottom: 10px;">
+                        <select id="${selectId}" class="form-control form-control-sm dataset-browser-select">
                             <option value="">-- Choose Dataset --</option>
                             ${validDatasets.map(ds => `
                                 <option value="${ds.id}" ${ds.id === selectedId ? 'selected' : ''}>${this.escapeHtml(ds.name)}</option>
@@ -152,20 +151,20 @@ export class DatasetBrowser {
         
         return `
             <div class="dataset-details-panel">
-                <div class="dataset-info-header">
-                    <h4>${this.escapeHtml(dataset.name)}</h4>
-                    <div class="dataset-stats">
-                        <span>${dataset.columns ? dataset.columns.length : 0} columns</span>
-                        <span>•</span>
+                <div class="dataset-info-header" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #dee2e6;">
+                    <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px;">${this.escapeHtml(dataset.name)}</div>
+                    <div class="dataset-stats" style="font-size: 0.75rem; color: #6c757d;">
+                        <span>${dataset.columns ? dataset.columns.length : 0} cols</span>
+                        <span> • </span>
                         <span>${dataset.rows ? dataset.rows.length : 0} rows</span>
                     </div>
                 </div>
                 
                 <div class="columns-section">
                     <div class="section-title clickable" data-toggle="columns">
-                        <span class="section-icon">📊</span>
+                        <span class="material-icons section-icon">table_chart</span>
                         <span>Columns</span>
-                        <span class="toggle-icon">▼</span>
+                        <span class="material-icons toggle-icon">expand_more</span>
                     </div>
                     <div class="column-search-container">
                         <input type="text" 
@@ -194,8 +193,8 @@ export class DatasetBrowser {
                 </div>
                 
                 <div class="metrics-section">
-                    <div class="section-title">
-                        <span class="section-icon">📈</span>
+                    <div class="section-title" style="font-size: 0.85rem; padding: 6px 0;">
+                        <span class="section-icon" style="font-size: 0.9rem;">📈</span>
                         <span>Metrics</span>
                     </div>
                     <div class="items-list editable-items">
@@ -207,16 +206,16 @@ export class DatasetBrowser {
                                      data-value="${metric.id}"
                                      data-dataset="${dataset.id}"
                                      draggable="true">
-                                    <span class="item-icon">📈</span>
+                                    <span class="material-icons item-icon">trending_up</span>
                                     <div class="item-info">
                                         <span class="item-name">${this.escapeHtml(metric.name)}</span>
                                         <span class="item-value">${this.formatMetricValue(metric.value)}</span>
                                     </div>
                                     <span class="item-operation">${this.escapeHtml(metric.operation || '')}</span>
                                     <div class="item-actions">
-                                        <button class="edit-btn" title="Edit metric">✏️</button>
-                                        <button class="duplicate-btn" title="Duplicate metric">📋</button>
-                                        <button class="delete-btn" title="Delete metric">🗑️</button>
+                                        <button class="btn btn-sm btn-icon edit-btn" title="Edit metric"><span class="material-icons">edit</span></button>
+                                        <button class="btn btn-sm btn-icon duplicate-btn" title="Duplicate metric"><span class="material-icons">content_copy</span></button>
+                                        <button class="btn btn-sm btn-icon delete-btn" title="Delete metric"><span class="material-icons">delete</span></button>
                                     </div>
                                 </div>
                             `).join('')
@@ -557,7 +556,8 @@ export class DatasetBrowser {
                 columnsList.style.display = this.columnsExpanded ? 'block' : 'none';
             }
             if (toggleIcon) {
-                toggleIcon.textContent = this.columnsExpanded ? '▼' : '▶';
+                toggleIcon.textContent = this.columnsExpanded ? 'expand_more' : 'chevron_right';
+                toggleIcon.className = 'material-icons toggle-icon';
             }
         }
     }
@@ -596,7 +596,10 @@ export class DatasetBrowser {
             if (this.columnsExpanded) {
                 if (itemsList) itemsList.style.display = 'block';
                 if (searchContainer) searchContainer.style.display = 'block';
-                if (toggleIcon) toggleIcon.textContent = '▼';
+                if (toggleIcon) {
+                    toggleIcon.textContent = 'expand_more';
+                    toggleIcon.className = 'material-icons toggle-icon';
+                }
             }
         }
         

@@ -59,13 +59,6 @@ export class UnifiedAnalysisBuilder {
             <div class="metric-script-builder">
                 <div class="metric-controls">
                     <div class="form-group">
-                        <label>Dataset:</label>
-                        <div id="metric-dataset-display" class="dataset-display">
-                            ${this.currentDataset ? this.escapeHtml(this.currentDataset.name) : '<span class="no-dataset">No dataset selected. Please select a dataset from the left pane.</span>'}
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
                         <label for="metric-name-input">Metric Name:</label>
                         <input type="text" id="metric-name-input" class="form-control" placeholder="e.g., Average Sales">
                     </div>
@@ -98,7 +91,6 @@ export class UnifiedAnalysisBuilder {
         `;
         
         this.attachMetricListeners();
-        this.updateDatasetDisplay();
         if (this.currentDataset) {
             this.updateMetricSuggestions();
         }
@@ -358,16 +350,6 @@ export class UnifiedAnalysisBuilder {
         return div.innerHTML;
     }
     
-    updateDatasetDisplay() {
-        const datasetDisplay = this.container.querySelector('#metric-dataset-display');
-        if (datasetDisplay) {
-            if (this.currentDataset) {
-                datasetDisplay.innerHTML = `<span class="dataset-name">${this.escapeHtml(this.currentDataset.name)}</span>`;
-            } else {
-                datasetDisplay.innerHTML = '<span class="no-dataset">No dataset selected. Please select a dataset from the left pane.</span>';
-            }
-        }
-    }
     
     
     formatColumnName(column) {
@@ -568,7 +550,6 @@ export class UnifiedAnalysisBuilder {
         }
         
         // Update metric builder
-        this.updateDatasetDisplay();
         this.updateMetricSuggestions();
         this.updateCreateButtonState();
     }
