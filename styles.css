@@ -3169,6 +3169,14 @@ main {
 .dataset-details-panel .scripts-section {
     flex: 0 1 auto; /* Allow shrinking but don't grow */
     min-height: 0;
+    margin-top: var(--spacing-lg);
+}
+
+.dataset-details-panel .metrics-section .items-list,
+.dataset-details-panel .metrics-section .editable-items {
+    max-height: 300px; /* Limit metrics list height */
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .metrics-header {
