@@ -24,9 +24,8 @@ export class UnifiedAnalysisBuilder {
     init() {
         this.render();
         this.initComponents();
+        this.renderMetricBuilder();
         this.attachEventListeners();
-        // Ensure metric mode is visible by default
-        this.setMode('metric');
     }
     
     render() {
@@ -89,6 +88,7 @@ export class UnifiedAnalysisBuilder {
                 </div>
                 
                 <div class="form-actions">
+                    <button id="preview-metric" class="btn btn-secondary">Preview</button>
                     <button id="create-metric" class="btn btn-primary" disabled>Create Metric</button>
                     <button id="clear-metric-form" class="btn btn-secondary">Clear</button>
                 </div>
@@ -107,6 +107,7 @@ export class UnifiedAnalysisBuilder {
     attachMetricListeners() {
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const previewBtn = this.container.querySelector('#preview-metric');
         const createBtn = this.container.querySelector('#create-metric');
         const clearBtn = this.container.querySelector('#clear-metric-form');
         
@@ -129,6 +130,9 @@ export class UnifiedAnalysisBuilder {
             }
         });
         
+        if (previewBtn) {
+            previewBtn.addEventListener('click', () => this.previewMetric());
+        }
         createBtn.addEventListener('click', () => this.createMetric());
         clearBtn.addEventListener('click', () => this.clearMetricForm());
     }
@@ -364,17 +368,67 @@ export class UnifiedAnalysisBuilder {
     
     updateCreateButtonState() {
         const createBtn = this.container.querySelector('#create-metric');
+        const previewBtn = this.container.querySelector('#preview-metric');
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
         
         if (!createBtn) return;
         
+        const hasExpression = expressionEditor && expressionEditor.value.trim() !== '';
         const isValid = 
             this.currentDataset !== null &&
             nameInput && nameInput.value.trim() !== '' &&
-            expressionEditor && expressionEditor.value.trim() !== '';
+            hasExpression;
         
         createBtn.disabled = !isValid;
+        if (previewBtn) {
+            previewBtn.disabled = !this.currentDataset || !hasExpression;
+        }
+    }
+    
+    async previewMetric() {
+        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const resultContainer = this.container.querySelector('#metric-result');
+        
+        if (!this.currentDataset) {
+            resultContainer.innerHTML = '<div class="error">Error: No dataset selected. Please select a dataset from the left pane.</div>';
+            return;
+        }
+        
+        const expression = expressionEditor.value.trim();
+        
+        if (!expression) {
+            resultContainer.innerHTML = '<div class="error">Please enter a metric expression to preview.</div>';
+            return;
+        }
+        
+        // Show loading immediately
+        resultContainer.innerHTML = '<div class="loading">Calculating preview...</div>';
+        
+        try {
+            // Get full dataset (re-execute SQL without LIMIT if available, with caching)
+            const fullDataset = await this.getFullDataset(this.currentDataset);
+            
+            // Evaluate metric script expression on full dataset
+            const value = evaluateMetricScript(expression, fullDataset);
+            
+            if (value === null || isNaN(value)) {
+                resultContainer.innerHTML = '<div class="error">Error: Could not calculate metric. Please check your expression.</div>';
+                return;
+            }
+            
+            // Show preview result
+            resultContainer.innerHTML = `
+                <div class="preview-result">
+                    <strong>Preview Result:</strong><br>
+                    <span class="metric-result-value">${this.formatValue(value)}</span>
+                    <div class="preview-note">This is a preview. Click "Create Metric" to save.</div>
+                </div>
+            `;
+            
+        } catch (error) {
+            resultContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        }
     }
     
     async createMetric() {
@@ -515,7 +569,7 @@ export class UnifiedAnalysisBuilder {
         }
     }
     
-    editMetric(metricId) {
+    editMetric(metricId, isDuplicate = false) {
         // Load metric into editor
         const metric = metricsStore.get(metricId);
         if (!metric) return;
@@ -531,7 +585,10 @@ export class UnifiedAnalysisBuilder {
         const nameInput = this.container.querySelector('#metric-name-input');
         const expressionEditor = this.container.querySelector('#metric-expression-editor');
         
-        if (nameInput) nameInput.value = metric.name || '';
+        // If duplicating, append " (Copy)" to the name
+        if (nameInput) {
+            nameInput.value = isDuplicate ? `${metric.name || ''} (Copy)` : (metric.name || '');
+        }
         
         // Reconstruct expression from metric or use stored expression
         if (metric.expression) {
