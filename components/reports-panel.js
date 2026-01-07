@@ -1614,7 +1614,8 @@ export class ReportsPanel {
         const chartConfig = {
             chart: {
                 type: chartType === 'pie' || chartType === 'donut' ? 'pie' : chartType,
-                renderTo: chartDiv,
+                renderTo: chartDiv
+            },
             title: {
                 text: config.title || viz.name || 'Chart'
             },
