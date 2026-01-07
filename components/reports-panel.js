@@ -1572,12 +1572,20 @@ export class ReportsPanel {
         const config = viz.config || {};
         const chartType = viz.type || 'bar';
         
-        // Extract chart data based on config
-        const xField = config.xAxis?.field || config.xField;
-        const yField = config.yAxis?.field || config.yField;
+        // Extract chart data based on config - support multiple config formats
+        let xField = config.xAxis?.field || config.xAxis?.column || config.xField || config.xColumn;
+        let yField = config.yAxis?.field || config.yAxis?.column || config.yField || config.yColumn;
+        
+        // If still no fields, try to use first two columns
+        if (!xField && dataset.columns.length > 0) {
+            xField = dataset.columns[0];
+        }
+        if (!yField && dataset.columns.length > 1) {
+            yField = dataset.columns[1];
+        }
         
         if (!xField || !yField) {
-            container.innerHTML = `<div class="chart-error">Chart configuration incomplete</div>`;
+            container.innerHTML = `<div class="chart-error">Chart configuration incomplete. Need at least 2 columns in dataset.</div>`;
             return;
         }
         

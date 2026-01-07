@@ -209,6 +209,101 @@ export class Modal {
     }
     
     /**
+     * Shows a select modal
+     * @param {string} message - Message to display
+     * @param {Array<Object>} options - Array of options: [{value, label}]
+     * @param {string|null} defaultValue - Default selected value
+     * @returns {Promise<string|null>} - Returns selected value if OK clicked, null if Cancel clicked
+     */
+    static select(message, options = [], defaultValue = null) {
+        return new Promise((resolve) => {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop';
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'modal-content';
+            
+            const modalHeader = document.createElement('div');
+            modalHeader.className = 'modal-header';
+            
+            const modalTitle = document.createElement('h3');
+            modalTitle.className = 'modal-title';
+            modalTitle.textContent = 'Select';
+            modalHeader.appendChild(modalTitle);
+            
+            const modalBody = document.createElement('div');
+            modalBody.className = 'modal-body';
+            
+            const modalMessage = document.createElement('p');
+            modalMessage.className = 'modal-message';
+            modalMessage.textContent = message;
+            modalBody.appendChild(modalMessage);
+            
+            const select = document.createElement('select');
+            select.className = 'modal-select';
+            select.style.width = '100%';
+            select.style.padding = '8px';
+            select.style.marginTop = '10px';
+            
+            options.forEach(option => {
+                const optionEl = document.createElement('option');
+                optionEl.value = option.value;
+                optionEl.textContent = option.label;
+                if (option.value === defaultValue) {
+                    optionEl.selected = true;
+                }
+                select.appendChild(optionEl);
+            });
+            
+            modalBody.appendChild(select);
+            
+            const modalFooter = document.createElement('div');
+            modalFooter.className = 'modal-footer';
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-secondary modal-btn-secondary';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => {
+                this.closeModal(backdrop);
+                resolve(null);
+            });
+            modalFooter.appendChild(cancelBtn);
+            
+            const okBtn = document.createElement('button');
+            okBtn.className = 'btn btn-primary modal-btn-primary';
+            okBtn.textContent = 'OK';
+            okBtn.addEventListener('click', () => {
+                const value = select.value;
+                this.closeModal(backdrop);
+                resolve(value);
+            });
+            modalFooter.appendChild(okBtn);
+            
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(modalBody);
+            modalContent.appendChild(modalFooter);
+            modal.appendChild(modalContent);
+            backdrop.appendChild(modal);
+            
+            // Close on backdrop click
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) {
+                    this.closeModal(backdrop);
+                    resolve(null);
+                }
+            });
+            
+            document.body.appendChild(backdrop);
+            setTimeout(() => {
+                select.focus();
+            }, 100);
+        });
+    }
+    
+    /**
      * Shows a custom modal with HTML content
      * @param {Object} options - Modal options
      * @param {string} options.title - Modal title
