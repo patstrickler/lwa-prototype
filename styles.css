@@ -1447,6 +1447,115 @@ main {
     background-color: var(--color-bg);
 }
 
+.preview-custom-texts {
+    margin-bottom: var(--spacing-xl);
+}
+
+.custom-text-block {
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.preview-custom-buttons {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+}
+
+.custom-action-button {
+    cursor: pointer;
+}
+
+.custom-text-item,
+.custom-button-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.custom-text-content,
+.custom-button-content {
+    flex: 1;
+    font-size: var(--font-size-sm);
+}
+
+.custom-text-actions,
+.custom-button-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.visualization-wrapper {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+
+.visualization-wrapper h4 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.viz-container {
+    min-height: 300px;
+    width: 100%;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-md);
+}
+
+.report-table th,
+.report-table td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-border);
+    text-align: left;
+}
+
+.report-table th {
+    background-color: var(--color-bg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.report-table tbody tr:hover {
+    background-color: var(--color-bg);
+}
+
+.table-cell-clickable {
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.table-cell-clickable:hover {
+    background-color: var(--color-primary-light) !important;
+}
+
+.chart-error {
+    padding: var(--spacing-lg);
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: var(--radius-md);
+    color: #856404;
+    text-align: center;
+}
+
 .empty-state {
     text-align: center;
     padding: var(--spacing-4xl);

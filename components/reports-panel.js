@@ -783,8 +783,13 @@ export class ReportsPanel {
     }
     
     renderVisualizations(visualizations, reportId) {
-        // Apply filters to get filtered datasets
+        if (visualizations.length === 0) {
+            return '<p class="empty-state">No visualizations in this report.</p>';
+        }
+        
+        // Combine active filters and dashboard filters if they exist
         const activeFilters = this.activeFilters[reportId] || {};
+        const allFilters = this.dashboardFilters ? { ...activeFilters, ...this.dashboardFilters } : activeFilters;
         
         return visualizations.map(viz => {
             // Get the dataset for this visualization
@@ -793,7 +798,7 @@ export class ReportsPanel {
             
             if (dataset) {
                 // Apply filters to dataset
-                filteredData = this.applyFiltersToDataset(dataset, activeFilters, reportId);
+                filteredData = this.applyFiltersToDataset(dataset, allFilters, reportId);
             }
             
             // Render visualization (simplified - in production would use actual chart rendering)
@@ -940,8 +945,11 @@ export class ReportsPanel {
             }
         });
         
-        // Store active filters
-        this.activeFilters[reportId] = activeFilters;
+        // Store active filters (combine with dashboard filters if they exist)
+        this.activeFilters[reportId] = { ...(this.activeFilters[reportId] || {}), ...activeFilters };
+        if (this.dashboardFilters) {
+            this.dashboardFilters = { ...this.dashboardFilters, ...activeFilters };
+        }
         
         // Re-render visualizations with filters applied
         const report = reportsStore.get(reportId);
@@ -960,6 +968,9 @@ export class ReportsPanel {
     clearFilters(reportId) {
         // Clear all filter values
         this.activeFilters[reportId] = {};
+        if (this.dashboardFilters) {
+            this.dashboardFilters = {};
+        }
         
         // Reset filter inputs
         const previewContainer = this.container.querySelector('#report-preview-container');
@@ -1357,56 +1368,6 @@ export class ReportsPanel {
         }
     }
     
-    applyFilters(reportId) {
-        const report = reportsStore.get(reportId);
-        if (!report) return;
-        
-        const filterInputs = this.container.querySelectorAll(`.filter-input`);
-        const newFilters = {};
-        
-        filterInputs.forEach(input => {
-            const filterKey = input.getAttribute('data-filter-key');
-            const value = input.value.trim();
-            if (value) {
-                newFilters[filterKey] = value;
-            }
-        });
-        
-        this.activeFilters[reportId] = newFilters;
-        this.dashboardFilters = { ...this.dashboardFilters, ...newFilters };
-        
-        // Re-render visualizations with filters
-        this.renderPreview(report);
-    }
-    
-    clearFilters(reportId) {
-        this.activeFilters[reportId] = {};
-        this.dashboardFilters = {};
-        
-        const report = reportsStore.get(reportId);
-        if (report) {
-            this.renderPreview(report);
-        }
-    }
-    
-    renderVisualizations(visualizations, reportId) {
-        if (visualizations.length === 0) {
-            return '<p class="empty-state">No visualizations in this report.</p>';
-        }
-        
-        // Combine active filters and dashboard filters
-        const allFilters = { ...(this.activeFilters[reportId] || {}), ...this.dashboardFilters };
-        
-        return visualizations.map((viz, index) => {
-            const vizContainerId = `viz-container-${viz.id}-${index}`;
-            return `
-                <div class="visualization-wrapper" data-viz-id="${viz.id}">
-                    <h4>${this.escapeHtml(viz.name)}</h4>
-                    <div id="${vizContainerId}" class="viz-container" data-viz-id="${viz.id}"></div>
-                </div>
-            `;
-        }).join('');
-    }
     
     async executeButtonAction(button, reportId) {
         if (button.actionType === 'lims') {
@@ -1464,12 +1425,28 @@ export class ReportsPanel {
         // filterData should contain: { field, value, datasetId }
         // This will filter all visualizations in the current report
         
-        const report = this.getCurrentReportFromPreview();
+        const previewContainer = this.container.querySelector('#report-preview-container');
+        if (!previewContainer || previewContainer.style.display === 'none') {
+            return;
+        }
+        
+        // Try to find the current report ID from the preview
+        const reportTitle = previewContainer.querySelector('.preview-header h2');
+        if (!reportTitle) return;
+        
+        const allReports = reportsStore.getAll();
+        const report = allReports.find(r => r.title === reportTitle.textContent);
         if (!report) return;
         
         // Add filter to dashboard filters
         const filterKey = `${filterData.datasetId}_${filterData.field}`;
         this.dashboardFilters[filterKey] = filterData.value;
+        
+        // Also update active filters for this report
+        if (!this.activeFilters[report.id]) {
+            this.activeFilters[report.id] = {};
+        }
+        this.activeFilters[report.id][filterKey] = filterData.value;
         
         // Re-render preview with new filters
         this.renderPreview(report);
@@ -1501,6 +1478,9 @@ export class ReportsPanel {
             const containerId = `viz-container-${viz.id}`;
             const container = previewContainer.querySelector(`#${containerId}`);
             if (!container) continue;
+            
+            // Clear container before rendering
+            container.innerHTML = '';
             
             try {
                 // Get dataset
@@ -1616,20 +1596,17 @@ export class ReportsPanel {
             rowIndex: rows.indexOf(row)
         }));
         
+        // Create a unique container div for Highcharts
+        const chartDiv = document.createElement('div');
+        chartDiv.style.width = '100%';
+        chartDiv.style.height = '400px';
+        container.appendChild(chartDiv);
+        
         // Create chart configuration
         const chartConfig = {
             chart: {
                 type: chartType === 'pie' || chartType === 'donut' ? 'pie' : chartType,
-                renderTo: container,
-                events: {
-                    click: (e) => {
-                        // Handle chart click
-                        if (e.point) {
-                            this.handleChartPointClick(e.point, xField, yField, dataset.id, reportId);
-                        }
-                    }
-                }
-            },
+                renderTo: chartDiv,
             title: {
                 text: config.title || viz.name || 'Chart'
             },
@@ -1642,17 +1619,18 @@ export class ReportsPanel {
             } : undefined,
             series: chartType === 'pie' || chartType === 'donut' ? [{
                 name: config.yAxis?.label || yField,
-                data: chartData.map(d => ({ name: d.name, y: d.y }))
+                data: chartData.map(d => ({ 
+                    name: d.name, 
+                    y: d.y,
+                    customData: { xField, yField, datasetId: dataset.id, reportId }
+                }))
             }] : [{
                 name: config.yAxis?.label || yField,
-                data: chartData.map(d => d.y),
-                point: {
-                    events: {
-                        click: (e) => {
-                            this.handleChartPointClick(e.point, xField, yField, dataset.id, reportId);
-                        }
-                    }
-                }
+                data: chartData.map((d, idx) => ({
+                    y: d.y,
+                    name: d.name,
+                    customData: { xField, yField, datasetId: dataset.id, reportId, index: idx }
+                }))
             }],
             plotOptions: {
                 series: {
@@ -1660,7 +1638,19 @@ export class ReportsPanel {
                     point: {
                         events: {
                             click: (e) => {
-                                this.handleChartPointClick(e.point, xField, yField, dataset.id, reportId);
+                                const point = e.point || e.target;
+                                this.handleChartPointClick(point, xField, yField, dataset.id, reportId);
+                            }
+                        }
+                    }
+                },
+                [chartType]: {
+                    cursor: 'pointer',
+                    point: {
+                        events: {
+                            click: (e) => {
+                                const point = e.point || e.target;
+                                this.handleChartPointClick(point, xField, yField, dataset.id, reportId);
                             }
                         }
                     }
@@ -1670,6 +1660,14 @@ export class ReportsPanel {
                     cursor: 'pointer',
                     dataLabels: {
                         enabled: true
+                    },
+                    point: {
+                        events: {
+                            click: (e) => {
+                                const point = e.point || e.target;
+                                this.handleChartPointClick(point, xField, yField, dataset.id, reportId);
+                            }
+                        }
                     }
                 }
             },
@@ -1698,7 +1696,15 @@ export class ReportsPanel {
         // Extract clicked data point information
         let filterData = {};
         
-        if (point.category !== undefined) {
+        // Try to get custom data first
+        if (point.options && point.options.customData) {
+            const customData = point.options.customData;
+            filterData = {
+                field: customData.xField || xField,
+                value: point.name || point.category || String(point.y || ''),
+                datasetId: customData.datasetId || datasetId
+            };
+        } else if (point.category !== undefined) {
             // For bar/line charts
             filterData = {
                 field: xField,

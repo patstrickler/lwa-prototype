@@ -3,9 +3,9 @@ import { QueryBuilder } from './components/query-builder.js';
 import { AnalysisPanel } from './components/analysis-panel.js';
 import { VisualizationPanel } from './components/visualization-panel.js';
 import { ReportsPanel } from './components/reports-panel.js';
+import { AdminPanel } from './components/admin-panel.js';
 import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
-import { userContext } from './utils/user-context.js';
 
 // Page routing/navigation functionality
 function initNavigation() {
@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
     const reportsPanel = new ReportsPanel('#reports-panel');
+    const adminPanel = new AdminPanel('#admin-panel');
     
     // Table Browser → Query Builder
     tableBrowser.onTableClick((tableName) => {
