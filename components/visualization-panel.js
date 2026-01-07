@@ -1515,6 +1515,11 @@ export class VisualizationPanel {
             chartContainer.className = 'chart-wrapper';
             
             const chartsContainer = this.container.querySelector('#charts-container');
+            // Remove placeholder if it exists
+            const placeholder = chartsContainer.querySelector('.preview-placeholder');
+            if (placeholder) {
+                placeholder.remove();
+            }
             chartsContainer.appendChild(chartContainer);
             
             const stylingOptions = this.getStylingOptions();
