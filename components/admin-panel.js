@@ -1,7 +1,6 @@
 // Admin Panel Component
-// Allows admins to manage platform components, database connections, users/groups, access control, and view health metrics
+// Allows admins to manage database connections, users/groups, access control, and view health metrics
 
-import { platformComponentsStore } from '../data/platform-components.js';
 import { databaseConnectionsStore } from '../data/database-connections.js';
 import { usersStore } from '../data/users.js';
 import { userGroupsStore } from '../data/user-groups.js';
@@ -12,7 +11,7 @@ import { Modal } from '../utils/modal.js';
 export class AdminPanel {
     constructor(containerSelector) {
         this.container = document.querySelector(containerSelector);
-        this.currentTab = 'components';
+        this.currentTab = 'database';
         this.init();
     }
     
@@ -30,21 +29,13 @@ export class AdminPanel {
                 </div>
                 
                 <div class="admin-tabs">
-                    <button type="button" class="admin-tab active" data-tab="components">
-                        <span class="tab-icon">📦</span>
-                        <span>Components</span>
-                    </button>
-                    <button type="button" class="admin-tab" data-tab="database">
+                    <button type="button" class="admin-tab active" data-tab="database">
                         <span class="tab-icon">🗄️</span>
                         <span>Database</span>
                     </button>
-                    <button type="button" class="admin-tab" data-tab="users">
+                    <button type="button" class="admin-tab" data-tab="users-access">
                         <span class="tab-icon">👥</span>
-                        <span>Users & Groups</span>
-                    </button>
-                    <button type="button" class="admin-tab" data-tab="access">
-                        <span class="tab-icon">🔐</span>
-                        <span>Access Control</span>
+                        <span>Users & Access</span>
                     </button>
                     <button type="button" class="admin-tab" data-tab="health">
                         <span class="tab-icon">📊</span>
@@ -53,10 +44,8 @@ export class AdminPanel {
                 </div>
                 
                 <div class="admin-content">
-                    <div class="tab-content active" id="components-tab"></div>
-                    <div class="tab-content" id="database-tab"></div>
-                    <div class="tab-content" id="users-tab"></div>
-                    <div class="tab-content" id="access-tab"></div>
+                    <div class="tab-content active" id="database-tab"></div>
+                    <div class="tab-content" id="users-access-tab"></div>
                     <div class="tab-content" id="health-tab"></div>
                 </div>
             </div>
@@ -98,141 +87,15 @@ export class AdminPanel {
         
         // Load tab content
         switch (tabName) {
-            case 'components':
-                this.renderComponentsTab();
-                break;
             case 'database':
                 this.renderDatabaseTab();
                 break;
-            case 'users':
-                this.renderUsersTab();
-                break;
-            case 'access':
-                this.renderAccessTab();
+            case 'users-access':
+                this.renderUsersAccessTab();
                 break;
             case 'health':
                 this.renderHealthTab();
                 break;
-        }
-    }
-    
-    // ===== COMPONENTS TAB =====
-    renderComponentsTab() {
-        const tabContent = this.container.querySelector('#components-tab');
-        const components = platformComponentsStore.getAll();
-        
-        tabContent.innerHTML = `
-            <div class="admin-section">
-                <div class="section-header">
-                    <h3>Platform Components</h3>
-                    <button type="button" class="btn btn-primary" id="install-component-btn">Install Component</button>
-                </div>
-                
-                <div class="components-list" id="components-list">
-                    ${components.length === 0 
-                        ? '<p class="empty-state">No components installed. Click "Install Component" to add one.</p>'
-                        : components.map(comp => this.renderComponentCard(comp)).join('')
-                    }
-                </div>
-            </div>
-        `;
-        
-        const installBtn = tabContent.querySelector('#install-component-btn');
-        if (installBtn) {
-            installBtn.addEventListener('click', () => this.showInstallComponentDialog());
-        }
-        
-        // Attach event listeners for component actions
-        components.forEach(comp => {
-            const card = tabContent.querySelector(`[data-component-id="${comp.id}"]`);
-            if (card) {
-                const toggleBtn = card.querySelector('.toggle-component-btn');
-                const deleteBtn = card.querySelector('.delete-component-btn');
-                
-                if (toggleBtn) {
-                    toggleBtn.addEventListener('click', () => this.toggleComponent(comp.id));
-                }
-                if (deleteBtn) {
-                    deleteBtn.addEventListener('click', () => this.deleteComponent(comp.id));
-                }
-            }
-        });
-    }
-    
-    renderComponentCard(component) {
-        const statusClass = component.status === 'active' ? 'status-active' : 'status-inactive';
-        const statusText = component.enabled ? 'Enabled' : 'Disabled';
-        const installedDate = new Date(component.installedAt).toLocaleDateString();
-        
-        return `
-            <div class="component-card" data-component-id="${component.id}">
-                <div class="card-header">
-                    <div>
-                        <h4>${this.escapeHtml(component.name)}</h4>
-                        <span class="component-version">v${this.escapeHtml(component.version)}</span>
-                    </div>
-                    <span class="status-badge ${statusClass}">${statusText}</span>
-                </div>
-                <div class="card-body">
-                    <div class="card-meta">
-                        <span class="meta-item"><strong>Type:</strong> ${this.escapeHtml(component.type)}</span>
-                        <span class="meta-item"><strong>Installed:</strong> ${installedDate}</span>
-                    </div>
-                </div>
-                <div class="card-actions">
-                    <button type="button" class="btn btn-sm ${component.enabled ? 'btn-secondary' : 'btn-primary'} toggle-component-btn">
-                        ${component.enabled ? 'Disable' : 'Enable'}
-                    </button>
-                    <button type="button" class="btn btn-sm btn-danger delete-component-btn">Uninstall</button>
-                </div>
-            </div>
-        `;
-    }
-    
-    async showInstallComponentDialog() {
-        const name = await Modal.prompt('Component Name:', '');
-        if (!name || !name.trim()) return;
-        
-        const version = await Modal.prompt('Component Version:', '1.0.0');
-        if (!version || !version.trim()) return;
-        
-        const typeOptions = ['module', 'plugin', 'integration', 'extension'];
-        const typeInput = await Modal.prompt('Component Type (module/plugin/integration/extension):', 'module');
-        if (!typeInput || !typeInput.trim()) return;
-        
-        const type = typeOptions.includes(typeInput.toLowerCase()) ? typeInput.toLowerCase() : 'module';
-        
-        try {
-            platformComponentsStore.install(name.trim(), version.trim(), type);
-            await Modal.alert('Component installed successfully!');
-            this.renderComponentsTab();
-        } catch (error) {
-            await Modal.alert(`Error installing component: ${error.message}`);
-        }
-    }
-    
-    async toggleComponent(id) {
-        const component = platformComponentsStore.get(id);
-        if (!component) return;
-        
-        try {
-            platformComponentsStore.setEnabled(id, !component.enabled);
-            this.renderComponentsTab();
-        } catch (error) {
-            await Modal.alert(`Error toggling component: ${error.message}`);
-        }
-    }
-    
-    async deleteComponent(id) {
-        const confirmed = await Modal.confirm('Are you sure you want to uninstall this component?');
-        if (!confirmed) return;
-        
-        try {
-            platformComponentsStore.delete(id);
-            await Modal.alert('Component uninstalled successfully!');
-            this.renderComponentsTab();
-        } catch (error) {
-            await Modal.alert(`Error uninstalling component: ${error.message}`);
         }
     }
     
@@ -318,39 +181,117 @@ export class AdminPanel {
         `;
     }
     
-    async showAddConnectionDialog() {
-        // In a real application, this would be a multi-step form
-        const name = await Modal.prompt('Connection Name:', '');
-        if (!name || !name.trim()) return;
+    showAddConnectionDialog(connectionId = null) {
+        const connection = connectionId ? databaseConnectionsStore.get(connectionId) : null;
+        const isEdit = !!connection;
         
-        const host = await Modal.prompt('Database Host:', 'localhost');
-        if (!host || !host.trim()) return;
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
         
-        const port = await Modal.prompt('Database Port:', '5432');
-        if (!port) return;
+        backdrop.innerHTML = `
+            <div class="modal" style="max-width: 600px;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">${isEdit ? 'Edit' : 'Add'} Database Connection</h3>
+                        <button type="button" class="modal-close" id="close-db-dialog">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="db-connection-form">
+                            <div class="form-group">
+                                <label for="db-name">Connection Name *</label>
+                                <input type="text" id="db-name" class="form-control" value="${connection ? this.escapeHtml(connection.name) : ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="db-type">Database Type *</label>
+                                <select id="db-type" class="form-control" required>
+                                    <option value="postgresql" ${connection && connection.type === 'postgresql' ? 'selected' : ''}>PostgreSQL</option>
+                                    <option value="mysql" ${connection && connection.type === 'mysql' ? 'selected' : ''}>MySQL</option>
+                                    <option value="mssql" ${connection && connection.type === 'mssql' ? 'selected' : ''}>Microsoft SQL Server</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="db-host">Host *</label>
+                                <input type="text" id="db-host" class="form-control" value="${connection ? this.escapeHtml(connection.host) : 'localhost'}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="db-port">Port *</label>
+                                <input type="number" id="db-port" class="form-control" value="${connection ? connection.port : '5432'}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="db-database">Database Name *</label>
+                                <input type="text" id="db-database" class="form-control" value="${connection ? this.escapeHtml(connection.database) : ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="db-username">Username</label>
+                                <input type="text" id="db-username" class="form-control" value="${connection ? this.escapeHtml(connection.username || '') : ''}">
+                            </div>
+                            <div class="form-group">
+                                <label for="db-password">Password</label>
+                                <input type="password" id="db-password" class="form-control" value="" placeholder="${isEdit ? 'Leave blank to keep current password' : ''}">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="cancel-db-dialog">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="save-db-dialog">${isEdit ? 'Update' : 'Create'} Connection</button>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        const database = await Modal.prompt('Database Name:', '');
-        if (!database || !database.trim()) return;
+        document.body.appendChild(backdrop);
         
-        const username = await Modal.prompt('Username:', '');
-        const password = await Modal.prompt('Password:', '');
-        const type = await Modal.prompt('Database Type (postgresql/mysql/mssql):', 'postgresql');
+        const closeDialog = () => {
+            backdrop.classList.add('modal-closing');
+            setTimeout(() => backdrop.remove(), 200);
+        };
         
-        try {
-            databaseConnectionsStore.create(
-                name.trim(),
-                host.trim(),
-                parseInt(port, 10),
-                database.trim(),
-                username || '',
-                password || '',
-                type || 'postgresql'
-            );
-            await Modal.alert('Database connection created successfully!');
-            this.renderDatabaseTab();
-        } catch (error) {
-            await Modal.alert(`Error creating connection: ${error.message}`);
-        }
+        backdrop.querySelector('#close-db-dialog').addEventListener('click', closeDialog);
+        backdrop.querySelector('#cancel-db-dialog').addEventListener('click', closeDialog);
+        backdrop.querySelector('#save-db-dialog').addEventListener('click', async () => {
+            const form = backdrop.querySelector('#db-connection-form');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            const name = backdrop.querySelector('#db-name').value.trim();
+            const host = backdrop.querySelector('#db-host').value.trim();
+            const port = parseInt(backdrop.querySelector('#db-port').value, 10);
+            const database = backdrop.querySelector('#db-database').value.trim();
+            const username = backdrop.querySelector('#db-username').value.trim();
+            const password = backdrop.querySelector('#db-password').value;
+            const type = backdrop.querySelector('#db-type').value;
+            
+            try {
+                if (isEdit) {
+                    databaseConnectionsStore.update(connectionId, {
+                        name,
+                        host,
+                        port,
+                        database,
+                        username,
+                        password: password || connection.password, // Keep existing password if not changed
+                        type
+                    });
+                    await Modal.alert('Database connection updated successfully!');
+                } else {
+                    databaseConnectionsStore.create(name, host, port, database, username, password, type);
+                    await Modal.alert('Database connection created successfully!');
+                }
+                closeDialog();
+                this.renderDatabaseTab();
+            } catch (error) {
+                await Modal.alert(`Error ${isEdit ? 'updating' : 'creating'} connection: ${error.message}`);
+            }
+        });
+        
+        // Close on backdrop click
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) {
+                closeDialog();
+            }
+        });
     }
     
     async testConnection(id) {
@@ -372,9 +313,8 @@ export class AdminPanel {
         }
     }
     
-    async editConnection(id) {
-        // Simplified edit - in production would show a proper form
-        await Modal.alert('Edit functionality would open a detailed form in production.');
+    editConnection(id) {
+        this.showAddConnectionDialog(id);
     }
     
     async deleteConnection(id) {

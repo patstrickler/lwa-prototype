@@ -53,6 +53,10 @@ export class ReportsPanel {
                 <div class="report-preview-container" id="report-preview-container" style="display: none;">
                     <!-- Report preview will be populated here -->
                 </div>
+                
+                <div class="report-view-mode" id="report-view-mode" style="display: none;">
+                    <!-- Report view mode will be populated here -->
+                </div>
             </div>
         `;
         
@@ -99,6 +103,7 @@ export class ReportsPanel {
                 const deleteBtn = card.querySelector('.delete-report-btn');
                 const previewBtn = card.querySelector('.preview-report-btn');
                 const viewBtn = card.querySelector('.view-report-btn');
+                const viewModeBtn = card.querySelector('.view-mode-btn');
                 
                 if (editBtn) {
                     editBtn.addEventListener('click', () => this.editReport(report.id));
@@ -114,6 +119,9 @@ export class ReportsPanel {
                 }
                 if (viewBtn) {
                     viewBtn.addEventListener('click', () => this.previewReport(report.id));
+                }
+                if (viewModeBtn) {
+                    viewModeBtn.addEventListener('click', () => this.showViewMode(report.id));
                 }
             }
         });
@@ -143,7 +151,8 @@ export class ReportsPanel {
                     ${this.isViewer 
                         ? '<button type="button" class="btn btn-sm btn-primary view-report-btn">View</button>'
                         : `
-                            <button type="button" class="btn btn-sm btn-primary preview-report-btn">Preview</button>
+                            <button type="button" class="btn btn-sm btn-primary view-mode-btn">View Mode</button>
+                            <button type="button" class="btn btn-sm btn-secondary preview-report-btn">Preview</button>
                             <button type="button" class="btn btn-sm btn-secondary edit-report-btn">Edit</button>
                             <button type="button" class="btn btn-sm btn-secondary duplicate-report-btn">Duplicate</button>
                             <button type="button" class="btn btn-sm btn-danger delete-report-btn">Delete</button>
@@ -594,12 +603,252 @@ export class ReportsPanel {
         const previewContainer = this.container.querySelector('#report-preview-container');
         const listContainer = this.container.querySelector('#reports-list-container');
         const editorContainer = this.container.querySelector('#report-editor-container');
+        const viewModeContainer = this.container.querySelector('#report-view-mode');
         
         listContainer.style.display = 'none';
         editorContainer.style.display = 'none';
+        viewModeContainer.style.display = 'none';
         previewContainer.style.display = 'block';
         
         this.renderPreview(report);
+    }
+    
+    async showViewMode(reportId) {
+        const report = reportsStore.get(reportId);
+        if (!report) {
+            await Modal.alert('Report not found.');
+            return;
+        }
+        
+        // Hide all other containers
+        const listContainer = this.container.querySelector('#reports-list-container');
+        const editorContainer = this.container.querySelector('#report-editor-container');
+        const previewContainer = this.container.querySelector('#report-preview-container');
+        const viewModeContainer = this.container.querySelector('#report-view-mode');
+        
+        listContainer.style.display = 'none';
+        editorContainer.style.display = 'none';
+        previewContainer.style.display = 'none';
+        viewModeContainer.style.display = 'block';
+        
+        // Make view mode full screen
+        viewModeContainer.classList.add('view-mode-active');
+        
+        this.renderViewMode(report);
+    }
+    
+    renderViewMode(report) {
+        const viewModeContainer = this.container.querySelector('#report-view-mode');
+        const visualizations = report.visualizationIds
+            .map(id => visualizationsStore.get(id))
+            .filter(viz => viz !== undefined);
+        
+        // Get datasets for filter options
+        const datasets = datasetStore.getAll();
+        
+        // Initialize active filters if not set
+        if (!this.activeFilters[report.id]) {
+            this.activeFilters[report.id] = {};
+        }
+        
+        viewModeContainer.innerHTML = `
+            <div class="view-mode-wrapper">
+                <div class="view-mode-header">
+                    <div class="view-mode-title">
+                        <h1>${this.escapeHtml(report.title)}</h1>
+                        <p class="view-mode-subtitle">Preview of how this report appears to viewers</p>
+                    </div>
+                    <div class="view-mode-actions">
+                        <button type="button" class="btn btn-sm btn-secondary" id="exit-view-mode-btn" title="Exit View Mode (ESC)">
+                            <span class="material-icons">close</span> Exit View Mode
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="view-mode-content">
+                    ${(report.customTexts && report.customTexts.length > 0) ? `
+                        <div class="view-mode-custom-texts">
+                            ${report.customTexts.map(textItem => `
+                                <div class="view-mode-text-block">${this.escapeHtml(textItem.text)}</div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${(report.customButtons && report.customButtons.length > 0) ? `
+                        <div class="view-mode-custom-buttons">
+                            ${report.customButtons.map((button, index) => `
+                                <button type="button" class="btn btn-primary view-mode-action-button" 
+                                        data-button-index="${index}" 
+                                        data-report-id="${report.id}">
+                                    ${this.escapeHtml(button.label)}
+                                </button>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${report.filters.length > 0 ? `
+                        <div class="view-mode-filters">
+                            <h3>Filters</h3>
+                            <div class="filters-controls">
+                                ${this.renderFilterControls(report.filters, datasets, report.id)}
+                            </div>
+                            <div class="filter-actions">
+                                <button type="button" class="btn btn-primary" id="view-mode-apply-filters-btn">Apply Filters</button>
+                                <button type="button" class="btn btn-secondary" id="view-mode-clear-filters-btn">Clear Filters</button>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="view-mode-visualizations" id="view-mode-visualizations">
+                        ${visualizations.length === 0 
+                            ? '<div class="empty-state"><p>No visualizations in this report.</p></div>'
+                            : this.renderVisualizations(visualizations, report.id)
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Attach event listeners
+        const exitBtn = viewModeContainer.querySelector('#exit-view-mode-btn');
+        const applyFiltersBtn = viewModeContainer.querySelector('#view-mode-apply-filters-btn');
+        const clearFiltersBtn = viewModeContainer.querySelector('#view-mode-clear-filters-btn');
+        
+        if (exitBtn) {
+            exitBtn.addEventListener('click', () => this.exitViewMode());
+        }
+        
+        // Add ESC key listener to exit view mode
+        const escHandler = (e) => {
+            if (e.key === 'Escape' && viewModeContainer.style.display !== 'none') {
+                this.exitViewMode();
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        this.viewModeEscHandler = escHandler;
+        
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', () => this.applyFiltersInViewMode(report.id));
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => this.clearFiltersInViewMode(report.id));
+        }
+        
+        // Attach custom button click handlers
+        viewModeContainer.querySelectorAll('.view-mode-action-button').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const buttonIndex = parseInt(e.target.getAttribute('data-button-index'));
+                const reportId = e.target.getAttribute('data-report-id');
+                const report = reportsStore.get(reportId);
+                if (report && report.customButtons && report.customButtons[buttonIndex]) {
+                    await this.executeButtonAction(report.customButtons[buttonIndex], reportId);
+                }
+            });
+        });
+        
+        // Render visualizations after DOM is ready
+        setTimeout(() => {
+            this.renderVisualizationCharts(visualizations, report.id, '#view-mode-visualizations');
+        }, 100);
+    }
+    
+    applyFiltersInViewMode(reportId) {
+        const viewModeContainer = this.container.querySelector('#report-view-mode');
+        if (!viewModeContainer) return;
+        
+        // Collect filter values from inputs
+        const filterInputs = viewModeContainer.querySelectorAll('.filter-input');
+        const activeFilters = {};
+        
+        filterInputs.forEach(input => {
+            const filterKey = input.getAttribute('data-filter-key');
+            const value = input.value.trim();
+            if (filterKey) {
+                if (value) {
+                    activeFilters[filterKey] = value;
+                } else {
+                    delete activeFilters[filterKey];
+                }
+            }
+        });
+        
+        // Store active filters (combine with dashboard filters if they exist)
+        this.activeFilters[reportId] = { ...(this.activeFilters[reportId] || {}), ...activeFilters };
+        if (this.dashboardFilters) {
+            this.dashboardFilters = { ...this.dashboardFilters, ...activeFilters };
+        }
+        
+        // Re-render visualizations with filters applied
+        const report = reportsStore.get(reportId);
+        if (report) {
+            const visualizations = report.visualizationIds
+                .map(id => visualizationsStore.get(id))
+                .filter(viz => viz !== undefined);
+            
+            const visualizationsContainer = viewModeContainer.querySelector('#view-mode-visualizations');
+            if (visualizationsContainer) {
+                visualizationsContainer.innerHTML = this.renderVisualizations(visualizations, reportId);
+                // Re-render charts
+                setTimeout(() => {
+                    this.renderVisualizationCharts(visualizations, reportId, '#view-mode-visualizations');
+                }, 100);
+            }
+        }
+    }
+    
+    clearFiltersInViewMode(reportId) {
+        // Clear all filter values
+        this.activeFilters[reportId] = {};
+        if (this.dashboardFilters) {
+            this.dashboardFilters = {};
+        }
+        
+        // Reset filter inputs
+        const viewModeContainer = this.container.querySelector('#report-view-mode');
+        if (viewModeContainer) {
+            const filterInputs = viewModeContainer.querySelectorAll('.filter-input');
+            filterInputs.forEach(input => {
+                input.value = '';
+            });
+        }
+        
+        // Re-render visualizations without filters
+        const report = reportsStore.get(reportId);
+        if (report) {
+            const visualizations = report.visualizationIds
+                .map(id => visualizationsStore.get(id))
+                .filter(viz => viz !== undefined);
+            
+            const visualizationsContainer = viewModeContainer.querySelector('#view-mode-visualizations');
+            if (visualizationsContainer) {
+                visualizationsContainer.innerHTML = this.renderVisualizations(visualizations, reportId);
+                // Re-render charts
+                setTimeout(() => {
+                    this.renderVisualizationCharts(visualizations, reportId, '#view-mode-visualizations');
+                }, 100);
+            }
+        }
+    }
+    
+    exitViewMode() {
+        const viewModeContainer = this.container.querySelector('#report-view-mode');
+        const listContainer = this.container.querySelector('#reports-list-container');
+        
+        if (viewModeContainer) {
+            viewModeContainer.style.display = 'none';
+            viewModeContainer.classList.remove('view-mode-active');
+        }
+        
+        if (listContainer) {
+            listContainer.style.display = 'block';
+        }
+        
+        // Remove ESC key listener
+        if (this.viewModeEscHandler) {
+            document.removeEventListener('keydown', this.viewModeEscHandler);
+            this.viewModeEscHandler = null;
+        }
     }
     
     renderPreview(report) {

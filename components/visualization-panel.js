@@ -89,7 +89,7 @@ export class VisualizationPanel {
                     <div class="styling-options">
                         <button type="button" class="styling-toggle" id="styling-toggle">
                             <span>Chart Styling Options</span>
-                            <span class="material-icons toggle-icon">expand_more</span>
+                            <span class="toggle-icon">▼</span>
                         </button>
                         <div class="styling-panel" id="styling-panel" style="display: none;">
                             <div class="styling-form">
@@ -310,7 +310,8 @@ export class VisualizationPanel {
             icon.textContent = '▲';
         } else {
             panel.style.display = 'none';
-            icon.textContent = '▼';
+            icon.textContent = 'expand_more';
+            icon.className = 'material-icons toggle-icon';
         }
     }
     
@@ -368,8 +369,8 @@ export class VisualizationPanel {
             // Table: Multiple fields
             html = `
                 <div class="form-group">
-                    <label>Table Fields:</label>
-                    <div id="table-fields-list" class="table-fields-list">
+                    <label for="table-fields-list">Table Fields:</label>
+                    <div id="table-fields-list" class="table-fields-list" role="group" aria-label="Table fields">
                         ${this.tableFields.length > 0 ? this.tableFields.map((field, idx) => `
                             <div class="table-field-item">
                                 <div class="axis-selection-display droppable-axis" data-field-index="${idx}" draggable="false">
@@ -389,8 +390,8 @@ export class VisualizationPanel {
             // Scorecard: Y only
             html = `
                 <div class="form-group">
-                    <label>Value:</label>
-                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false">
+                    <label for="y-axis-display">Value:</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="Value selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -403,8 +404,8 @@ export class VisualizationPanel {
             const isPieOrDonut = chartType === 'pie' || chartType === 'donut';
             html = `
                 <div class="form-group">
-                    <label>${isPieOrDonut ? 'Category Field (X):' : 'X Axis:'}</label>
-                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false">
+                    <label for="x-axis-display">${isPieOrDonut ? 'Category Field (X):' : 'X Axis:'}</label>
+                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false" role="button" tabindex="0" aria-label="${isPieOrDonut ? 'Category Field' : 'X Axis'} selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -412,8 +413,8 @@ export class VisualizationPanel {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>${isPieOrDonut ? 'Value Field (Y - Aggregated):' : 'Y Axis:'}</label>
-                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false">
+                    <label for="y-axis-display">${isPieOrDonut ? 'Value Field (Y - Aggregated):' : 'Y Axis:'}</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="${isPieOrDonut ? 'Value Field' : 'Y Axis'} selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -492,7 +493,7 @@ export class VisualizationPanel {
             if (metric) {
                 return `
                     <div class="selected-item metric-selected">
-                        <span class="material-icons item-icon">trending_up</span>
+                        <span class="item-icon">📈</span>
                         <div class="item-info">
                             <span class="item-name">${this.escapeHtml(metric.name)}</span>
                             <span class="item-value">${this.formatMetricValue(metric.value)}</span>
@@ -654,7 +655,7 @@ export class VisualizationPanel {
                                  data-type="metric" 
                                  data-value="${metric.id}"
                                  data-dataset="${dataset.id}">
-                                <span class="material-icons item-icon">trending_up</span>
+                                <span class="item-icon">📈</span>
                                 <div class="item-info">
                                     <span class="item-name">${this.escapeHtml(metric.name)}</span>
                                     <span class="item-value">${this.formatMetricValue(metric.value)}</span>
@@ -802,7 +803,7 @@ export class VisualizationPanel {
             dataset.columns.forEach(column => {
                 const option = document.createElement('option');
                 option.value = `column:${column}`;
-                option.textContent = `${this.formatColumnName(column)}`;
+                option.textContent = `📊 ${this.formatColumnName(column)}`;
                 columnGroup.appendChild(option);
             });
             fragment.appendChild(columnGroup);
@@ -2405,7 +2406,7 @@ export class VisualizationPanel {
                                  data-type="metric" 
                                  data-value="${metric.id}"
                                  data-dataset="${dataset.id}">
-                                <span class="material-icons item-icon">trending_up</span>
+                                <span class="item-icon">📈</span>
                                 <div class="item-info">
                                     <span class="item-name">${this.escapeHtml(metric.name)}</span>
                                     <span class="item-value">${this.formatMetricValue(metric.value)}</span>

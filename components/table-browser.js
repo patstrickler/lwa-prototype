@@ -63,11 +63,11 @@ export class TableBrowser {
                     `).join('')}
                 </select>
                 <div class="dataset-dropdown-actions">
-                    <button id="edit-dataset-btn" class="btn-icon" title="Edit" disabled>✏️</button>
-                    <button id="duplicate-dataset-btn" class="btn-icon" title="Duplicate" disabled>📋</button>
-                    <button id="manage-access-btn" class="btn-icon" title="Manage Access" disabled>👥</button>
-                    <button id="delete-dataset-btn" class="btn-icon" title="Delete" disabled>🗑️</button>
-                    <button id="refresh-datasets-btn" class="btn-icon" title="Refresh">🔄</button>
+                    <button id="edit-dataset-btn" class="btn btn-sm btn-icon" title="Edit" disabled><span class="material-icons">edit</span></button>
+                    <button id="duplicate-dataset-btn" class="btn btn-sm btn-icon" title="Duplicate" disabled><span class="material-icons">content_copy</span></button>
+                    <button id="manage-access-btn" class="btn btn-sm btn-icon" title="Manage Access" disabled><span class="material-icons">people</span></button>
+                    <button id="delete-dataset-btn" class="btn btn-sm btn-icon" title="Delete" disabled><span class="material-icons">delete</span></button>
+                    <button id="refresh-datasets-btn" class="btn btn-sm btn-icon" title="Refresh"><span class="material-icons">refresh</span></button>
                 </div>
             </div>
         `;
@@ -385,8 +385,8 @@ export class TableBrowser {
                 
                 <div id="restricted-access-options" style="display: ${accessControl.type === 'restricted' ? 'block' : 'none'}; margin-top: 15px;">
                     <div class="form-group">
-                        <label><strong>Allowed Users:</strong></label>
-                        <div class="checkbox-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                        <div class="form-label"><strong>Allowed Users:</strong></div>
+                        <div class="checkbox-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;" role="group" aria-label="Allowed users">
                             ${allUsers.map(user => `
                                 <label style="display: block; margin: 5px 0;">
                                     <input type="checkbox" name="allowed-users" value="${user.id}" ${accessControl.users.includes(user.id) ? 'checked' : ''}>
@@ -397,8 +397,8 @@ export class TableBrowser {
                     </div>
                     
                     <div class="form-group">
-                        <label><strong>Allowed User Groups:</strong></label>
-                        <div class="checkbox-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                        <div class="form-label"><strong>Allowed User Groups:</strong></div>
+                        <div class="checkbox-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;" role="group" aria-label="Allowed user groups">
                             ${allGroups.map(group => `
                                 <label style="display: block; margin: 5px 0;">
                                     <input type="checkbox" name="allowed-groups" value="${group.id}" ${accessControl.userGroups.includes(group.id) ? 'checked' : ''}>

@@ -170,13 +170,24 @@ main {
 }
 
 /* Card styles - Bootstrap handles most card styling, these are enhancements */
+/* Material Design Cards */
 .card {
-    border: 1px solid var(--color-border-light);
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elevation-2);
     transition: box-shadow var(--transition-base);
+    background-color: var(--color-surface);
 }
 
 .card:hover {
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--elevation-4);
+}
+
+.card-header {
+    background-color: var(--color-surface);
+    border-bottom: 1px solid var(--color-divider);
+    padding: var(--spacing-lg);
+    font-weight: var(--font-weight-medium);
 }
 
 .card-header {
@@ -1601,20 +1612,65 @@ main {
     color: #495057;
 }
 
+/* Material Design Icon Buttons */
 .btn-icon {
     background: none;
     border: none;
-    font-size: 18px;
-    color: #6c757d;
+    color: var(--color-text-secondary);
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s, color 0.2s;
+    padding: var(--spacing-sm);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-icon .material-icons {
+    font-size: 20px;
 }
 
 .btn-icon:hover {
-    background-color: #e9ecef;
-    color: #495057;
+    background-color: var(--color-surface-variant);
+    color: var(--color-primary);
+}
+
+.btn-icon:active {
+    background-color: var(--color-border);
+    transform: scale(0.95);
+}
+
+.btn-icon:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+.btn-icon:disabled:hover {
+    background-color: transparent;
+    color: var(--color-text-secondary);
+}
+
+/* Material Design Ripple Effect */
+.btn-icon::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    transform: translate(-50%, -50%);
+    transition: width var(--transition-ripple), height var(--transition-ripple);
+}
+
+.btn-icon:active::after {
+    width: 200px;
+    height: 200px;
 }
 
 .datasets-list {
@@ -2225,8 +2281,7 @@ main {
     margin-top: var(--spacing-md);
 }
 
-/* Button enhancements - Bootstrap handles base styles */
-/* Override Bootstrap buttons only where needed for custom styling */
+/* Material Design Buttons */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -2234,16 +2289,59 @@ main {
     gap: var(--spacing-sm);
     font-weight: var(--font-weight-medium);
     transition: all var(--transition-base);
+    border-radius: var(--radius-md);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    position: relative;
+    overflow: hidden;
 }
 
-.btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
+.btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+    box-shadow: var(--elevation-2);
 }
 
-.btn:active:not(:disabled) {
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+    box-shadow: var(--elevation-4);
+    transform: translateY(-2px);
+}
+
+.btn-primary:active:not(:disabled) {
+    box-shadow: var(--elevation-1);
     transform: translateY(0);
-    box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-primary-light);
+}
+
+/* Material Design Ripple Effect for Buttons */
+.btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width var(--transition-ripple), height var(--transition-ripple);
+}
+
+.btn:active::after {
+    width: 300px;
+    height: 300px;
 }
 
 .query-results {
