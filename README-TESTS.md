@@ -46,12 +46,26 @@ Tests are located in the `__tests__/` directory:
 
 ## Pre-Push Hook
 
-A Git pre-push hook is configured to automatically run all tests before pushing to the remote repository. If any tests fail, the push will be aborted.
+A Git pre-push hook is configured to automatically run all tests and attempt to fix common issues before pushing to the remote repository.
 
 The hook is located at `.git/hooks/pre-push` and will:
 1. Run `npm test` before each push
-2. Abort the push if tests fail
-3. Allow the push to proceed if all tests pass
+2. If tests fail, automatically attempt to fix common issues (import/export errors, syntax issues)
+3. Re-run tests after fixes
+4. Show a summary of any remaining failures
+5. Proceed with push (with warnings if tests still fail)
+
+### Auto-Fix Script
+
+The hook uses an auto-fix script (`scripts/auto-fix-tests.js`) that can automatically fix:
+- Missing `.js` extensions in ES module imports
+- Common import/export syntax issues
+- Some syntax errors in test files
+
+You can run the auto-fix script manually:
+```bash
+npm run test:fix
+```
 
 ### Bypassing the hook (not recommended)
 

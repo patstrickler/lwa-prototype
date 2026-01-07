@@ -2,6 +2,7 @@
 import { QueryBuilder } from './components/query-builder.js';
 import { AnalysisPanel } from './components/analysis-panel.js';
 import { VisualizationPanel } from './components/visualization-panel.js';
+import { ReportsPanel } from './components/reports-panel.js';
 import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
 
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const queryBuilder = new QueryBuilder('#query-builder');
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
+    const reportsPanel = new ReportsPanel('#reports-panel');
     
     // Table Browser → Query Builder
     tableBrowser.onTableClick((tableName) => {

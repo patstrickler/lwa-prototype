@@ -66,3 +66,9 @@ function formatColumnName(column) {
         .replace(/\b\w/g, char => char.toUpperCase());
 }
 
+
+
+
+
+
+

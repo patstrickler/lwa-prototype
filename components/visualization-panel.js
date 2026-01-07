@@ -3,6 +3,7 @@
 
 import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
+import { visualizationsStore } from '../data/visualizations.js';
 import { debounceRAF } from '../utils/debounce.js';
 import { Modal } from '../utils/modal.js';
 import { calculateMetric } from '../utils/metric-calculator.js';
@@ -52,8 +53,9 @@ export class VisualizationPanel {
                             <!-- Dynamic field selection will be populated here -->
                         </div>
                         
-                        <div class="form-group">
+                        <div class="form-group" style="display: flex; gap: 8px;">
                             <button type="button" class="btn btn-secondary" id="clear-selections-btn">Clear Selections</button>
+                            <button type="button" class="btn btn-primary" id="save-visualization-btn">Save Visualization</button>
                         </div>
                     </div>
                     
@@ -136,6 +138,11 @@ export class VisualizationPanel {
         
         if (clearBtn) {
             clearBtn.addEventListener('click', () => this.clearSelections());
+        }
+        
+        const saveBtn = this.container.querySelector('#save-visualization-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveVisualization());
         }
         
         // Drag and drop handlers for axis selection
@@ -1333,22 +1340,32 @@ export class VisualizationPanel {
         }
         
         if (chartType === 'pie' || chartType === 'donut') {
-            // Pie/donut requires both X (categories) and Y (values)
+            // Pie/donut requires X (categorical) and Y (aggregated field)
             if (xAxis && xAxis.type === 'column' && yAxis && yAxis.type === 'column') {
-                // Apply aggregation if specified for Y axis
-                let pieData = this.getDatasetData(dataset);
-                if (yAxis.aggregation) {
-                    pieData = this.applyAggregation(pieData, xAxis.value, yAxis.value, yAxis.aggregation);
-                    // Convert aggregated data back to row format for pie chart
-                    pieData = pieData.map(item => ({
-                        [xAxis.value]: item.x,
-                        [yAxis.value]: item.y
-                    }));
+                // For pie/donut, Y axis must have aggregation
+                // If not specified, default based on column type
+                if (!yAxis.aggregation) {
+                    const columnType = this.inferColumnType(dataset, yAxis.value);
+                    if (columnType === 'numeric') {
+                        yAxis.aggregation = 'SUM'; // Default to SUM for numeric
+                    } else {
+                        yAxis.aggregation = 'COUNT'; // Default to COUNT for non-numeric
+                    }
                 }
-                this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType, pieData);
+                
+                // Apply aggregation
+                let pieData = this.getDatasetData(dataset);
+                pieData = this.applyAggregation(pieData, xAxis.value, yAxis.value, yAxis.aggregation);
+                // Convert aggregated data back to row format for pie chart
+                pieData = pieData.map(item => ({
+                    [xAxis.value]: item.x,
+                    [yAxis.value]: item.y
+                }));
+                
+                this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType, pieData, yAxis.aggregation);
                 return;
             } else {
-                this.showError('Pie/Donut charts require both X and Y axes to be columns.');
+                this.showError('Pie/Donut charts require X axis (categorical field) and Y axis (aggregated field) to be columns.');
                 return;
             }
         }
@@ -3037,27 +3054,40 @@ export class VisualizationPanel {
      * @param {string} xColumn - X column name (categories)
      * @param {string} yColumn - Y column name (values)
      * @param {string} chartType - 'pie' or 'donut'
+     * @param {Array} preAggregatedData - Pre-aggregated data (optional)
+     * @param {string} aggregation - Aggregation function used (for display)
      */
-    renderPieChart(dataset, xColumn, yColumn, chartType, preAggregatedData = null) {
+    renderPieChart(dataset, xColumn, yColumn, chartType, preAggregatedData = null, aggregation = 'SUM') {
         const data = preAggregatedData || this.getDatasetData(dataset);
         if (!data || data.length === 0) return;
         
-        // Aggregate data by xColumn (sum yColumn values for each xColumn value)
-        const aggregated = {};
-        data.forEach(row => {
-            const category = String(row[xColumn] || 'Unknown');
-            const value = parseFloat(row[yColumn]) || 0;
-            if (!aggregated[category]) {
-                aggregated[category] = 0;
-            }
-            aggregated[category] += value;
-        });
-        
-        // Convert to array format for Highcharts
-        const pieData = Object.entries(aggregated).map(([name, value]) => ({
-            name: name,
-            y: value
-        }));
+        // If data is already aggregated (from applyAggregation), use it directly
+        // Otherwise, aggregate by summing (fallback for backward compatibility)
+        let pieData;
+        if (preAggregatedData && preAggregatedData.length > 0 && preAggregatedData[0].hasOwnProperty(xColumn) && preAggregatedData[0].hasOwnProperty(yColumn)) {
+            // Data is in row format from applyAggregation
+            const aggregated = {};
+            data.forEach(row => {
+                const category = String(row[xColumn] || 'Unknown');
+                const value = parseFloat(row[yColumn]) || 0;
+                if (!aggregated[category]) {
+                    aggregated[category] = 0;
+                }
+                aggregated[category] += value;
+            });
+            
+            pieData = Object.entries(aggregated).map(([name, value]) => ({
+                name: name,
+                y: value
+            }));
+        } else {
+            // Data is already in aggregated format from applyAggregation
+            // It should be in {x: category, y: value} format
+            pieData = data.map(item => ({
+                name: String(item.x || 'Unknown'),
+                y: parseFloat(item.y) || 0
+            }));
+        }
         
         if (pieData.length === 0) return;
         
@@ -3286,6 +3316,75 @@ export class VisualizationPanel {
             return num.toLocaleString();
         } else {
             return num.toFixed(2);
+        }
+    }
+    
+    /**
+     * Saves the current visualization
+     */
+    async saveVisualization() {
+        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        const chartType = chartTypeSelect ? chartTypeSelect.value : '';
+        
+        if (!chartType) {
+            await Modal.alert('Please select a chart type first.');
+            return;
+        }
+        
+        // Check if we have at least one chart rendered
+        if (this.charts.length === 0) {
+            await Modal.alert('Please create a visualization first.');
+            return;
+        }
+        
+        // Get visualization name
+        const visualizationName = await Modal.prompt('Enter a name for this visualization:', 
+            `Visualization ${new Date().toLocaleString()}`);
+        
+        if (!visualizationName || !visualizationName.trim()) {
+            return; // User cancelled
+        }
+        
+        try {
+            // Get dataset ID from current selections
+            let datasetId = null;
+            if (this.xAxisSelection) {
+                datasetId = this.xAxisSelection.datasetId;
+            } else if (this.yAxisSelection) {
+                datasetId = this.yAxisSelection.datasetId;
+            } else if (this.tableFields && this.tableFields.length > 0) {
+                datasetId = this.tableFields[0].datasetId;
+            } else if (this.currentDataset) {
+                datasetId = this.currentDataset.id;
+            }
+            
+            // Build visualization config
+            const config = {
+                chartType,
+                xAxis: this.xAxisSelection ? { ...this.xAxisSelection } : null,
+                yAxis: this.yAxisSelection ? { ...this.yAxisSelection } : null,
+                zAxis: this.zAxisSelection ? { ...this.zAxisSelection } : null,
+                tableFields: this.tableFields ? this.tableFields.map(f => f ? { ...f } : null) : [],
+                styling: this.getStylingOptions()
+            };
+            
+            // Save visualization
+            const visualization = visualizationsStore.create(
+                visualizationName.trim(),
+                chartType,
+                config,
+                datasetId
+            );
+            
+            await Modal.alert(`Visualization "${visualizationName}" saved successfully!`);
+            
+            // Emit event if listeners exist
+            if (this.onVisualizationSaved) {
+                this.onVisualizationSaved(visualization);
+            }
+        } catch (error) {
+            console.error('Error saving visualization:', error);
+            await Modal.alert(`Error saving visualization: ${error.message || 'Unknown error'}`);
         }
     }
 }
