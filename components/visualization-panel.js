@@ -3144,7 +3144,7 @@ export class VisualizationPanel {
                 }
             },
             series: [{
-                name: this.formatColumnName(yColumn),
+                name: aggregation ? `${aggregation}(${this.formatColumnName(yColumn)})` : this.formatColumnName(yColumn),
                 colorByPoint: true,
                 data: pieData
             }]
