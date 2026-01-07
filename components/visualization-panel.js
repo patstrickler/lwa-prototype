@@ -3368,9 +3368,17 @@ export class VisualizationPanel {
             return;
         }
         
+        // Get chart title from styling options to use as default name
+        const stylingOptions = this.getStylingOptions();
+        const chartTitle = stylingOptions.title;
+        
+        // Use chart title as default, or fall back to auto-generated name
+        const defaultName = chartTitle && chartTitle.trim() 
+            ? chartTitle.trim() 
+            : `Visualization ${new Date().toLocaleString()}`;
+        
         // Get visualization name
-        const visualizationName = await Modal.prompt('Enter a name for this visualization:', 
-            `Visualization ${new Date().toLocaleString()}`);
+        const visualizationName = await Modal.prompt('Enter a name for this visualization:', defaultName);
         
         if (!visualizationName || !visualizationName.trim()) {
             return; // User cancelled
