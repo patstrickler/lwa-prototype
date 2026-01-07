@@ -127,17 +127,6 @@ export class DatasetBrowser {
                         <span>•</span>
                         <span>${dataset.rows ? dataset.rows.length : 0} rows</span>
                     </div>
-                    <button class="btn btn-sm btn-secondary" id="preview-dataset-btn" data-dataset-id="${dataset.id}">Preview Data</button>
-                </div>
-                
-                <div id="dataset-preview-container" style="display: none; margin-top: 15px;">
-                    <div class="dataset-preview">
-                        <div class="preview-header">
-                            <h5>Data Preview</h5>
-                            <button class="btn btn-sm btn-secondary" id="close-preview-btn">Close</button>
-                        </div>
-                        <div id="dataset-preview-table" class="preview-table-container"></div>
-                    </div>
                 </div>
                 
                 <div class="columns-section">
@@ -344,23 +333,6 @@ export class DatasetBrowser {
         this.container.addEventListener('input', (e) => {
             if (e.target.id === 'column-search-input') {
                 this.filterColumns(e.target.value);
-            }
-        });
-        
-        // Dataset preview functionality
-        this.container.addEventListener('click', (e) => {
-            if (e.target.id === 'preview-dataset-btn' || e.target.closest('#preview-dataset-btn')) {
-                const btn = e.target.id === 'preview-dataset-btn' ? e.target : e.target.closest('#preview-dataset-btn');
-                const datasetId = btn.getAttribute('data-dataset-id');
-                if (datasetId) {
-                    this.showDatasetPreview(datasetId);
-                }
-                e.stopPropagation();
-            }
-            
-            if (e.target.id === 'close-preview-btn' || e.target.closest('#close-preview-btn')) {
-                this.hideDatasetPreview();
-                e.stopPropagation();
             }
         });
         
@@ -711,53 +683,4 @@ export class DatasetBrowser {
         });
     }
     
-    showDatasetPreview(datasetId) {
-        const dataset = datasetStore.get(datasetId);
-        if (!dataset || !dataset.rows || dataset.rows.length === 0) {
-            return;
-        }
-        
-        const previewContainer = this.container.querySelector('#dataset-preview-container');
-        const previewTable = this.container.querySelector('#dataset-preview-table');
-        
-        if (!previewContainer || !previewTable) {
-            return;
-        }
-        
-        // Show preview container
-        previewContainer.style.display = 'block';
-        
-        // Limit to first 100 rows for preview
-        const previewRows = dataset.rows.slice(0, 100);
-        
-        // Build table HTML
-        let tableHtml = '<table class="preview-table"><thead><tr>';
-        dataset.columns.forEach(col => {
-            tableHtml += `<th>${this.escapeHtml(this.formatColumnName(col))}</th>`;
-        });
-        tableHtml += '</tr></thead><tbody>';
-        
-        previewRows.forEach(row => {
-            tableHtml += '<tr>';
-            dataset.columns.forEach((col, idx) => {
-                const value = row[idx] !== null && row[idx] !== undefined ? this.escapeHtml(String(row[idx])) : '';
-                tableHtml += `<td>${value}</td>`;
-            });
-            tableHtml += '</tr>';
-        });
-        tableHtml += '</tbody></table>';
-        
-        if (dataset.rows.length > 100) {
-            tableHtml += `<div class="preview-note">Showing first 100 of ${dataset.rows.length} rows</div>`;
-        }
-        
-        previewTable.innerHTML = tableHtml;
-    }
-    
-    hideDatasetPreview() {
-        const previewContainer = this.container.querySelector('#dataset-preview-container');
-        if (previewContainer) {
-            previewContainer.style.display = 'none';
-        }
-    }
 }

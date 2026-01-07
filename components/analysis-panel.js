@@ -28,6 +28,15 @@ export class AnalysisPanel {
         this.container.innerHTML = `
             <div class="analysis-panel">
                 <div id="unified-analysis-builder-container"></div>
+                <div id="dataset-preview-section" style="display: none; margin-top: 20px;">
+                    <div class="dataset-preview">
+                        <div class="preview-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4>Data Preview</h4>
+                            <button class="btn btn-sm btn-secondary" id="close-preview-btn">Close</button>
+                        </div>
+                        <div id="dataset-preview-table" class="preview-table-container"></div>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -60,6 +69,12 @@ export class AnalysisPanel {
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => this.reExecuteMetrics());
         }
+        
+        // Dataset preview close button
+        const closePreviewBtn = this.container.querySelector('#close-preview-btn');
+        if (closePreviewBtn) {
+            closePreviewBtn.addEventListener('click', () => this.hideDatasetPreview());
+        }
     }
     
     setDataset(dataset) {
@@ -85,6 +100,12 @@ export class AnalysisPanel {
         // Update unified builder with current dataset
         if (this.unifiedBuilder) {
             this.unifiedBuilder.setDataset(dataset);
+        }
+        // Show data preview when dataset is selected
+        if (dataset) {
+            this.showDatasetPreview(dataset);
+        } else {
+            this.hideDatasetPreview();
         }
         // Re-execute metrics when dataset changes to ensure values are up-to-date
         // Debounce to prevent jitter from rapid dataset changes
@@ -293,6 +314,56 @@ export class AnalysisPanel {
         
         // Return original dataset if no SQL or re-execution failed
         return dataset;
+    }
+    
+    showDatasetPreview(dataset) {
+        if (!dataset || !dataset.rows || dataset.rows.length === 0) {
+            this.hideDatasetPreview();
+            return;
+        }
+        
+        const previewSection = this.container.querySelector('#dataset-preview-section');
+        const previewTable = this.container.querySelector('#dataset-preview-table');
+        
+        if (!previewSection || !previewTable) {
+            return;
+        }
+        
+        // Show preview section
+        previewSection.style.display = 'block';
+        
+        // Limit to first 100 rows for preview
+        const previewRows = dataset.rows.slice(0, 100);
+        
+        // Build table HTML
+        let tableHtml = '<table class="preview-table"><thead><tr>';
+        dataset.columns.forEach(col => {
+            tableHtml += `<th>${this.escapeHtml(this.formatColumnName(col))}</th>`;
+        });
+        tableHtml += '</tr></thead><tbody>';
+        
+        previewRows.forEach(row => {
+            tableHtml += '<tr>';
+            dataset.columns.forEach((col, idx) => {
+                const value = row[idx] !== null && row[idx] !== undefined ? this.escapeHtml(String(row[idx])) : '';
+                tableHtml += `<td>${value}</td>`;
+            });
+            tableHtml += '</tr>';
+        });
+        tableHtml += '</tbody></table>';
+        
+        if (dataset.rows.length > 100) {
+            tableHtml += `<div class="preview-note" style="margin-top: 10px; color: #666; font-size: 0.9em;">Showing first 100 of ${dataset.rows.length} rows</div>`;
+        }
+        
+        previewTable.innerHTML = tableHtml;
+    }
+    
+    hideDatasetPreview() {
+        const previewSection = this.container.querySelector('#dataset-preview-section');
+        if (previewSection) {
+            previewSection.style.display = 'none';
+        }
     }
 }
 
