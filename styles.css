@@ -92,24 +92,11 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-.container {
-    max-width: var(--container-max-width);
-    margin: 0 auto;
-    padding: var(--spacing-xl);
-}
+/* Bootstrap overrides and custom styles */
+/* Remove conflicting container styles - Bootstrap handles this */
 
 header {
-    background-color: var(--color-bg-elevated);
-    padding: var(--spacing-xl);
-    border-radius: var(--radius-lg);
     margin-bottom: var(--spacing-xl);
-    box-shadow: var(--shadow-md);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--spacing-xl);
-    border: 1px solid var(--color-border-light);
 }
 
 header h1 {
@@ -120,34 +107,25 @@ header h1 {
     letter-spacing: -0.025em;
 }
 
-.main-nav {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.nav-link {
-    padding: var(--spacing-md) var(--spacing-xl);
-    text-decoration: none;
+/* Navigation styles - complement Bootstrap navbar */
+.navbar .nav-link {
+    padding: var(--spacing-md) var(--spacing-lg);
     color: var(--color-text-secondary);
-    border-radius: var(--radius-md);
     font-weight: var(--font-weight-medium);
-    font-size: var(--font-size-base);
     transition: all var(--transition-base);
-    border: 2px solid transparent;
-    position: relative;
+    border-radius: var(--radius-md);
+    margin: 0 var(--spacing-xs);
 }
 
-.nav-link:hover {
+.navbar .nav-link:hover {
     background-color: var(--color-primary-light);
     color: var(--color-primary);
 }
 
-.nav-link.active {
+.navbar .nav-link.active {
     background-color: var(--color-primary);
     color: white;
-    border-color: var(--color-primary);
-    box-shadow: var(--shadow-sm);
+    font-weight: var(--font-weight-semibold);
 }
 
 main {
@@ -166,6 +144,30 @@ main {
     display: block;
 }
 
+/* Card styles - Bootstrap handles most card styling, these are enhancements */
+.card {
+    border: 1px solid var(--color-border-light);
+    transition: box-shadow var(--transition-base);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-lg);
+}
+
+.card-header {
+    background-color: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    font-weight: var(--font-weight-semibold);
+}
+
+.card-header h2 {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+    letter-spacing: -0.01em;
+}
+
+/* Legacy panel class - maps to card for backwards compatibility */
 .panel {
     background-color: var(--color-bg-elevated);
     padding: var(--spacing-xl);
@@ -211,71 +213,35 @@ main {
     width: 100%;
 }
 
-/* Analysis Layout */
-.analysis-layout {
-    display: flex;
-    gap: var(--spacing-xl);
-    align-items: flex-start;
-}
-
-.dataset-browser-sidebar {
-    flex: 0 0 var(--sidebar-width);
-    min-width: var(--sidebar-width);
+/* Analysis Layout - Bootstrap handles grid */
+/* Sticky sidebar styles */
+.col-lg-3:has(.dataset-browser-sidebar),
+.col-lg-3:has(#dataset-browser-analysis),
+.col-lg-3:has(#dataset-browser-visualization) {
     position: sticky;
     top: 20px;
-    height: calc(100vh - 40px);
+    height: fit-content;
     max-height: calc(100vh - 40px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* Prevent sidebar from scrolling */
 }
 
-.analysis-content {
-    flex: 1;
-    min-width: 0;
-}
-
-/* Visualization Layout */
-.visualization-layout {
-    display: flex;
-    gap: var(--spacing-xl);
-    align-items: flex-start;
-}
-
-.visualization-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.visualization-builder-sidebar {
-    flex: 0 0 var(--sidebar-width);
-    min-width: var(--sidebar-width);
+.col-lg-3:has(.visualization-builder-sidebar),
+.col-lg-3:has(#visualization-builder-container) {
     position: sticky;
-    top: var(--spacing-xl);
+    top: 20px;
+    height: fit-content;
     max-height: calc(100vh - 80px);
     overflow-y: auto;
 }
 
-.visualization-builder-sidebar .visualization-builder {
-    background-color: var(--color-bg-elevated);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--color-border-light);
-    padding: var(--spacing-xl);
-    position: sticky;
-    top: 0;
-}
+/* Visualization Layout - Bootstrap handles grid */
 
-/* Saved Datasets Dropdown Styles */
+/* Saved Datasets Dropdown Styles - Use Bootstrap card */
 .saved-datasets-dropdown-container {
-    background-color: var(--color-bg-elevated);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--color-border-light);
-    padding: var(--spacing-lg);
+    /* Bootstrap card handles styling */
 }
 
 .dropdown-label {
+    /* Use Bootstrap form-label class instead */
     display: block;
     font-size: 14px;
     font-weight: 600;

@@ -161,9 +161,9 @@ class UserContext {
 
 export const userContext = new UserContext();
 
-// For development/demo purposes, set a default viewer user
+// For development/demo purposes, set a default analyst user
 // In production, this would be set by authentication system
 if (!userContext.getUser()) {
-    userContext.setUser('viewer1', 'viewer', ['viewers', 'employees']);
+    userContext.setUser('analyst1', 'analyst', ['analysts', 'employees']);
 }
 
