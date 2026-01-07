@@ -195,8 +195,8 @@ export class VisualizationPanel {
         
         // Drag and drop handlers for axis selection (use event delegation since elements are in sidebar)
         const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
-        const xAxisDisplay = sidebarContainer ? sidebarContainer.querySelector('#x-axis-display') : this.container.querySelector('#x-axis-display');
-        const yAxisDisplay = sidebarContainer ? sidebarContainer.querySelector('#y-axis-display') : this.container.querySelector('#y-axis-display');
+        const xAxisDisplay = (sidebarContainer || this.container).querySelector('[data-axis="x"]');
+        const yAxisDisplay = (sidebarContainer || this.container).querySelector('[data-axis="y"]');
         
         if (xAxisDisplay) {
             this.setupDragAndDrop(xAxisDisplay, 'x');
@@ -307,12 +307,10 @@ export class VisualizationPanel {
         
         if (panel.style.display === 'none') {
             panel.style.display = 'block';
-            icon.textContent = 'expand_less';
-            icon.className = 'material-icons toggle-icon';
+            icon.textContent = '▲';
         } else {
             panel.style.display = 'none';
             icon.textContent = 'expand_more';
-            icon.className = 'material-icons toggle-icon';
             icon.className = 'material-icons toggle-icon';
         }
     }
@@ -340,8 +338,8 @@ export class VisualizationPanel {
             // Scatter plot: X, Y, Z
             html = `
                 <div class="form-group">
-                    <label for="x-axis-display">X Axis:</label>
-                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false" role="button" tabindex="0" aria-label="X Axis selection">
+                    <label for="x-axis-display-scatter">X Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="x-axis-display-scatter" data-axis="x" draggable="false" role="button" tabindex="0" aria-label="X Axis selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -349,8 +347,8 @@ export class VisualizationPanel {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="y-axis-display">Y Axis:</label>
-                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="Y Axis selection">
+                    <label for="y-axis-display-scatter">Y Axis:</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display-scatter" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="Y Axis selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -358,8 +356,8 @@ export class VisualizationPanel {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="z-axis-display">Z Axis (Size):</label>
-                    <div class="axis-selection-display droppable-axis" id="z-axis-display" data-axis="z" draggable="false" role="button" tabindex="0" aria-label="Z Axis selection">
+                    <label for="z-axis-display-scatter">Z Axis (Size):</label>
+                    <div class="axis-selection-display droppable-axis" id="z-axis-display-scatter" data-axis="z" draggable="false" role="button" tabindex="0" aria-label="Z Axis selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select (optional)</span>
                         </div>
@@ -392,8 +390,8 @@ export class VisualizationPanel {
             // Scorecard: Y only
             html = `
                 <div class="form-group">
-                    <label for="y-axis-display">Value:</label>
-                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="Value selection">
+                    <label for="y-axis-display-scorecard">Value:</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display-scorecard" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="Value selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -406,8 +404,8 @@ export class VisualizationPanel {
             const isPieOrDonut = chartType === 'pie' || chartType === 'donut';
             html = `
                 <div class="form-group">
-                    <label for="x-axis-display">${isPieOrDonut ? 'Category Field (X):' : 'X Axis:'}</label>
-                    <div class="axis-selection-display droppable-axis" id="x-axis-display" data-axis="x" draggable="false" role="button" tabindex="0" aria-label="${isPieOrDonut ? 'Category Field' : 'X Axis'} selection">
+                    <label for="x-axis-display-${chartType}">${isPieOrDonut ? 'Category Field (X):' : 'X Axis:'}</label>
+                    <div class="axis-selection-display droppable-axis" id="x-axis-display-${chartType}" data-axis="x" draggable="false" role="button" tabindex="0" aria-label="${isPieOrDonut ? 'Category Field' : 'X Axis'} selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -415,8 +413,8 @@ export class VisualizationPanel {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="y-axis-display">${isPieOrDonut ? 'Value Field (Y - Aggregated):' : 'Y Axis:'}</label>
-                    <div class="axis-selection-display droppable-axis" id="y-axis-display" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="${isPieOrDonut ? 'Value Field' : 'Y Axis'} selection">
+                    <label for="y-axis-display-${chartType}">${isPieOrDonut ? 'Value Field (Y - Aggregated):' : 'Y Axis:'}</label>
+                    <div class="axis-selection-display droppable-axis" id="y-axis-display-${chartType}" data-axis="y" draggable="false" role="button" tabindex="0" aria-label="${isPieOrDonut ? 'Value Field' : 'Y Axis'} selection">
                         <div class="axis-selection-content">
                             <span class="selection-placeholder">Drag & drop or click to select</span>
                         </div>
@@ -2359,7 +2357,7 @@ export class VisualizationPanel {
             return;
         }
         
-        const axisDisplay = this.container.querySelector(`#${axis}-axis-display`);
+        const axisDisplay = this.container.querySelector(`[data-axis="${axis}"]`);
         if (!axisDisplay || !triggerElement) return;
         
         // Get position for dropdown
