@@ -31,34 +31,59 @@ export class VisualizationPanel {
     }
     
     render() {
+        // Main preview area
         this.container.innerHTML = `
             <div class="visualization-panel">
-                <div class="visualization-builder">
-                    <h3>Chart Builder</h3>
-                    <div class="builder-form">
-                        <div class="form-group">
-                            <label for="chart-type-select">Chart Type:</label>
-                            <select id="chart-type-select" class="form-control">
-                                <option value="">-- Select Chart Type --</option>
-                                <option value="line">Line Chart</option>
-                                <option value="bar">Bar Chart</option>
-                                <option value="scatter">Scatter Plot</option>
-                                <option value="pie">Pie Chart</option>
-                                <option value="donut">Donut Chart</option>
-                                <option value="table">Table</option>
-                                <option value="scorecard">Scorecard</option>
-                            </select>
-                        </div>
-                        
-                        <div id="field-selection-container" style="display: none;">
-                            <!-- Dynamic field selection will be populated here -->
-                        </div>
-                        
-                        <div class="form-group" style="display: flex; gap: 8px;">
-                            <button type="button" class="btn btn-secondary" id="clear-selections-btn">Clear Selections</button>
-                            <button type="button" class="btn btn-secondary" id="preview-visualization-btn">Preview</button>
-                            <button type="button" class="btn btn-primary" id="save-visualization-btn">Save Visualization</button>
-                        </div>
+                <div id="charts-container" class="charts-container preview-container">
+                    <div class="preview-placeholder">
+                        <p class="text-muted">Select a dataset and chart type to see preview</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Render builder sidebar in separate container
+        this.renderBuilderSidebar();
+        
+        // Update axis displays if selections exist
+        if (this.xAxisSelection) {
+            this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
+        }
+        if (this.yAxisSelection) {
+            this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
+        }
+    }
+    
+    renderBuilderSidebar() {
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        if (!sidebarContainer) return;
+        
+        sidebarContainer.innerHTML = `
+            <div class="visualization-builder-sidebar">
+                <div class="builder-form">
+                    <div class="form-group">
+                        <label for="dataset-select-sidebar">Dataset:</label>
+                        <select id="dataset-select-sidebar" class="form-control">
+                            <option value="">-- Select Dataset --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="chart-type-select">Chart Type:</label>
+                        <select id="chart-type-select" class="form-control">
+                            <option value="">-- Select Chart Type --</option>
+                            <option value="line">Line Chart</option>
+                            <option value="bar">Bar Chart</option>
+                            <option value="scatter">Scatter Plot</option>
+                            <option value="pie">Pie Chart</option>
+                            <option value="donut">Donut Chart</option>
+                            <option value="table">Table</option>
+                            <option value="scorecard">Scorecard</option>
+                        </select>
+                    </div>
+                    
+                    <div id="field-selection-container" style="display: none;">
+                        <!-- Dynamic field selection will be populated here -->
                     </div>
                     
                     <div class="styling-options">
@@ -100,43 +125,59 @@ export class VisualizationPanel {
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="form-group" style="display: flex; gap: 8px; flex-direction: column; margin-top: 16px;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="clear-selections-btn">Clear Selections</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="save-visualization-btn">Save Visualization</button>
+                    </div>
                 </div>
-                
-                <div id="charts-container" class="charts-container"></div>
             </div>
         `;
         
         this.refreshDatasetList();
-        
-        // Update axis displays if selections exist
-        if (this.xAxisSelection) {
-            this.updateAxisDisplay('x-axis-display', this.xAxisSelection);
-        }
-        if (this.yAxisSelection) {
-            this.updateAxisDisplay('y-axis-display', this.yAxisSelection);
-        }
     }
     
     attachEventListeners() {
-        const chartTypeSelect = this.container.querySelector('#chart-type-select');
-        const clearBtn = this.container.querySelector('#clear-selections-btn');
-        const stylingToggle = this.container.querySelector('#styling-toggle');
-        const seriesColorInput = this.container.querySelector('#series-color-input');
-        const seriesColorText = this.container.querySelector('#series-color-text');
-        const trendlineToggle = this.container.querySelector('#trendline-toggle');
-        const titleInput = this.container.querySelector('#chart-title-input');
-        const xLabelInput = this.container.querySelector('#x-axis-label-input');
-        const yLabelInput = this.container.querySelector('#y-axis-label-input');
+        // Find selectors in sidebar or main container
+        const findSelector = (id) => {
+            return document.querySelector(`#${id}`) || this.container.querySelector(`#${id}`);
+        };
+        
+        const chartTypeSelect = findSelector('chart-type-select');
+        const clearBtn = findSelector('clear-selections-btn');
+        const stylingToggle = findSelector('styling-toggle');
+        const seriesColorInput = findSelector('series-color-input');
+        const seriesColorText = findSelector('series-color-text');
+        const trendlineToggle = findSelector('trendline-toggle');
+        const titleInput = findSelector('chart-title-input');
+        const xLabelInput = findSelector('x-axis-label-input');
+        const yLabelInput = findSelector('y-axis-label-input');
+        const datasetSelect = findSelector('dataset-select-sidebar');
+        
+        // Dataset selection
+        if (datasetSelect) {
+            datasetSelect.addEventListener('change', () => {
+                const datasetId = datasetSelect.value;
+                if (datasetId) {
+                    this.selectDataset(datasetId);
+                } else {
+                    this.currentDataset = null;
+                    this.clearChart();
+                }
+            });
+        }
         
         // Chart type change - update field selection UI and preserve selections
-        chartTypeSelect.addEventListener('change', () => {
-            const chartType = chartTypeSelect.value;
-            this.updateFieldSelectionUI(chartType);
-            // Preserve selections and auto-render if valid
-            requestAnimationFrame(() => {
-                this.autoRender();
+        if (chartTypeSelect) {
+            chartTypeSelect.addEventListener('change', () => {
+                const chartType = chartTypeSelect.value;
+                this.updateFieldSelectionUI(chartType);
+                // Preserve selections and auto-render if valid
+                requestAnimationFrame(() => {
+                    this.autoRender();
+                });
             });
-        });
+        }
         
         if (clearBtn) {
             clearBtn.addEventListener('click', () => this.clearSelections());
@@ -152,9 +193,10 @@ export class VisualizationPanel {
             saveBtn.addEventListener('click', () => this.saveVisualization());
         }
         
-        // Drag and drop handlers for axis selection
-        const xAxisDisplay = this.container.querySelector('#x-axis-display');
-        const yAxisDisplay = this.container.querySelector('#y-axis-display');
+        // Drag and drop handlers for axis selection (use event delegation since elements are in sidebar)
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const xAxisDisplay = sidebarContainer ? sidebarContainer.querySelector('#x-axis-display') : this.container.querySelector('#x-axis-display');
+        const yAxisDisplay = sidebarContainer ? sidebarContainer.querySelector('#y-axis-display') : this.container.querySelector('#y-axis-display');
         
         if (xAxisDisplay) {
             this.setupDragAndDrop(xAxisDisplay, 'x');
@@ -163,28 +205,36 @@ export class VisualizationPanel {
             this.setupDragAndDrop(yAxisDisplay, 'y');
         }
         
-        // Click handlers for axis selection dropdown
-        const axisSelectBtns = this.container.querySelectorAll('.axis-select-btn');
-        axisSelectBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const axis = btn.getAttribute('data-axis');
-                this.showAxisSelectionDropdown(axis, btn);
-            });
-        });
-        
-        // Click on axis display to show dropdown
-        if (xAxisDisplay) {
-            xAxisDisplay.addEventListener('click', (e) => {
-                if (!e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item')) {
-                    this.showAxisSelectionDropdown('x', xAxisDisplay.querySelector('.axis-select-btn'));
+        // Use event delegation for axis selection buttons (they're dynamically created)
+        const fieldContainer = sidebarContainer ? sidebarContainer.querySelector('#field-selection-container') : this.container.querySelector('#field-selection-container');
+        if (fieldContainer) {
+            fieldContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('.axis-select-btn');
+                if (btn) {
+                    e.stopPropagation();
+                    const axis = btn.getAttribute('data-axis') || btn.getAttribute('data-field-index');
+                    if (axis) {
+                        if (btn.hasAttribute('data-field-index')) {
+                            // Table field
+                            const fieldIndex = parseInt(btn.getAttribute('data-field-index'));
+                            this.showTableFieldDropdown(fieldIndex, btn);
+                        } else {
+                            // Axis field
+                            this.showAxisSelectionDropdown(axis, btn);
+                        }
+                    }
                 }
-            });
-        }
-        if (yAxisDisplay) {
-            yAxisDisplay.addEventListener('click', (e) => {
-                if (!e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item')) {
-                    this.showAxisSelectionDropdown('y', yAxisDisplay.querySelector('.axis-select-btn'));
+                
+                // Click on axis display to show dropdown
+                const axisDisplay = e.target.closest('.axis-selection-display');
+                if (axisDisplay && !e.target.closest('.axis-select-btn') && !e.target.closest('.selected-item')) {
+                    const axis = axisDisplay.getAttribute('data-axis');
+                    if (axis) {
+                        const btn = axisDisplay.querySelector('.axis-select-btn');
+                        if (btn) {
+                            this.showAxisSelectionDropdown(axis, btn);
+                        }
+                    }
                 }
             });
         }
@@ -246,8 +296,13 @@ export class VisualizationPanel {
     }
     
     toggleStylingPanel() {
-        const panel = this.container.querySelector('#styling-panel');
-        const toggle = this.container.querySelector('#styling-toggle');
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const findSelector = (id) => {
+            return sidebarContainer ? sidebarContainer.querySelector(`#${id}`) : this.container.querySelector(`#${id}`);
+        };
+        const panel = findSelector('styling-panel');
+        const toggle = findSelector('styling-toggle');
+        if (!toggle) return;
         const icon = toggle.querySelector('.toggle-icon');
         
         if (panel.style.display === 'none') {
@@ -264,7 +319,8 @@ export class VisualizationPanel {
      * @param {string} chartType - The selected chart type
      */
     updateFieldSelectionUI(chartType) {
-        const container = this.container.querySelector('#field-selection-container');
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const container = sidebarContainer ? sidebarContainer.querySelector('#field-selection-container') : this.container.querySelector('#field-selection-container');
         if (!container) return;
         
         if (!chartType) {
@@ -640,7 +696,8 @@ export class VisualizationPanel {
     }
     
     async refreshDatasetList() {
-        const datasetSelect = this.container.querySelector('#dataset-select');
+        // Check both old and new selector locations
+        const datasetSelect = document.querySelector('#dataset-select-sidebar') || this.container.querySelector('#dataset-select');
         if (!datasetSelect) return;
         
         const currentValue = datasetSelect.value;
@@ -693,7 +750,8 @@ export class VisualizationPanel {
     onDatasetSelected() {
         // Use requestAnimationFrame to batch DOM updates
         requestAnimationFrame(() => {
-            const datasetSelect = this.container.querySelector('#dataset-select');
+            const datasetSelect = document.querySelector('#dataset-select-sidebar') || this.container.querySelector('#dataset-select');
+            if (!datasetSelect) return;
             const datasetId = datasetSelect.value;
             const xAxisSelect = this.container.querySelector('#x-axis-select');
             const yAxisSelect = this.container.querySelector('#y-axis-select');
@@ -827,7 +885,11 @@ export class VisualizationPanel {
     clearChart() {
         const chartsContainer = this.container.querySelector('#charts-container');
         if (chartsContainer) {
-            chartsContainer.innerHTML = '';
+            chartsContainer.innerHTML = `
+                <div class="preview-placeholder">
+                    <p class="text-muted">Select a dataset and chart type to see preview</p>
+                </div>
+            `;
         }
         this.charts = [];
     }
@@ -1543,11 +1605,15 @@ export class VisualizationPanel {
      * @returns {Object} Styling options object
      */
     getStylingOptions() {
-        const titleInput = this.container.querySelector('#chart-title-input');
-        const xLabelInput = this.container.querySelector('#x-axis-label-input');
-        const yLabelInput = this.container.querySelector('#y-axis-label-input');
-        const colorInput = this.container.querySelector('#series-color-input');
-        const trendlineToggle = this.container.querySelector('#trendline-toggle');
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const findSelector = (id) => {
+            return sidebarContainer ? sidebarContainer.querySelector(`#${id}`) : this.container.querySelector(`#${id}`);
+        };
+        const titleInput = findSelector('chart-title-input');
+        const xLabelInput = findSelector('x-axis-label-input');
+        const yLabelInput = findSelector('y-axis-label-input');
+        const colorInput = findSelector('series-color-input');
+        const trendlineToggle = findSelector('trendline-toggle');
         
         return {
             title: titleInput && titleInput.value.trim() ? titleInput.value.trim() : null,
@@ -2460,7 +2526,8 @@ export class VisualizationPanel {
      * @param {Object} selection - Selection object or null
      */
     updateAxisDisplay(displayId, selection) {
-        const display = this.container.querySelector(`#${displayId}`);
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const display = sidebarContainer ? sidebarContainer.querySelector(`#${displayId}`) : this.container.querySelector(`#${displayId}`);
         if (!display) return;
         
         // Get or create content container
@@ -2864,7 +2931,8 @@ export class VisualizationPanel {
         this.updateAxisDisplay('z-axis-display', null);
         this.clearChart();
         // Refresh field selection UI to clear table fields
-        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const chartTypeSelect = sidebarContainer ? sidebarContainer.querySelector('#chart-type-select') : this.container.querySelector('#chart-type-select');
         if (chartTypeSelect && chartTypeSelect.value) {
             this.updateFieldSelectionUI(chartTypeSelect.value);
         }

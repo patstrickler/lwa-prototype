@@ -33,9 +33,9 @@ export class ReportsPanel {
         this.isViewer = userContext.isViewer();
         this.container.innerHTML = `
             <div class="reports-panel">
-                <div class="reports-header">
-                    <h2>Reports & Dashboards</h2>
-                    ${!this.isViewer ? '<button type="button" class="btn btn-primary" id="create-report-btn">New</button>' : ''}
+                <div class="reports-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div></div>
+                    <button type="button" class="btn btn-primary" id="create-report-btn" style="display: ${this.isViewer ? 'none' : 'block'};">New Report</button>
                 </div>
                 
                 <div class="reports-list-container" id="reports-list-container">
