@@ -3806,6 +3806,7 @@ main {
 .visualization-builder-sidebar .axis-selection-display {
     min-height: 32px;
     padding: 4px 8px;
+    font-size: 12px;
 }
 
 .visualization-builder-sidebar .axis-select-btn {
@@ -3813,6 +3814,46 @@ main {
     height: 24px;
     font-size: 10px;
     padding: 0;
+}
+
+.visualization-builder-sidebar .color-input-wrapper {
+    gap: 6px;
+}
+
+.visualization-builder-sidebar .color-picker {
+    width: 40px;
+    height: 28px;
+}
+
+.visualization-builder-sidebar .color-text {
+    font-size: 11px;
+    padding: 2px 6px;
+}
+
+.visualization-builder-sidebar .selected-item {
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.visualization-builder-sidebar .selected-item .item-name {
+    font-size: 11px;
+}
+
+.visualization-builder-sidebar .selected-item .item-icon {
+    font-size: 12px;
+    margin-right: 4px;
+}
+
+.visualization-builder-sidebar .checkbox-label {
+    font-size: 12px;
+    margin: 0;
+    padding: 2px 0;
+}
+
+.visualization-builder-sidebar .checkbox-label input[type="checkbox"] {
+    margin-right: 6px;
+    width: 14px;
+    height: 14px;
 }
 
 .builder-form > .form-group:first-child {

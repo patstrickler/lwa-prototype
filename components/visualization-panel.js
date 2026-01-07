@@ -126,9 +126,9 @@ export class VisualizationPanel {
                         </div>
                     </div>
                     
-                    <div class="form-group" style="display: flex; gap: 8px; flex-direction: column; margin-top: 16px;">
-                        <button type="button" class="btn btn-secondary btn-sm" id="clear-selections-btn">Clear Selections</button>
-                        <button type="button" class="btn btn-primary btn-sm" id="save-visualization-btn">Save Visualization</button>
+                    <div class="form-group" style="display: flex; gap: 4px; flex-direction: column; margin-top: 8px;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="clear-selections-btn">Clear</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="save-visualization-btn">Save</button>
                     </div>
                 </div>
             </div>
