@@ -729,7 +729,7 @@ main {
 .editable-items {
     flex: 1; /* Take available space */
     min-height: 0; /* Allow shrinking */
-    max-height: 200px; /* Limit max height */
+    max-height: 300px; /* Increased to show more items */
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 5px;

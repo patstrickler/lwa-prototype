@@ -206,16 +206,15 @@ export class DatasetBrowser {
                                      data-value="${metric.id}"
                                      data-dataset="${dataset.id}"
                                      draggable="true">
-                                    <span class="material-icons item-icon">trending_up</span>
+                                    <span class="material-icons item-icon" style="font-size: 16px;">trending_up</span>
                                     <div class="item-info">
                                         <span class="item-name">${this.escapeHtml(metric.name)}</span>
                                         <span class="item-value">${this.formatMetricValue(metric.value)}</span>
                                     </div>
-                                    <span class="item-operation">${this.escapeHtml(metric.operation || '')}</span>
-                                    <div class="item-actions">
-                                        <button class="btn btn-sm btn-icon edit-btn" title="Edit metric"><span class="material-icons">edit</span></button>
-                                        <button class="btn btn-sm btn-icon duplicate-btn" title="Duplicate metric"><span class="material-icons">content_copy</span></button>
-                                        <button class="btn btn-sm btn-icon delete-btn" title="Delete metric"><span class="material-icons">delete</span></button>
+                                    <div class="item-actions" style="display: flex; gap: 2px;">
+                                        <button class="btn btn-sm btn-icon edit-btn" title="Edit" style="padding: 2px 4px; font-size: 14px;"><span class="material-icons" style="font-size: 14px;">edit</span></button>
+                                        <button class="btn btn-sm btn-icon duplicate-btn" title="Duplicate" style="padding: 2px 4px; font-size: 14px;"><span class="material-icons" style="font-size: 14px;">content_copy</span></button>
+                                        <button class="btn btn-sm btn-icon delete-btn" title="Delete" style="padding: 2px 4px; font-size: 14px;"><span class="material-icons" style="font-size: 14px;">delete</span></button>
                                     </div>
                                 </div>
                             `).join('')
