@@ -2163,6 +2163,13 @@ export class VisualizationPanel {
     }
     
     selectDataset(datasetId) {
+        // Update global selection manager
+        if (datasetId) {
+            datasetSelectionManager.setSelectedDatasetId(datasetId);
+        } else {
+            datasetSelectionManager.setSelectedDatasetId(null);
+        }
+        
         // Check if dataset exists
         if (!datasetStore.exists(datasetId)) {
             const dataset = { id: datasetId, name: 'Unknown Dataset' };
