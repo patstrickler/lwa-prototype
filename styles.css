@@ -4721,10 +4721,21 @@ main {
 }
 
 .users-content,
-.groups-content {
+.groups-content,
+.permissions-content {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: var(--spacing-xl);
+}
+
+.read-only-badge {
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    background-color: var(--color-text-muted);
+    color: white;
+    white-space: nowrap;
 }
 
 /* Health Metrics Styles */

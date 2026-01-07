@@ -330,30 +330,32 @@ export class AdminPanel {
         }
     }
     
-    // ===== USERS TAB =====
-    renderUsersTab() {
-        const tabContent = this.container.querySelector('#users-tab');
+    // ===== USERS & ACCESS CONTROL TAB =====
+    renderUsersAccessTab() {
+        const tabContent = this.container.querySelector('#users-access-tab');
         const users = usersStore.getAll();
         const groups = userGroupsStore.getAll();
+        const permissions = accessPermissionsStore.getAll();
         
         tabContent.innerHTML = `
             <div class="admin-section">
                 <div class="section-header">
-                    <h3>Users & Groups</h3>
+                    <h3>Users & Access Control</h3>
                     <div class="header-actions">
-                        <button type="button" class="btn btn-primary" id="add-user-btn">Add User</button>
                         <button type="button" class="btn btn-secondary" id="add-group-btn">Add Group</button>
+                        <button type="button" class="btn btn-primary" id="add-permission-btn">Add Permission</button>
                     </div>
                 </div>
                 
                 <div class="users-groups-tabs">
                     <button type="button" class="sub-tab active" data-subtab="users">Users (${users.length})</button>
                     <button type="button" class="sub-tab" data-subtab="groups">Groups (${groups.length})</button>
+                    <button type="button" class="sub-tab" data-subtab="permissions">Permissions (${permissions.length})</button>
                 </div>
                 
                 <div class="users-content" id="users-content">
                     ${users.length === 0 
-                        ? '<p class="empty-state">No users found. Click "Add User" to create one.</p>'
+                        ? '<p class="empty-state">No users found. Users are managed by the system.</p>'
                         : users.map(user => this.renderUserCard(user)).join('')
                     }
                 </div>
@@ -364,17 +366,24 @@ export class AdminPanel {
                         : groups.map(group => this.renderGroupCard(group)).join('')
                     }
                 </div>
+                
+                <div class="permissions-content" id="permissions-content" style="display: none;">
+                    ${permissions.length === 0 
+                        ? '<p class="empty-state">No permissions configured. Click "Add Permission" to create one.</p>'
+                        : permissions.map(perm => this.renderPermissionCard(perm, users, groups)).join('')
+                    }
+                </div>
             </div>
         `;
         
-        const addUserBtn = tabContent.querySelector('#add-user-btn');
         const addGroupBtn = tabContent.querySelector('#add-group-btn');
+        const addPermissionBtn = tabContent.querySelector('#add-permission-btn');
         
-        if (addUserBtn) {
-            addUserBtn.addEventListener('click', () => this.showAddUserDialog());
-        }
         if (addGroupBtn) {
             addGroupBtn.addEventListener('click', () => this.showAddGroupDialog());
+        }
+        if (addPermissionBtn) {
+            addPermissionBtn.addEventListener('click', () => this.showAddPermissionDialog(users, groups));
         }
         
         // Sub-tabs
@@ -385,30 +394,10 @@ export class AdminPanel {
                 subTabs.forEach(t => t.classList.remove('active'));
                 e.currentTarget.classList.add('active');
                 
-                if (subtabName === 'users') {
-                    tabContent.querySelector('#users-content').style.display = 'block';
-                    tabContent.querySelector('#groups-content').style.display = 'none';
-                } else {
-                    tabContent.querySelector('#users-content').style.display = 'none';
-                    tabContent.querySelector('#groups-content').style.display = 'block';
-                }
+                tabContent.querySelector('#users-content').style.display = subtabName === 'users' ? 'block' : 'none';
+                tabContent.querySelector('#groups-content').style.display = subtabName === 'groups' ? 'block' : 'none';
+                tabContent.querySelector('#permissions-content').style.display = subtabName === 'permissions' ? 'block' : 'none';
             });
-        });
-        
-        // User actions
-        users.forEach(user => {
-            const card = tabContent.querySelector(`[data-user-id="${user.id}"]`);
-            if (card) {
-                const toggleBtn = card.querySelector('.toggle-user-btn');
-                const deleteBtn = card.querySelector('.delete-user-btn');
-                
-                if (toggleBtn) {
-                    toggleBtn.addEventListener('click', () => this.toggleUser(user.id));
-                }
-                if (deleteBtn) {
-                    deleteBtn.addEventListener('click', () => this.deleteUser(user.id));
-                }
-            }
         });
         
         // Group actions
@@ -418,6 +407,17 @@ export class AdminPanel {
                 const deleteBtn = card.querySelector('.delete-group-btn');
                 if (deleteBtn) {
                     deleteBtn.addEventListener('click', () => this.deleteGroup(group.id));
+                }
+            }
+        });
+        
+        // Permission actions
+        permissions.forEach(perm => {
+            const card = tabContent.querySelector(`[data-permission-id="${perm.id}"]`);
+            if (card) {
+                const deleteBtn = card.querySelector('.delete-permission-btn');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', () => this.deletePermission(perm.id));
                 }
             }
         });
@@ -449,10 +449,7 @@ export class AdminPanel {
                     </div>
                 </div>
                 <div class="card-actions">
-                    <button type="button" class="btn btn-sm ${user.enabled ? 'btn-secondary' : 'btn-primary'} toggle-user-btn">
-                        ${user.enabled ? 'Disable' : 'Enable'}
-                    </button>
-                    <button type="button" class="btn btn-sm btn-danger delete-user-btn">Delete</button>
+                    <span class="read-only-badge">Read Only</span>
                 </div>
             </div>
         `;
@@ -483,31 +480,6 @@ export class AdminPanel {
         `;
     }
     
-    async showAddUserDialog() {
-        const username = await Modal.prompt('Username:', '');
-        if (!username || !username.trim()) return;
-        
-        const email = await Modal.prompt('Email:', '');
-        if (!email || !email.trim()) return;
-        
-        const password = await Modal.prompt('Password:', '');
-        const role = await Modal.prompt('Role (admin/analyst/viewer):', 'viewer');
-        
-        try {
-            usersStore.create(
-                username.trim(),
-                email.trim(),
-                password || '',
-                [],
-                role || 'viewer'
-            );
-            await Modal.alert('User created successfully!');
-            this.renderUsersTab();
-        } catch (error) {
-            await Modal.alert(`Error creating user: ${error.message}`);
-        }
-    }
-    
     async showAddGroupDialog() {
         const name = await Modal.prompt('Group Name:', '');
         if (!name || !name.trim()) return;
@@ -517,34 +489,9 @@ export class AdminPanel {
         try {
             userGroupsStore.create(name.trim(), description || '');
             await Modal.alert('Group created successfully!');
-            this.renderUsersTab();
+            this.renderUsersAccessTab();
         } catch (error) {
             await Modal.alert(`Error creating group: ${error.message}`);
-        }
-    }
-    
-    async toggleUser(id) {
-        const user = usersStore.get(id);
-        if (!user) return;
-        
-        try {
-            usersStore.setEnabled(id, !user.enabled);
-            this.renderUsersTab();
-        } catch (error) {
-            await Modal.alert(`Error toggling user: ${error.message}`);
-        }
-    }
-    
-    async deleteUser(id) {
-        const confirmed = await Modal.confirm('Are you sure you want to delete this user?');
-        if (!confirmed) return;
-        
-        try {
-            usersStore.delete(id);
-            await Modal.alert('User deleted successfully!');
-            this.renderUsersTab();
-        } catch (error) {
-            await Modal.alert(`Error deleting user: ${error.message}`);
         }
     }
     
@@ -555,49 +502,10 @@ export class AdminPanel {
         try {
             userGroupsStore.delete(id);
             await Modal.alert('Group deleted successfully!');
-            this.renderUsersTab();
+            this.renderUsersAccessTab();
         } catch (error) {
             await Modal.alert(`Error deleting group: ${error.message}`);
         }
-    }
-    
-    // ===== ACCESS CONTROL TAB =====
-    renderAccessTab() {
-        const tabContent = this.container.querySelector('#access-tab');
-        const permissions = accessPermissionsStore.getAll();
-        const users = usersStore.getAll();
-        const groups = userGroupsStore.getAll();
-        
-        tabContent.innerHTML = `
-            <div class="admin-section">
-                <div class="section-header">
-                    <h3>Access Control</h3>
-                    <button type="button" class="btn btn-primary" id="add-permission-btn">Add Permission</button>
-                </div>
-                
-                <div class="permissions-list" id="permissions-list">
-                    ${permissions.length === 0 
-                        ? '<p class="empty-state">No permissions configured. Click "Add Permission" to create one.</p>'
-                        : permissions.map(perm => this.renderPermissionCard(perm, users, groups)).join('')
-                    }
-                </div>
-            </div>
-        `;
-        
-        const addBtn = tabContent.querySelector('#add-permission-btn');
-        if (addBtn) {
-            addBtn.addEventListener('click', () => this.showAddPermissionDialog(users, groups));
-        }
-        
-        permissions.forEach(perm => {
-            const card = tabContent.querySelector(`[data-permission-id="${perm.id}"]`);
-            if (card) {
-                const deleteBtn = card.querySelector('.delete-permission-btn');
-                if (deleteBtn) {
-                    deleteBtn.addEventListener('click', () => this.deletePermission(perm.id));
-                }
-            }
-        });
     }
     
     renderPermissionCard(permission, users, groups) {
@@ -680,7 +588,7 @@ export class AdminPanel {
         try {
             accessPermissionsStore.delete(id);
             await Modal.alert('Permission removed successfully!');
-            this.renderAccessTab();
+            this.renderUsersAccessTab();
         } catch (error) {
             await Modal.alert(`Error removing permission: ${error.message}`);
         }
