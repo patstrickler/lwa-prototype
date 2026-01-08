@@ -964,11 +964,7 @@ export class VisualizationPanel {
     clearChart() {
         const chartsContainer = this.container.querySelector('#charts-container');
         if (chartsContainer) {
-            chartsContainer.innerHTML = `
-                <div class="preview-placeholder">
-                    <p class="text-muted">Select a dataset and chart type to see preview</p>
-                </div>
-            `;
+            chartsContainer.innerHTML = '';
         }
         this.charts = [];
     }
