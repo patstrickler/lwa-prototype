@@ -40,6 +40,9 @@ export class SavedScriptsLibrary {
                 }
             </div>
         `;
+        
+        // Re-attach event listeners after rendering
+        this.attachEventListeners();
     }
     
     renderScriptItem(script) {
