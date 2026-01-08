@@ -132,22 +132,36 @@ header h1 {
     letter-spacing: -0.025em;
 }
 
-/* Navigation styles - complement Bootstrap navbar */
-.navbar .nav-link {
+/* Navigation styles - left-aligned navigation */
+.main-nav {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    background-color: var(--color-bg-elevated);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elevation-2);
+    margin-bottom: var(--spacing-xl);
+}
+
+.nav-link {
     padding: var(--spacing-md) var(--spacing-lg);
     color: var(--color-text-secondary);
     font-weight: var(--font-weight-medium);
     transition: all var(--transition-base);
     border-radius: var(--radius-md);
-    margin: 0 var(--spacing-xs);
+    text-decoration: none;
+    display: inline-block;
 }
 
-.navbar .nav-link:hover {
+.nav-link:hover {
     background-color: var(--color-primary-light);
     color: var(--color-primary);
 }
 
-.navbar .nav-link.active {
+.nav-link.active {
     background-color: var(--color-primary);
     color: white;
     font-weight: var(--font-weight-semibold);
@@ -4065,11 +4079,10 @@ main {
 
 .script-inline-results {
     position: absolute;
-    left: 100%;
-    margin-left: 10px;
+    left: calc(100% + 10px);
+    top: 0;
     width: 300px;
-    max-height: 100%;
-    overflow-y: auto;
+    pointer-events: none;
     z-index: 10;
 }
 
@@ -4086,6 +4099,10 @@ main {
     font-size: 12px;
     line-height: 1.4;
     z-index: 100;
+    pointer-events: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .inline-loading {

@@ -905,15 +905,16 @@ export class ScriptExecutionPanel {
     positionInlineResult(lineNum) {
         const scriptEditor = this.container.querySelector('#script-editor');
         const resultDiv = this.container.querySelector(`#inline-result-${lineNum}`);
-        if (!scriptEditor || !resultDiv) return;
+        const editorContainer = scriptEditor?.closest('.script-editor-container');
+        if (!scriptEditor || !resultDiv || !editorContainer) return;
         
-        // Calculate line position
-        const lines = scriptEditor.value.split('\n');
+        // Calculate line position based on scroll
         const lineHeight = 20; // Approximate line height
         const padding = 12;
-        const topOffset = (lineNum - 1) * lineHeight + padding;
+        const editorScrollTop = scriptEditor.scrollTop;
+        const topOffset = (lineNum - 1) * lineHeight + padding - editorScrollTop;
         
-        resultDiv.style.top = `${topOffset}px`;
+        resultDiv.style.top = `${Math.max(0, topOffset)}px`;
     }
     
     formatInlineResult(result) {
@@ -944,6 +945,13 @@ export class ScriptExecutionPanel {
                 lineNumber.classList.remove('has-result');
             }
         }
+    }
+    
+    updateInlineResultsPosition() {
+        // Update position of all inline results on scroll
+        this.lineResults.forEach((result, lineNum) => {
+            this.positionInlineResult(lineNum);
+        });
     }
     
     clearInlineResults() {
