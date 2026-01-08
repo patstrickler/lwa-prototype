@@ -12,7 +12,7 @@ import { ScriptExecutionPanel } from './components/script-execution-panel.js';
 import { SavedScriptsLibrary } from './components/saved-scripts-library.js';
 
 // Page routing/navigation functionality
-function initNavigation() {
+function initNavigation(calculationsPanel) {
     const navLinks = document.querySelectorAll('.nav-link');
     const pages = document.querySelectorAll('.page');
     
