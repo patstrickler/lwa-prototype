@@ -152,24 +152,8 @@ export class VisualizationPanel {
         const titleInput = findSelector('chart-title-input');
         const xLabelInput = findSelector('x-axis-label-input');
         const yLabelInput = findSelector('y-axis-label-input');
-        const datasetSelect = findSelector('dataset-select-sidebar');
-        
-        // Dataset selection
-        if (datasetSelect) {
-            datasetSelect.addEventListener('change', () => {
-                const datasetId = datasetSelect.value;
-                if (datasetId) {
-                    const dataset = datasetStore.get(datasetId);
-                    if (dataset) {
-                        this.currentDataset = dataset;
-                        this.selectDataset(datasetId);
-                    }
-                } else {
-                    this.currentDataset = null;
-                    this.clearChart();
-                }
-            });
-        }
+        // Dataset selection is now handled by the left pane dataset browser
+        // The dataset is selected via the left pane and synced through app.js -> selectDataset() method
         
         // Chart type change - update field selection UI and preserve selections
         if (chartTypeSelect) {
@@ -726,9 +710,12 @@ export class VisualizationPanel {
     }
     
     async refreshDatasetList() {
-        // Check both old and new selector locations
-        const datasetSelect = document.querySelector('#dataset-select-sidebar') || this.container.querySelector('#dataset-select');
-        if (!datasetSelect) return;
+        // Dataset selection is now handled by the left pane dataset browser
+        // Just update the display if we have a current dataset
+        if (this.currentDataset) {
+            this.updateDatasetDisplay(this.currentDataset);
+        }
+        return;
         
         const currentValue = datasetSelect.value;
         const allDatasets = datasetStore.getAll();
@@ -780,9 +767,10 @@ export class VisualizationPanel {
     onDatasetSelected() {
         // Use requestAnimationFrame to batch DOM updates
         requestAnimationFrame(() => {
-            const datasetSelect = document.querySelector('#dataset-select-sidebar') || this.container.querySelector('#dataset-select');
-            if (!datasetSelect) return;
-            const datasetId = datasetSelect.value;
+            // Get dataset from currentDataset or from old selector if it exists
+            const datasetSelect = this.container.querySelector('#dataset-select');
+            const datasetId = this.currentDataset ? this.currentDataset.id : (datasetSelect ? datasetSelect.value : null);
+            if (!datasetId) return;
             const xAxisSelect = this.container.querySelector('#x-axis-select');
             const yAxisSelect = this.container.querySelector('#y-axis-select');
             
@@ -2283,16 +2271,40 @@ export class VisualizationPanel {
         }
         
         // Check if dataset exists
-        if (!datasetStore.exists(datasetId)) {
-            const dataset = { id: datasetId, name: 'Unknown Dataset' };
-            this.showDatasetMissingError(dataset);
+        if (!datasetId || !datasetStore.exists(datasetId)) {
+            if (datasetId) {
+                const dataset = { id: datasetId, name: 'Unknown Dataset' };
+                this.showDatasetMissingError(dataset);
+            }
             this.currentDataset = null;
+            this.updateDatasetDisplay(null);
             return;
         }
+        
+        // Store the dataset
+        this.currentDataset = datasetStore.get(datasetId);
+        this.updateDatasetDisplay(this.currentDataset);
+        
+        // Also update old selector if it exists
         const datasetSelect = this.container.querySelector('#dataset-select');
         if (datasetSelect) {
             datasetSelect.value = datasetId;
             this.onDatasetSelected();
+        }
+    }
+    
+    /**
+     * Updates the dataset display in the sidebar
+     * @param {Object|null} dataset - Dataset object or null
+     */
+    updateDatasetDisplay(dataset) {
+        const display = document.querySelector('#current-dataset-display');
+        if (display) {
+            if (dataset) {
+                display.innerHTML = `<span style="color: #28a745;">${this.escapeHtml(dataset.name)}</span>`;
+            } else {
+                display.innerHTML = '<span class="text-muted">Select a dataset from the left pane</span>';
+            }
         }
     }
     
@@ -2381,12 +2393,9 @@ export class VisualizationPanel {
             dataset = datasetStore.get(this.yAxisSelection.datasetId);
         }
         
-        // If no dataset, try to get from sidebar dataset selector
-        if (!dataset) {
-            const datasetSelect = document.querySelector('#dataset-select-sidebar');
-            if (datasetSelect && datasetSelect.value) {
-                dataset = datasetStore.get(datasetSelect.value);
-            }
+        // If no dataset, try to get from currentDataset (set by left pane selection)
+        if (!dataset && this.currentDataset) {
+            dataset = this.currentDataset;
         }
         
         // Fallback to dataset browser (left panel) if still no dataset
