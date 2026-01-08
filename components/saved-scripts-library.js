@@ -116,7 +116,10 @@ export class SavedScriptsLibrary {
             // Check button type
             if (clickedButton.classList.contains('delete-script-btn')) {
                 console.log('Delete button clicked for script:', scriptId);
-                this.deleteScript(scriptId);
+                // Use setTimeout to allow event to fully propagate before showing modal
+                setTimeout(() => {
+                    this.deleteScript(scriptId);
+                }, 0);
             } else if (clickedButton.classList.contains('load-script-btn')) {
                 console.log('Load button clicked for script:', scriptId);
                 this.loadScript(scriptId);
