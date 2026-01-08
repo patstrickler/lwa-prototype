@@ -33,6 +33,9 @@ export class CalculationsPanel {
                 ${this.currentDataset ? this.renderCalculations(metrics) : this.renderEmptyState()}
             </div>
         `;
+        
+        // Re-attach event listeners after rendering
+        this.attachEventListeners();
     }
     
     renderEmptyState() {
@@ -89,8 +92,12 @@ export class CalculationsPanel {
     attachEventListeners() {
         if (!this.container) return;
         
-        // Use event delegation for dynamically added buttons
         // Remove any existing listeners first to avoid duplicates
+        if (this._clickHandler) {
+            this.container.removeEventListener('click', this._clickHandler);
+        }
+        
+        // Use event delegation for dynamically added buttons
         const clickHandler = (e) => {
             // Check for edit button
             const editBtn = e.target.closest('.edit-calc-btn');
