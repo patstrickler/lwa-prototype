@@ -65,21 +65,26 @@ export class ReportsPanel {
     
     attachEventListeners() {
         const createBtn = this.container.querySelector('#create-report-btn');
+        console.log('Attaching event listeners, createBtn found:', !!createBtn);
         if (createBtn) {
-            createBtn.addEventListener('click', (e) => {
+            // Remove any existing listeners first
+            const newCreateBtn = createBtn.cloneNode(true);
+            createBtn.parentNode.replaceChild(newCreateBtn, createBtn);
+            
+            newCreateBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Create button clicked');
-                try {
-                    this.showCreateReportDialog().catch(err => {
-                        console.error('Error in showCreateReportDialog:', err);
-                        Modal.alert(`Error opening dialog: ${err.message || 'Unknown error'}`);
+                console.log('Create button clicked - calling showCreateReportDialog');
+                this.showCreateReportDialog().catch(err => {
+                    console.error('Error in showCreateReportDialog:', err);
+                    console.error('Error stack:', err.stack);
+                    Modal.alert(`Error opening dialog: ${err.message || 'Unknown error'}`).catch(alertErr => {
+                        console.error('Error showing alert:', alertErr);
                     });
-                } catch (error) {
-                    console.error('Error calling showCreateReportDialog:', error);
-                    Modal.alert(`Error: ${error.message || 'Unknown error'}`);
-                }
+                });
             });
+        } else {
+            console.error('Create report button not found in container:', this.container);
         } else {
             console.warn('Create report button not found!');
         }
@@ -191,13 +196,19 @@ export class ReportsPanel {
     }
     
     async showCreateReportDialog() {
-        console.log('showCreateReportDialog called');
+        console.log('showCreateReportDialog called', {
+            isViewer: this.isViewer,
+            container: !!this.container
+        });
         
         // Check if user is viewer - if so, show message
         if (this.isViewer) {
+            console.log('User is viewer, showing access denied message');
             await Modal.alert('Only analysts can create reports. Please contact an administrator to change your role.');
             return;
         }
+        
+        console.log('User is analyst, proceeding with modal creation');
         
         // Get available visualizations and datasets
         const visualizations = visualizationsStore.getAll();
@@ -268,15 +279,34 @@ export class ReportsPanel {
             </div>
         `;
         
-        // Append backdrop to body
+        // Append backdrop to body FIRST, then verify it's visible
         document.body.appendChild(backdrop);
-        console.log('Modal backdrop added to DOM', backdrop);
+        console.log('Modal backdrop added to DOM', {
+            backdrop: backdrop,
+            inDOM: document.body.contains(backdrop),
+            computedDisplay: window.getComputedStyle(backdrop).display,
+            computedVisibility: window.getComputedStyle(backdrop).visibility,
+            computedOpacity: window.getComputedStyle(backdrop).opacity,
+            computedZIndex: window.getComputedStyle(backdrop).zIndex
+        });
+        
+        // Force reflow and ensure visibility
+        void backdrop.offsetHeight; // Force reflow
+        backdrop.style.display = 'flex';
+        backdrop.style.visibility = 'visible';
+        backdrop.style.opacity = '1';
+        backdrop.style.zIndex = '10500';
         
         // Close handler
         const closeModal = () => {
             console.log('Closing modal');
             if (backdrop && backdrop.parentNode) {
-                backdrop.parentNode.removeChild(backdrop);
+                backdrop.classList.add('modal-closing');
+                setTimeout(() => {
+                    if (backdrop.parentNode) {
+                        backdrop.parentNode.removeChild(backdrop);
+                    }
+                }, 200);
             }
         };
         
@@ -286,6 +316,7 @@ export class ReportsPanel {
         const closeBtn = backdrop.querySelector('#close-create-report-dialog');
         const createBtn = backdrop.querySelector('#create-report-submit-btn');
         const modal = backdrop.querySelector('.modal');
+        const modalContent = backdrop.querySelector('.modal-content');
         
         console.log('Modal elements found:', {
             titleInput: !!titleInput,
@@ -293,20 +324,40 @@ export class ReportsPanel {
             closeBtn: !!closeBtn,
             createBtn: !!createBtn,
             modal: !!modal,
-            backdrop: !!backdrop
+            modalContent: !!modalContent,
+            backdrop: !!backdrop,
+            backdropHTML: backdrop.innerHTML.substring(0, 300)
         });
+        
+        // Ensure modal content is visible
+        if (modal) {
+            modal.style.display = 'block';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+        }
+        if (modalContent) {
+            modalContent.style.display = 'flex';
+            modalContent.style.visibility = 'visible';
+            modalContent.style.opacity = '1';
+        }
         
         if (!titleInput || !cancelBtn || !createBtn) {
             console.error('Critical modal elements missing!', {
                 titleInput: !!titleInput,
                 cancelBtn: !!cancelBtn,
                 createBtn: !!createBtn,
-                backdropHTML: backdrop.innerHTML.substring(0, 200)
+                backdropHTML: backdrop.innerHTML.substring(0, 500),
+                backdropChildren: backdrop.children.length,
+                modalChildren: modal ? modal.children.length : 0
             });
-            Modal.alert('Error: Could not initialize dialog. Please refresh the page.');
-            if (backdrop.parentNode) {
-                backdrop.parentNode.removeChild(backdrop);
-            }
+            
+            // Try to show an alert, but if that fails, use console.error
+            Modal.alert('Error: Could not initialize dialog. Please check the browser console for details.').catch(err => {
+                console.error('Could not show alert modal:', err);
+            });
+            
+            // Keep backdrop visible so user can see what went wrong
+            // Don't remove it immediately
             return;
         }
         
