@@ -1334,7 +1334,7 @@ main {
 
 .editor-content {
     display: flex;
-    flex-direction: column;
+        flex-direction: column;
     gap: var(--spacing-xl);
 }
 
@@ -4702,19 +4702,46 @@ main {
     animation: fadeIn 0.2s ease-in;
 }
 
-/* Ensure reports modal is always visible */
-.reports-modal-backdrop {
+/* Ensure reports modal is always visible - using unique classes to avoid Bootstrap conflicts */
+.reports-create-dialog-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     z-index: 10500 !important;
     opacity: 1 !important;
     visibility: visible !important;
 }
 
-.reports-modal {
+.reports-create-dialog-modal {
+    max-width: 700px !important;
+    width: 90% !important;
+    margin: 20px !important;
+    position: relative !important;
     z-index: 10501 !important;
+    display: block !important;
     opacity: 1 !important;
     visibility: visible !important;
     transform: none !important;
-    display: block !important;
+    animation: slideIn 0.2s ease-out;
+}
+
+.reports-create-dialog-content {
+    background-color: #fff !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 90vh !important;
+    position: relative !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .modal-backdrop.modal-closing {

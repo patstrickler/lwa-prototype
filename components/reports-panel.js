@@ -215,9 +215,9 @@ export class ReportsPanel {
         const datasets = datasetStore.getAll();
         console.log('Visualizations:', visualizations.length);
         
-        // Create the backdrop first - use unique class to avoid Bootstrap conflicts
+        // Create the backdrop first - use completely unique classes to avoid Bootstrap conflicts
         const backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop reports-modal-backdrop';
+        backdrop.className = 'reports-create-dialog-backdrop';
         backdrop.id = 'create-report-dialog-backdrop';
         // Force styles to ensure visibility (override Bootstrap if present)
         backdrop.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background-color: rgba(0, 0, 0, 0.5) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 10500 !important; opacity: 1 !important; visibility: visible !important;';
@@ -234,10 +234,10 @@ export class ReportsPanel {
                 </label>
             `).join('');
         
-        // Set the modal HTML inside the backdrop - use explicit styles to override Bootstrap
+        // Set the modal HTML inside the backdrop - use unique classes and explicit styles
         backdrop.innerHTML = `
-            <div class="modal reports-modal" style="max-width: 700px !important; width: 90% !important; margin: 20px !important; position: relative !important; z-index: 10501 !important; display: block !important; opacity: 1 !important; visibility: visible !important; transform: none !important;">
-                <div class="modal-content" style="background-color: #fff !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; max-height: 90vh !important; position: relative !important; opacity: 1 !important; visibility: visible !important;">
+            <div class="reports-create-dialog-modal" style="max-width: 700px !important; width: 90% !important; margin: 20px !important; position: relative !important; z-index: 10501 !important; display: block !important; opacity: 1 !important; visibility: visible !important; transform: none !important;">
+                <div class="reports-create-dialog-content" style="background-color: #fff !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; max-height: 90vh !important; position: relative !important; opacity: 1 !important; visibility: visible !important;">
                     <div class="modal-header">
                         <h3 class="modal-title">Create New Report/Dashboard</h3>
                         <button type="button" class="modal-close" id="close-create-report-dialog">×</button>
@@ -315,8 +315,8 @@ export class ReportsPanel {
         const cancelBtn = backdrop.querySelector('#cancel-create-report-btn');
         const closeBtn = backdrop.querySelector('#close-create-report-dialog');
         const createBtn = backdrop.querySelector('#create-report-submit-btn');
-        const modal = backdrop.querySelector('.modal');
-        const modalContent = backdrop.querySelector('.modal-content');
+        const modal = backdrop.querySelector('.reports-create-dialog-modal');
+        const modalContent = backdrop.querySelector('.reports-create-dialog-content');
         
         console.log('Modal elements found:', {
             titleInput: !!titleInput,
