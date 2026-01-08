@@ -892,14 +892,64 @@ export class VisualizationPanel {
     }
     
     _performAutoRender() {
-        if (!this.xAxisSelection || !this.yAxisSelection) {
-            // Clear chart if not all required fields are selected
+        // Get chart type from sidebar
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const chartTypeSelect = sidebarContainer ? sidebarContainer.querySelector('#chart-type-select') : this.container.querySelector('#chart-type-select');
+        const chartType = chartTypeSelect ? chartTypeSelect.value : '';
+        
+        if (!chartType) {
+            // No chart type selected, clear chart
             this.clearChart();
             return;
         }
         
-        // Ensure both selections are from the same dataset
-        if (this.xAxisSelection.datasetId !== this.yAxisSelection.datasetId) {
+        // Check required fields based on chart type
+        if (chartType === 'scorecard') {
+            if (!this.yAxisSelection) {
+                this.clearChart();
+                return;
+            }
+        } else if (chartType === 'table') {
+            if (!this.tableFields || this.tableFields.length === 0 || this.tableFields.every(f => !f)) {
+                this.clearChart();
+                return;
+            }
+        } else if (chartType === 'scatter') {
+            if (!this.xAxisSelection || !this.yAxisSelection) {
+                this.clearChart();
+                return;
+            }
+            // Ensure both selections are from the same dataset
+            if (this.xAxisSelection.datasetId !== this.yAxisSelection.datasetId) {
+                this.clearChart();
+                return;
+            }
+        } else {
+            // Bar, Line, Pie, Donut require X and Y
+            if (!this.xAxisSelection || !this.yAxisSelection) {
+                this.clearChart();
+                return;
+            }
+            // Ensure both selections are from the same dataset
+            if (this.xAxisSelection.datasetId !== this.yAxisSelection.datasetId) {
+                this.clearChart();
+                return;
+            }
+        }
+        
+        // Check if dataset exists
+        let datasetId = null;
+        if (this.xAxisSelection) {
+            datasetId = this.xAxisSelection.datasetId;
+        } else if (this.yAxisSelection) {
+            datasetId = this.yAxisSelection.datasetId;
+        } else if (this.tableFields && this.tableFields.length > 0 && this.tableFields[0]) {
+            datasetId = this.tableFields[0].datasetId;
+        } else if (this.currentDataset) {
+            datasetId = this.currentDataset.id;
+        }
+        
+        if (!datasetId) {
             this.clearChart();
             return;
         }
@@ -1050,7 +1100,9 @@ export class VisualizationPanel {
     }
     
     renderChart() {
-        const chartTypeSelect = this.container.querySelector('#chart-type-select');
+        // Find chart type selector in sidebar or main container
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const chartTypeSelect = sidebarContainer ? sidebarContainer.querySelector('#chart-type-select') : this.container.querySelector('#chart-type-select');
         const chartType = chartTypeSelect ? chartTypeSelect.value : '';
         
         if (!chartType) {
