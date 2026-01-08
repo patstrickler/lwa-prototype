@@ -2830,7 +2830,7 @@ export class VisualizationPanel {
                     <span class="item-icon">📈</span>
                     <div class="item-info">
                         <span class="item-name">${this.escapeHtml(metric.name)}</span>
-                        <span class="item-value">${this.formatMetricValue(metric.value)}</span>
+                        <span class="item-value">${formatMetricValue(metric.value, metric.displayType, metric.decimalPlaces)}</span>
                     </div>
                     <span class="item-type">Metric</span>
                     <button class="remove-selection" title="Remove selection">×</button>
