@@ -1129,7 +1129,7 @@ export class VisualizationPanel {
             }
         }
         
-        // Get dataset from first available selection
+        // Get dataset from first available selection or currentDataset
         let datasetId = null;
         if (this.xAxisSelection) {
             datasetId = this.xAxisSelection.datasetId;
@@ -1137,6 +1137,8 @@ export class VisualizationPanel {
             datasetId = this.yAxisSelection.datasetId;
         } else if (this.tableFields && this.tableFields.length > 0 && this.tableFields[0]) {
             datasetId = this.tableFields[0].datasetId;
+        } else if (this.currentDataset) {
+            datasetId = this.currentDataset.id;
         }
         
         if (!datasetId) {
