@@ -79,8 +79,17 @@ export class AnalysisPanel {
     }
     
     setDataset(dataset) {
+        console.log('[AnalysisPanel.setDataset] Setting dataset', {
+            datasetId: dataset?.id || null,
+            datasetName: dataset?.name || null
+        });
+        
         // Check if dataset exists
         if (dataset && !datasetStore.exists(dataset.id)) {
+            console.error('[AnalysisPanel.setDataset] Dataset does not exist', {
+                datasetId: dataset.id,
+                datasetName: dataset.name
+            });
             this.showDatasetMissingError(dataset);
             this.currentDataset = null;
             // Update global selection manager
@@ -162,11 +171,20 @@ export class AnalysisPanel {
      */
     async reExecuteMetrics() {
         if (!this.currentDataset) {
+            console.warn('[AnalysisPanel.reExecuteMetrics] No current dataset');
             return;
         }
         
+        console.log('[AnalysisPanel.reExecuteMetrics] Re-executing metrics', {
+            datasetId: this.currentDataset.id,
+            datasetName: this.currentDataset.name
+        });
+        
         // Check if dataset still exists
         if (!datasetStore.exists(this.currentDataset.id)) {
+            console.error('[AnalysisPanel.reExecuteMetrics] Dataset no longer exists', {
+                datasetId: this.currentDataset.id
+            });
             this.showDatasetMissingError(this.currentDataset);
             this.currentDataset = null;
             this.updateMetricsList();
@@ -175,14 +193,22 @@ export class AnalysisPanel {
         
         const metrics = metricsStore.getByDataset(this.currentDataset.id);
         if (metrics.length === 0) {
+            console.log('[AnalysisPanel.reExecuteMetrics] No metrics found for dataset');
             this.updateMetricsList();
             return;
         }
         
+        console.log('[AnalysisPanel.reExecuteMetrics] Found metrics to re-execute', {
+            metricCount: metrics.length,
+            metricIds: metrics.map(m => m.id)
+        });
+        
         // Get fresh dataset data
         const storedDataset = datasetStore.get(this.currentDataset.id);
         if (!storedDataset) {
-            console.error('Dataset not found for re-execution');
+            console.error('[AnalysisPanel.reExecuteMetrics] Dataset not found for re-execution', {
+                datasetId: this.currentDataset.id
+            });
             this.updateMetricsList();
             return;
         }
@@ -192,6 +218,8 @@ export class AnalysisPanel {
         
         // Re-execute each metric
         const updatedMetrics = [];
+        const failedMetrics = [];
+        
         metrics.forEach(metric => {
             try {
                 // Check if dataset is empty
@@ -210,7 +238,14 @@ export class AnalysisPanel {
                     updatedMetrics.push(updated);
                 }
             } catch (error) {
-                console.error(`Error re-executing metric ${metric.id}:`, error);
+                console.error('[AnalysisPanel.reExecuteMetrics] Error re-executing metric:', {
+                    metricId: metric.id,
+                    metricName: metric.name,
+                    error: error.message,
+                    stack: error.stack,
+                    timestamp: new Date().toISOString()
+                });
+                failedMetrics.push({ metricId: metric.id, error: error.message });
                 // Update with null value to indicate error
                 metricsStore.updateValue(metric.id, null);
                 // Store error message for display
@@ -218,6 +253,13 @@ export class AnalysisPanel {
                     metric._error = error.message || 'Error calculating metric';
                 }
             }
+        });
+        
+        console.log('[AnalysisPanel.reExecuteMetrics] Metrics re-execution complete', {
+            total: metrics.length,
+            successful: updatedMetrics.length,
+            failed: failedMetrics.length,
+            failedMetricIds: failedMetrics.map(m => m.metricId)
         });
         
         // Update display and notify

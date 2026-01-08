@@ -60,15 +60,15 @@ export class VisualizationPanel {
         
         sidebarContainer.innerHTML = `
             <div class="visualization-builder-sidebar">
-                <div class="builder-form">
+                    <div class="builder-form">
                     <div class="form-group" style="padding: 8px; background-color: #f8f9fa; border-radius: 4px; margin-bottom: 8px;">
                         <label style="font-size: 11px; color: #6c757d; margin-bottom: 4px;">Dataset:</label>
                         <div id="current-dataset-display" style="font-size: 12px; font-weight: 500; color: #495057;">
                             <span class="text-muted">Select a dataset from the left pane</span>
                         </div>
-                    </div>
-                    
-                    <div class="form-group">
+                        </div>
+                        
+                        <div class="form-group">
                         <label for="chart-type-select">Chart Type:</label>
                         <select id="chart-type-select" class="form-control">
                             <option value="">-- Select Chart Type --</option>
@@ -79,9 +79,9 @@ export class VisualizationPanel {
                             <option value="donut">Donut Chart</option>
                             <option value="table">Table</option>
                             <option value="scorecard">Scorecard</option>
-                        </select>
-                    </div>
-                    
+                            </select>
+                        </div>
+                        
                     <div id="field-selection-container" style="display: none;">
                         <!-- Dynamic field selection will be populated here -->
                     </div>
@@ -93,39 +93,39 @@ export class VisualizationPanel {
                         </button>
                         <div class="styling-panel" id="styling-panel" style="display: none;">
                             <div class="styling-form">
-                                <div class="form-group">
+                        <div class="form-group">
                                     <label for="chart-title-input">Chart Title:</label>
                                     <input type="text" id="chart-title-input" class="form-control" placeholder="Auto-generated">
-                                </div>
-                                
+                        </div>
+                        
                                 <div class="form-group">
                                     <label for="x-axis-label-input">X Axis Label:</label>
                                     <input type="text" id="x-axis-label-input" class="form-control" placeholder="Auto-generated">
-                                </div>
-                                
-                                <div class="form-group">
+                        </div>
+                        
+                        <div class="form-group">
                                     <label for="y-axis-label-input">Y Axis Label:</label>
                                     <input type="text" id="y-axis-label-input" class="form-control" placeholder="Auto-generated">
-                                </div>
-                                
+                        </div>
+                        
                                 <div class="form-group">
                                     <label for="series-color-input">Series Color:</label>
                                     <div class="color-input-wrapper">
                                         <input type="color" id="series-color-input" class="form-control color-picker" value="#007bff">
                                         <input type="text" id="series-color-text" class="form-control color-text" value="#007bff" placeholder="#007bff">
                                     </div>
-                                </div>
-                                
+                        </div>
+                        
                                 <div class="form-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="trendline-toggle" class="form-checkbox">
                                         <span>Show Trendline</span>
                                     </label>
                                 </div>
-                            </div>
                         </div>
                     </div>
-                    
+                </div>
+                
                     <div class="form-group" style="display: flex; gap: 4px; flex-direction: column; margin-top: 8px;">
                         <button type="button" class="btn btn-secondary btn-sm" id="clear-selections-btn">Clear</button>
                         <button type="button" class="btn btn-primary btn-sm" id="save-visualization-btn">Save</button>
@@ -749,18 +749,18 @@ export class VisualizationPanel {
         requestAnimationFrame(() => {
             datasetSelect.innerHTML = '';
             datasetSelect.appendChild(fragment);
-            
-            // Restore selection if it still exists
+        
+        // Restore selection if it still exists
             if (currentValue && validDatasets.find(d => d.id === currentValue)) {
-                datasetSelect.value = currentValue;
+            datasetSelect.value = currentValue;
                 // Debounce the selection handler
                 if (this._selectionTimeout) {
                     clearTimeout(this._selectionTimeout);
                 }
                 this._selectionTimeout = setTimeout(() => {
-                    this.onDatasetSelected();
+            this.onDatasetSelected();
                 }, 50);
-            }
+        }
         });
     }
     
@@ -768,13 +768,13 @@ export class VisualizationPanel {
         // Use requestAnimationFrame to batch DOM updates
         requestAnimationFrame(() => {
             // Get dataset from currentDataset or from old selector if it exists
-            const datasetSelect = this.container.querySelector('#dataset-select');
+        const datasetSelect = this.container.querySelector('#dataset-select');
             const datasetId = this.currentDataset ? this.currentDataset.id : (datasetSelect ? datasetSelect.value : null);
             if (!datasetId) return;
             const xAxisSelect = this.container.querySelector('#x-axis-select');
             const yAxisSelect = this.container.querySelector('#y-axis-select');
-            
-            if (!datasetId) {
+        
+        if (!datasetId) {
                 if (xAxisSelect) {
                     xAxisSelect.disabled = true;
                     xAxisSelect.innerHTML = '<option value="">-- Select X Axis --</option>';
@@ -783,17 +783,17 @@ export class VisualizationPanel {
                     yAxisSelect.disabled = true;
                     yAxisSelect.innerHTML = '<option value="">-- Select Y Axis --</option>';
                 }
-                this.currentDataset = null;
-                return;
-            }
-            
-            const dataset = datasetStore.get(datasetId);
-            if (!dataset) {
-                return;
-            }
-            
-            this.currentDataset = dataset;
-            
+            this.currentDataset = null;
+            return;
+        }
+        
+        const dataset = datasetStore.get(datasetId);
+        if (!dataset) {
+            return;
+        }
+        
+        this.currentDataset = dataset;
+        
             // Populate both X and Y axis selectors with columns and metrics
             // Use document fragment for better performance
             if (xAxisSelect) {
@@ -924,7 +924,7 @@ export class VisualizationPanel {
                 this.clearChart();
                 return;
             }
-        } else {
+            } else {
             // Bar, Line, Pie, Donut require X and Y
             if (!this.xAxisSelection || !this.yAxisSelection) {
                 this.clearChart();
@@ -1100,55 +1100,74 @@ export class VisualizationPanel {
     }
     
     renderChart() {
-        // Find chart type selector in sidebar or main container
-        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
-        const chartTypeSelect = sidebarContainer ? sidebarContainer.querySelector('#chart-type-select') : this.container.querySelector('#chart-type-select');
-        const chartType = chartTypeSelect ? chartTypeSelect.value : '';
-        
-        if (!chartType) {
+        try {
+            console.log('[VisualizationPanel.renderChart] Starting chart render');
+            
+            // Find chart type selector in sidebar or main container
+            const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+            const chartTypeSelect = sidebarContainer ? sidebarContainer.querySelector('#chart-type-select') : this.container.querySelector('#chart-type-select');
+            const chartType = chartTypeSelect ? chartTypeSelect.value : '';
+            
+            if (!chartType) {
+                console.warn('[VisualizationPanel.renderChart] No chart type selected');
             return;
         }
         
-        // Check required fields based on chart type
-        if (chartType === 'scorecard') {
-            if (!this.yAxisSelection) {
+            console.log('[VisualizationPanel.renderChart] Chart type selected', { chartType });
+            
+            // Check required fields based on chart type
+            if (chartType === 'scorecard') {
+                if (!this.yAxisSelection) {
+                    console.warn('[VisualizationPanel.renderChart] Scorecard requires Y axis selection');
                 return;
             }
-        } else if (chartType === 'table') {
-            if (!this.tableFields || this.tableFields.length === 0 || this.tableFields.every(f => !f)) {
+            } else if (chartType === 'table') {
+                if (!this.tableFields || this.tableFields.length === 0 || this.tableFields.every(f => !f)) {
+                    console.warn('[VisualizationPanel.renderChart] Table requires at least one field');
                 return;
+                }
+            } else if (chartType === 'scatter') {
+                if (!this.xAxisSelection || !this.yAxisSelection) {
+                    console.warn('[VisualizationPanel.renderChart] Scatter chart requires X and Y axis selections');
+                    return;
+                }
+            } else {
+                // Bar, Line, Pie, Donut require X and Y
+                if (!this.xAxisSelection || !this.yAxisSelection) {
+                    console.warn('[VisualizationPanel.renderChart] Chart type requires X and Y axis selections', { chartType });
+                    return;
+                }
             }
-        } else if (chartType === 'scatter') {
-            if (!this.xAxisSelection || !this.yAxisSelection) {
-                return;
+            
+            // Get dataset from first available selection or currentDataset
+            let datasetId = null;
+            if (this.xAxisSelection) {
+                datasetId = this.xAxisSelection.datasetId;
+            } else if (this.yAxisSelection) {
+                datasetId = this.yAxisSelection.datasetId;
+            } else if (this.tableFields && this.tableFields.length > 0 && this.tableFields[0]) {
+                datasetId = this.tableFields[0].datasetId;
+            } else if (this.currentDataset) {
+                datasetId = this.currentDataset.id;
             }
-        } else {
-            // Bar, Line, Pie, Donut require X and Y
-            if (!this.xAxisSelection || !this.yAxisSelection) {
-                return;
-            }
-        }
-        
-        // Get dataset from first available selection or currentDataset
-        let datasetId = null;
-        if (this.xAxisSelection) {
-            datasetId = this.xAxisSelection.datasetId;
-        } else if (this.yAxisSelection) {
-            datasetId = this.yAxisSelection.datasetId;
-        } else if (this.tableFields && this.tableFields.length > 0 && this.tableFields[0]) {
-            datasetId = this.tableFields[0].datasetId;
-        } else if (this.currentDataset) {
-            datasetId = this.currentDataset.id;
-        }
-        
-        if (!datasetId) {
-            return;
-        }
-        
-        const dataset = datasetStore.get(datasetId);
-        if (!dataset) {
-            return;
-        }
+            
+            if (!datasetId) {
+                console.error('[VisualizationPanel.renderChart] No dataset ID found');
+                    return;
+                }
+                
+                const dataset = datasetStore.get(datasetId);
+                if (!dataset) {
+                console.error('[VisualizationPanel.renderChart] Dataset not found', { datasetId });
+                    return;
+                }
+            
+            console.log('[VisualizationPanel.renderChart] Dataset loaded', {
+                datasetId,
+                datasetName: dataset.name,
+                columns: dataset.columns?.length || 0,
+                rows: dataset.rows?.length || 0
+            });
         
         // Clear previous chart
         this.clearChart();
@@ -1179,8 +1198,8 @@ export class VisualizationPanel {
             (chartType === 'line' || chartType === 'bar' || chartType === 'scatter')) {
             const metric = metricsStore.get(yAxis.value);
             if (!metric) return;
-            
-            const data = this.getDatasetData(dataset);
+                
+                const data = this.getDatasetData(dataset);
             if (!data || data.length === 0) return;
             
             // If metric has operation and column, group by X and recalculate for each group
@@ -1296,9 +1315,9 @@ export class VisualizationPanel {
                     color: stylingOptions.color,
                     showTrendline: stylingOptions.showTrendline
                 });
-                return;
-            }
-            
+                    return;
+                }
+                
             // If metric has an expression (like IF statements), group by X and recalculate expression for each group
             if (metric.expression) {
                 // Apply date grouping if X axis is a date column with grouping
@@ -1592,22 +1611,22 @@ export class VisualizationPanel {
             const seriesData = this.convertToHighchartsSeries(metricData, 'x', 'y', chartType);
             yLabel = metric.name;
             
-            const chartId = `chart_${Date.now()}`;
-            const chartContainer = document.createElement('div');
-            chartContainer.id = chartId;
-            chartContainer.className = 'chart-wrapper';
-            
-            const chartsContainer = this.container.querySelector('#charts-container');
+        const chartId = `chart_${Date.now()}`;
+        const chartContainer = document.createElement('div');
+        chartContainer.id = chartId;
+        chartContainer.className = 'chart-wrapper';
+        
+        const chartsContainer = this.container.querySelector('#charts-container');
             // Remove placeholder if it exists
             const placeholder = chartsContainer.querySelector('.preview-placeholder');
             if (placeholder) {
                 placeholder.remove();
             }
-            chartsContainer.appendChild(chartContainer);
-            
+        chartsContainer.appendChild(chartContainer);
+        
             const stylingOptions = this.getStylingOptions();
-            
-            this.renderHighchart(chartId, chartType, seriesData, {
+        
+        this.renderHighchart(chartId, chartType, seriesData, {
                 xLabel: stylingOptions.xLabel || this.formatColumnName(xColumn),
                 yLabel: stylingOptions.yLabel || yLabel,
                 title: stylingOptions.title || `${yLabel} vs ${this.formatColumnName(xColumn)}`,
@@ -1771,13 +1790,13 @@ export class VisualizationPanel {
         
         if (!yColumn) {
             // Use the first numeric column as the main series
-            const numericColumns = dataset.columns.filter(col => {
-                const sampleValue = data[0] && data[0][col];
-                return sampleValue !== null && sampleValue !== undefined && 
-                       (typeof sampleValue === 'number' || !isNaN(parseFloat(sampleValue)));
-            });
-            
-            if (numericColumns.length === 0) {
+        const numericColumns = dataset.columns.filter(col => {
+            const sampleValue = data[0] && data[0][col];
+            return sampleValue !== null && sampleValue !== undefined && 
+                   (typeof sampleValue === 'number' || !isNaN(parseFloat(sampleValue)));
+        });
+        
+        if (numericColumns.length === 0) {
                 // No numeric columns - just show the reference line
                 yColumn = null;
             } else {

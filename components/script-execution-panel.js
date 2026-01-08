@@ -6,6 +6,7 @@ import { scriptExecutionEngine } from '../utils/script-execution-engine.js';
 import { datasetStore } from '../data/datasets.js';
 import { getColumnSuggestions, getWordStartPosition } from '../utils/script-autocomplete.js';
 import { executeSQL } from '../utils/sql-engine.js';
+import { datasetSelectionManager } from '../utils/dataset-selection-manager.js';
 
 export class ScriptExecutionPanel {
     constructor(containerSelector) {
@@ -18,7 +19,36 @@ export class ScriptExecutionPanel {
         this.editingScriptId = null;
         this.lineResults = new Map(); // Store results for each line
         this.executionContext = null; // Maintain execution context between line executions
+        
+        // Listen to global selection changes
+        datasetSelectionManager.onSelectionChanged((datasetId) => {
+            this.syncWithGlobalSelection(datasetId);
+        });
+        
         this.init();
+    }
+    
+    /**
+     * Syncs this panel's dataset with the global selection manager
+     * @param {string|null} datasetId - Dataset ID from global selection
+     */
+    syncWithGlobalSelection(datasetId) {
+        if (!datasetId) {
+            if (this.currentDataset) {
+                this.currentDataset = null;
+                this.render();
+            }
+            return;
+        }
+        
+        // Only update if different from current selection
+        if (!this.currentDataset || this.currentDataset.id !== datasetId) {
+            const dataset = datasetStore.get(datasetId);
+            if (dataset) {
+                this.currentDataset = dataset;
+                this.render();
+            }
+        }
     }
     
     init() {
@@ -314,6 +344,12 @@ export class ScriptExecutionPanel {
     
     setDataset(dataset) {
         this.currentDataset = dataset;
+        // Update global selection manager
+        if (dataset) {
+            datasetSelectionManager.setSelectedDatasetId(dataset.id);
+        } else {
+            datasetSelectionManager.setSelectedDatasetId(null);
+        }
         // Re-render to show updated dataset info
         const scriptEditor = this.container.querySelector('#script-editor');
         const scriptName = this.container.querySelector('#script-name');

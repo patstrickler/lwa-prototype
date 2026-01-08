@@ -610,6 +610,14 @@ export class QueryBuilder {
             this.displayResults(previewResult);
             saveBtn.disabled = false;
         } catch (error) {
+            // Log error with context for debugging
+            console.error('[QueryBuilder.executeQuery] Error executing query:', {
+                error: error.message,
+                stack: error.stack,
+                query: query?.substring(0, 100) + (query?.length > 100 ? '...' : ''),
+                timestamp: new Date().toISOString()
+            });
+            
             // Provide user-friendly error messages
             let errorMessage = 'An error occurred while executing the query.';
             
@@ -1034,11 +1042,17 @@ export class QueryBuilder {
     
     async saveAsDataset() {
         if (!this.currentResult) {
+            console.warn('[QueryBuilder.saveAsDataset] No query results to save');
             await Modal.alert('No query results to save. Please run a query first.');
             return;
         }
         
         try {
+            console.log('[QueryBuilder.saveAsDataset] Starting dataset save', {
+                columns: this.currentResult.columns?.length || 0,
+                rows: this.currentResult.data?.length || 0
+            });
+            
             // Import datasetStore
             const { datasetStore } = await import('../data/datasets.js');
             
@@ -1046,12 +1060,14 @@ export class QueryBuilder {
             const datasetName = await Modal.prompt('Enter a name for this dataset:', `Dataset ${new Date().toLocaleString()}`);
             
             if (!datasetName || !datasetName.trim()) {
+                console.log('[QueryBuilder.saveAsDataset] User cancelled or entered empty name');
                 return; // User cancelled or entered empty name
             }
             
             // Validate that we have columns
             const columns = this.currentResult.columns || [];
             if (columns.length === 0) {
+                console.error('[QueryBuilder.saveAsDataset] No columns found in query results');
                 await Modal.alert('Cannot save dataset: No columns found in query results.');
                 return;
             }
@@ -1080,6 +1096,13 @@ export class QueryBuilder {
                 rows
             );
             
+            console.log('[QueryBuilder.saveAsDataset] Dataset saved successfully', {
+                datasetId: dataset.id,
+                datasetName: dataset.name,
+                columns: dataset.columns.length,
+                rows: dataset.rows.length
+            });
+            
             // Notify listeners
             this.notifyDatasetCreated(dataset);
             
@@ -1091,7 +1114,13 @@ export class QueryBuilder {
             // Show success message
             await Modal.alert(`Dataset "${datasetName}" saved successfully! (ID: ${dataset.id})`);
         } catch (error) {
-            console.error('Error saving dataset:', error);
+            console.error('[QueryBuilder.saveAsDataset] Error saving dataset:', {
+                error: error.message,
+                stack: error.stack,
+                resultColumns: this.currentResult?.columns?.length || 0,
+                resultRows: this.currentResult?.data?.length || 0,
+                timestamp: new Date().toISOString()
+            });
             await Modal.alert(`Failed to save dataset: ${error.message || 'Unknown error'}`);
         }
     }
@@ -1146,10 +1175,13 @@ export class QueryBuilder {
      */
     async loadDataset(datasetId) {
         try {
+            console.log('[QueryBuilder.loadDataset] Loading dataset', { datasetId });
+            
             const { datasetStore } = await import('../data/datasets.js');
             const dataset = datasetStore.get(datasetId);
             
             if (!dataset) {
+                console.error('[QueryBuilder.loadDataset] Dataset not found', { datasetId });
                 await Modal.alert('Dataset not found.');
                 return;
             }
@@ -1159,6 +1191,7 @@ export class QueryBuilder {
             }
             
             if (!this.editor) {
+                console.error('[QueryBuilder.loadDataset] SQL editor not found');
                 await Modal.alert('SQL editor not found.');
                 return;
             }
@@ -1181,13 +1214,26 @@ export class QueryBuilder {
                 updateBtn.disabled = false;
             }
             
+            console.log('[QueryBuilder.loadDataset] Executing query for loaded dataset', {
+                datasetId,
+                sqlLength: dataset.sql?.length || 0,
+                columns: dataset.columns?.length || 0
+            });
+            
             // Execute the query to show results
             await this.executeQuery();
             
             // Focus editor
             this.editor.focus();
+            
+            console.log('[QueryBuilder.loadDataset] Dataset loaded successfully', { datasetId });
         } catch (error) {
-            console.error('Error loading dataset:', error);
+            console.error('[QueryBuilder.loadDataset] Error loading dataset:', {
+                error: error.message,
+                stack: error.stack,
+                datasetId,
+                timestamp: new Date().toISOString()
+            });
             await Modal.alert(`Failed to load dataset: ${error.message || 'Unknown error'}`);
         }
     }
@@ -1197,45 +1243,75 @@ export class QueryBuilder {
      */
     async updateDataset() {
         if (!this.currentDatasetId || !this.currentResult || !this.editor) {
+            console.warn('[QueryBuilder.updateDataset] Missing required data', {
+                hasDatasetId: !!this.currentDatasetId,
+                hasResult: !!this.currentResult,
+                hasEditor: !!this.editor
+            });
             return;
         }
         
-        const { datasetStore } = await import('../data/datasets.js');
-        
-        // Use the full query (without LIMIT) for updating
-        const query = this.fullQuery || this.editor.value.trim();
-        
-        if (!query) {
-            await Modal.alert('Please enter a SQL query.');
-            return;
-        }
-        
-        // Convert data to rows
-        const columns = this.currentResult.columns || [];
-        const data = this.currentResult.data || [];
-        const rows = data.map(row => {
-            return columns.map(column => row[column]);
-        });
-        
-        // Update dataset
-        const updated = datasetStore.update(this.currentDatasetId, {
-            sql: query,
-            columns: columns,
-            rows: rows
-        });
-        
-        if (updated) {
-            await Modal.alert(`Dataset "${updated.name}" updated successfully!`);
+        try {
+            console.log('[QueryBuilder.updateDataset] Updating dataset', {
+                datasetId: this.currentDatasetId,
+                columns: this.currentResult.columns?.length || 0,
+                rows: this.currentResult.data?.length || 0
+            });
             
-            // Refresh table browser if callback exists
-            if (this.refreshTableBrowserCallback) {
-                this.refreshTableBrowserCallback();
+            const { datasetStore } = await import('../data/datasets.js');
+            
+            // Use the full query (without LIMIT) for updating
+            const query = this.fullQuery || this.editor.value.trim();
+            
+            if (!query) {
+                console.warn('[QueryBuilder.updateDataset] No SQL query provided');
+                await Modal.alert('Please enter a SQL query.');
+                return;
             }
             
-            // Notify listeners
-            this.notifyDatasetCreated(updated);
-        } else {
-            await Modal.alert('Failed to update dataset.');
+            // Convert data to rows
+            const columns = this.currentResult.columns || [];
+            const data = this.currentResult.data || [];
+            const rows = data.map(row => {
+                return columns.map(column => row[column]);
+            });
+            
+            // Update dataset
+            const updated = datasetStore.update(this.currentDatasetId, {
+                sql: query,
+                columns: columns,
+                rows: rows
+            });
+            
+            if (updated) {
+                console.log('[QueryBuilder.updateDataset] Dataset updated successfully', {
+                    datasetId: updated.id,
+                    datasetName: updated.name
+                });
+                
+                await Modal.alert(`Dataset "${updated.name}" updated successfully!`);
+                
+                // Refresh table browser if callback exists
+                if (this.refreshTableBrowserCallback) {
+                    this.refreshTableBrowserCallback();
+                }
+                
+                // Notify listeners
+                this.notifyDatasetCreated(updated);
+            } else {
+                console.error('[QueryBuilder.updateDataset] Failed to update dataset', {
+                    datasetId: this.currentDatasetId
+                });
+                await Modal.alert('Failed to update dataset.');
+            }
+        } catch (error) {
+            console.error('[QueryBuilder.updateDataset] Error updating dataset:', {
+                error: error.message,
+                stack: error.stack,
+                datasetId: this.currentDatasetId,
+                timestamp: new Date().toISOString()
+            });
+            await Modal.alert(`Failed to update dataset: ${error.message || 'Unknown error'}`);
         }
     }
     
@@ -1244,43 +1320,63 @@ export class QueryBuilder {
      * @param {string} datasetId - Dataset ID to delete
      */
     async deleteDataset(datasetId) {
-        const { datasetStore } = await import('../data/datasets.js');
-        const dataset = datasetStore.get(datasetId);
-        
-        if (!dataset) {
-            await Modal.alert('Dataset not found.');
-            return;
-        }
-        
-        const confirmed = await Modal.confirm(
-            `Are you sure you want to delete "${dataset.name}"?`
-        );
-        
-        if (!confirmed) {
-            return;
-        }
-        
-        const result = datasetStore.delete(datasetId);
-        
-        if (result.deleted) {
-            await Modal.alert(`Dataset "${dataset.name}" deleted successfully.`);
+        try {
+            console.log('[QueryBuilder.deleteDataset] Attempting to delete dataset', { datasetId });
             
-            // Refresh table browser if callback exists
-            if (this.refreshTableBrowserCallback) {
-                this.refreshTableBrowserCallback();
+            const { datasetStore } = await import('../data/datasets.js');
+            const dataset = datasetStore.get(datasetId);
+            
+            if (!dataset) {
+                console.error('[QueryBuilder.deleteDataset] Dataset not found', { datasetId });
+                await Modal.alert('Dataset not found.');
+                return;
             }
             
-            // Notify about deletion
-            if (this.onDatasetDeletedCallback) {
-                this.onDatasetDeletedCallback(datasetId, result.dataset);
+            const confirmed = await Modal.confirm(
+                `Are you sure you want to delete "${dataset.name}"?`
+            );
+            
+            if (!confirmed) {
+                console.log('[QueryBuilder.deleteDataset] User cancelled deletion', { datasetId });
+                return;
             }
             
-            // If we were editing this dataset, clear the editor
-            if (this.currentDatasetId === datasetId) {
-                this.clearQuery();
+            const result = datasetStore.delete(datasetId);
+            
+            if (result.deleted) {
+                console.log('[QueryBuilder.deleteDataset] Dataset deleted successfully', {
+                    datasetId,
+                    datasetName: dataset.name
+                });
+                
+                await Modal.alert(`Dataset "${dataset.name}" deleted successfully.`);
+                
+                // Refresh table browser if callback exists
+                if (this.refreshTableBrowserCallback) {
+                    this.refreshTableBrowserCallback();
+                }
+                
+                // Notify about deletion
+                if (this.onDatasetDeletedCallback) {
+                    this.onDatasetDeletedCallback(datasetId, result.dataset);
+                }
+                
+                // If we were editing this dataset, clear the editor
+                if (this.currentDatasetId === datasetId) {
+                    this.clearQuery();
+                }
+            } else {
+                console.error('[QueryBuilder.deleteDataset] Failed to delete dataset', { datasetId });
+                await Modal.alert('Failed to delete dataset.');
             }
-        } else {
-            await Modal.alert('Failed to delete dataset.');
+        } catch (error) {
+            console.error('[QueryBuilder.deleteDataset] Error deleting dataset:', {
+                error: error.message,
+                stack: error.stack,
+                datasetId,
+                timestamp: new Date().toISOString()
+            });
+            await Modal.alert(`Failed to delete dataset: ${error.message || 'Unknown error'}`);
         }
     }
 }

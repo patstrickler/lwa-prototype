@@ -40,13 +40,27 @@ class DatasetStore {
     saveToStorage() {
         try {
             const datasets = Array.from(this.datasets.values());
+            const dataSize = JSON.stringify(datasets).length;
+            
+            console.log('[DatasetStore.saveToStorage] Saving to localStorage', {
+                datasetCount: datasets.length,
+                dataSize: `${(dataSize / 1024).toFixed(2)} KB`,
+                nextId: this.nextId
+            });
+            
             localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets));
             localStorage.setItem(NEXT_ID_KEY, String(this.nextId));
         } catch (error) {
-            console.error('Error saving datasets to localStorage:', error);
+            console.error('[DatasetStore.saveToStorage] Error saving datasets to localStorage:', {
+                error: error.message,
+                errorName: error.name,
+                stack: error.stack,
+                datasetCount: this.datasets.size,
+                timestamp: new Date().toISOString()
+            });
             // If storage quota exceeded, try to clear and retry
             if (error.name === 'QuotaExceededError') {
-                console.warn('localStorage quota exceeded, attempting to clear old data...');
+                console.warn('[DatasetStore.saveToStorage] localStorage quota exceeded, attempting to clear old data...');
             }
         }
     }
@@ -60,16 +74,32 @@ class DatasetStore {
      * @returns {Object} Dataset object
      */
     create(name, sql, columns, rows) {
+        console.log('[DatasetStore.create] Creating new dataset', {
+            name: name?.substring(0, 50),
+            columnsCount: columns?.length || 0,
+            rowsCount: rows?.length || 0,
+            sqlLength: sql?.length || 0
+        });
+        
         // Validate inputs
         if (!name || typeof name !== 'string' || !name.trim()) {
+            console.error('[DatasetStore.create] Validation failed: name is required');
             throw new Error('Dataset name is required');
         }
         
         if (!Array.isArray(columns)) {
+            console.error('[DatasetStore.create] Validation failed: columns must be an array', {
+                columnsType: typeof columns,
+                columnsValue: columns
+            });
             throw new Error('Columns must be an array');
         }
         
         if (!Array.isArray(rows)) {
+            console.error('[DatasetStore.create] Validation failed: rows must be an array', {
+                rowsType: typeof rows,
+                rowsValue: rows
+            });
             throw new Error('Rows must be an array');
         }
         
@@ -89,8 +119,21 @@ class DatasetStore {
         try {
             this.datasets.set(id, dataset);
             this.saveToStorage();
+            console.log('[DatasetStore.create] Dataset created successfully', {
+                id,
+                name: dataset.name,
+                columnsCount: dataset.columns.length,
+                rowsCount: dataset.rows.length
+            });
         } catch (error) {
-            console.error('Error creating dataset:', error);
+            console.error('[DatasetStore.create] Error creating dataset:', {
+                error: error.message,
+                stack: error.stack,
+                id,
+                name: dataset.name,
+                errorName: error.name,
+                timestamp: new Date().toISOString()
+            });
             // Remove from map if storage failed
             this.datasets.delete(id);
             throw new Error(`Failed to save dataset: ${error.message || 'Storage error'}`);
@@ -114,34 +157,58 @@ class DatasetStore {
      * @returns {Object|null} Updated dataset or null if not found
      */
     update(id, updates) {
+        console.log('[DatasetStore.update] Updating dataset', {
+            id,
+            updateFields: Object.keys(updates || {})
+        });
+        
         const dataset = this.datasets.get(id);
         if (!dataset) {
+            console.error('[DatasetStore.update] Dataset not found', { id });
             return null;
         }
         
-        // Update fields
-        if (updates.name !== undefined) {
-            dataset.name = updates.name;
+        try {
+            // Update fields
+            if (updates.name !== undefined) {
+                dataset.name = updates.name;
+            }
+            if (updates.sql !== undefined) {
+                dataset.sql = updates.sql;
+            }
+            if (updates.columns !== undefined) {
+                dataset.columns = updates.columns;
+            }
+            if (updates.rows !== undefined) {
+                dataset.rows = updates.rows;
+            }
+            if (updates.accessControl !== undefined) {
+                dataset.accessControl = updates.accessControl;
+            }
+            
+            // Update timestamp
+            dataset.updatedAt = new Date().toISOString();
+            
+            this.datasets.set(id, dataset);
+            this.saveToStorage();
+            
+            console.log('[DatasetStore.update] Dataset updated successfully', {
+                id,
+                name: dataset.name,
+                columnsCount: dataset.columns?.length || 0,
+                rowsCount: dataset.rows?.length || 0
+            });
+            
+            return dataset;
+        } catch (error) {
+            console.error('[DatasetStore.update] Error updating dataset:', {
+                error: error.message,
+                stack: error.stack,
+                id,
+                timestamp: new Date().toISOString()
+            });
+            throw error;
         }
-        if (updates.sql !== undefined) {
-            dataset.sql = updates.sql;
-        }
-        if (updates.columns !== undefined) {
-            dataset.columns = updates.columns;
-        }
-        if (updates.rows !== undefined) {
-            dataset.rows = updates.rows;
-        }
-        if (updates.accessControl !== undefined) {
-            dataset.accessControl = updates.accessControl;
-        }
-        
-        // Update timestamp
-        dataset.updatedAt = new Date().toISOString();
-        
-        this.datasets.set(id, dataset);
-        this.saveToStorage();
-        return dataset;
     }
     
     /**
@@ -184,14 +251,36 @@ class DatasetStore {
     }
     
     delete(id) {
+        console.log('[DatasetStore.delete] Attempting to delete dataset', { id });
+        
         const dataset = this.datasets.get(id);
-        const deleted = this.datasets.delete(id);
-        if (deleted) {
-            this.saveToStorage();
-            // Return dataset info for cleanup
-            return { deleted: true, dataset };
+        if (!dataset) {
+            console.warn('[DatasetStore.delete] Dataset not found', { id });
+            return { deleted: false, dataset: null };
         }
-        return { deleted: false, dataset: null };
+        
+        try {
+            const deleted = this.datasets.delete(id);
+            if (deleted) {
+                this.saveToStorage();
+                console.log('[DatasetStore.delete] Dataset deleted successfully', {
+                    id,
+                    name: dataset.name
+                });
+                // Return dataset info for cleanup
+                return { deleted: true, dataset };
+            }
+            console.warn('[DatasetStore.delete] Failed to delete from map', { id });
+            return { deleted: false, dataset: null };
+        } catch (error) {
+            console.error('[DatasetStore.delete] Error deleting dataset:', {
+                error: error.message,
+                stack: error.stack,
+                id,
+                timestamp: new Date().toISOString()
+            });
+            return { deleted: false, dataset: null };
+        }
     }
 }
 

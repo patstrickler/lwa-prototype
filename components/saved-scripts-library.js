@@ -2,6 +2,7 @@
 // Displays and manages saved R and Python scripts
 
 import { scriptsStore } from '../data/scripts.js';
+import { Modal } from '../utils/modal.js';
 
 export class SavedScriptsLibrary {
     constructor(containerSelector) {
@@ -143,7 +144,6 @@ export class SavedScriptsLibrary {
         }
         
         try {
-            const { Modal } = await import('../utils/modal.js');
             const confirmed = await Modal.confirm(
                 `Are you sure you want to delete "${script.name}"? This action cannot be undone.`
             );
@@ -161,7 +161,18 @@ export class SavedScriptsLibrary {
             }
         } catch (error) {
             console.error('Error deleting script:', error);
-            alert(`Error deleting script: ${error.message}`);
+            // Fallback to native confirm on error
+            const confirmed = window.confirm(
+                `Are you sure you want to delete "${script.name}"? This action cannot be undone.`
+            );
+            if (confirmed) {
+                const deleted = scriptsStore.delete(scriptId);
+                if (deleted) {
+                    this.render();
+                    this.attachEventListeners();
+                    this.notifyScriptDeleted(scriptId);
+                }
+            }
         }
     }
     

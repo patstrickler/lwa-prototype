@@ -77,13 +77,34 @@ export class MetricExecutionEngine {
         
         // Execute the aggregation function
         try {
+            console.log('[MetricExecutionEngine.execute] Executing metric', {
+                operation,
+                column,
+                rowCount: rows.length,
+                columnCount: columns.length
+            });
+            
             const aggregationFn = this.aggregationFunctions[operation];
             const result = aggregationFn(rows, columns, column);
+            
+            console.log('[MetricExecutionEngine.execute] Metric executed successfully', {
+                operation,
+                column,
+                result
+            });
             
             // Return scalar value (null if calculation failed)
             return result;
         } catch (error) {
-            console.error('Error executing metric:', error);
+            console.error('[MetricExecutionEngine.execute] Error executing metric:', {
+                error: error.message,
+                stack: error.stack,
+                operation,
+                column,
+                rowCount: rows.length,
+                columnCount: columns.length,
+                timestamp: new Date().toISOString()
+            });
             throw new Error(`Failed to execute metric: ${error.message}`);
         }
     }
