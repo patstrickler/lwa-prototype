@@ -186,7 +186,7 @@ export class UnifiedAnalysisBuilder {
     }
     
     updateMetricSuggestions() {
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         if (!expressionEditor) return;
         
         const expression = expressionEditor.value;
@@ -251,7 +251,7 @@ export class UnifiedAnalysisBuilder {
     }
     
     showMetricSuggestions() {
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         const suggestionsDiv = this.container.querySelector(`#${this._metricAutocompleteId}`);
         
         if (!suggestionsDiv || this.metricSuggestions.length === 0) {
@@ -306,7 +306,7 @@ export class UnifiedAnalysisBuilder {
     }
     
     positionMetricSuggestions() {
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         const suggestionsDiv = this.container.querySelector(`#${this._metricAutocompleteId}`);
         const editorContainer = expressionEditor ? expressionEditor.closest('.metric-editor-container') : null;
         
@@ -317,7 +317,8 @@ export class UnifiedAnalysisBuilder {
     }
     
     insertMetricSuggestion(suggestion) {
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
+        if (!expressionEditor) return;
         const expression = expressionEditor.value;
         const cursorPosition = expressionEditor.selectionStart;
         const textBeforeCursor = expression.substring(0, cursorPosition);
@@ -383,8 +384,18 @@ export class UnifiedAnalysisBuilder {
     }
     
     async previewMetric() {
-        const expressionEditor = this.container.querySelector('#metric-expression-editor');
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         const resultContainer = this.container.querySelector('#metric-result');
+        
+        if (!expressionEditor) {
+            console.error('CalculationsPanel: Expression editor not found');
+            return;
+        }
+        
+        if (!resultContainer) {
+            console.error('CalculationsPanel: Result container not found');
+            return;
+        }
         
         if (!this.currentDataset) {
             resultContainer.innerHTML = '<div class="error">Error: No dataset selected. Please select a dataset from the left pane.</div>';
