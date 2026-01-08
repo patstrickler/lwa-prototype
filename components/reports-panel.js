@@ -270,33 +270,6 @@ export class ReportsPanel {
         document.body.appendChild(backdrop);
         console.log('Modal backdrop added to DOM', backdrop);
         
-        // Get references to elements - they should be available immediately after innerHTML
-        const titleInput = backdrop.querySelector('#new-report-title');
-        const cancelBtn = backdrop.querySelector('#cancel-create-report-btn');
-        const closeBtn = backdrop.querySelector('#close-create-report-dialog');
-        const createBtn = backdrop.querySelector('#create-report-submit-btn');
-        
-        console.log('Modal elements found:', {
-            titleInput: !!titleInput,
-            cancelBtn: !!cancelBtn,
-            closeBtn: !!closeBtn,
-            createBtn: !!createBtn
-        });
-        
-        if (!titleInput || !cancelBtn || !createBtn) {
-            console.error('Critical modal elements missing!');
-            Modal.alert('Error: Could not initialize dialog. Please refresh the page.');
-            if (backdrop.parentNode) {
-                backdrop.parentNode.removeChild(backdrop);
-            }
-            return;
-        }
-        
-        // Set up event listeners
-        this.setupModalEventListeners(backdrop, titleInput, cancelBtn, closeBtn, createBtn);
-    }
-    
-    setupModalEventListeners(backdrop, titleInput, cancelBtn, closeBtn, createBtn) {
         // Close handler
         const closeModal = () => {
             console.log('Closing modal');
@@ -305,13 +278,50 @@ export class ReportsPanel {
             }
         };
         
+        // Get references to elements - they should be available immediately after innerHTML
+        const titleInput = backdrop.querySelector('#new-report-title');
+        const cancelBtn = backdrop.querySelector('#cancel-create-report-btn');
+        const closeBtn = backdrop.querySelector('#close-create-report-dialog');
+        const createBtn = backdrop.querySelector('#create-report-submit-btn');
+        const modal = backdrop.querySelector('.modal');
+        
+        console.log('Modal elements found:', {
+            titleInput: !!titleInput,
+            cancelBtn: !!cancelBtn,
+            closeBtn: !!closeBtn,
+            createBtn: !!createBtn,
+            modal: !!modal,
+            backdrop: !!backdrop
+        });
+        
+        if (!titleInput || !cancelBtn || !createBtn) {
+            console.error('Critical modal elements missing!', {
+                titleInput: !!titleInput,
+                cancelBtn: !!cancelBtn,
+                createBtn: !!createBtn,
+                backdropHTML: backdrop.innerHTML.substring(0, 200)
+            });
+            Modal.alert('Error: Could not initialize dialog. Please refresh the page.');
+            if (backdrop.parentNode) {
+                backdrop.parentNode.removeChild(backdrop);
+            }
+            return;
+        }
+        
+        // Prevent modal content clicks from closing the modal
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+        
         // Focus the title input
-        if (titleInput) {
-            setTimeout(() => {
+        setTimeout(() => {
+            if (titleInput) {
                 titleInput.focus();
                 titleInput.select();
-            }, 100);
-        }
+            }
+        }, 100);
         
         // Cancel button
         if (cancelBtn) {
@@ -369,14 +379,6 @@ export class ReportsPanel {
                 closeModal();
             }
         });
-        
-        // Prevent modal content clicks from closing the modal
-        const modal = backdrop.querySelector('.modal');
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-        }
     }
     
     showReportEditor() {
