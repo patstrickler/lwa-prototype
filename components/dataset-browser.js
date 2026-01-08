@@ -5,6 +5,7 @@ import { datasetStore } from '../data/datasets.js';
 import { metricsStore } from '../data/metrics.js';
 import { Modal } from '../utils/modal.js';
 import { datasetSelectionManager } from '../utils/dataset-selection-manager.js';
+import { formatMetricValue } from '../utils/metric-formatter.js';
 
 export class DatasetBrowser {
     constructor(containerSelector) {
@@ -221,20 +222,6 @@ export class DatasetBrowser {
         `;
     }
     
-    formatMetricValue(value) {
-        const num = parseFloat(value);
-        if (isNaN(num)) return String(value);
-        
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(2) + 'M';
-        } else if (num >= 1000) {
-            return (num / 1000).toFixed(2) + 'K';
-        } else if (num % 1 === 0) {
-            return num.toString();
-        } else {
-            return num.toFixed(2);
-        }
-    }
     
     formatColumnName(column) {
         return column

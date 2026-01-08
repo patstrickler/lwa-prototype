@@ -8,6 +8,7 @@ import { metricExecutionEngine } from '../utils/metric-execution-engine.js';
 import { evaluateMetricScript } from '../utils/metric-script-parser.js';
 import { getColumnSuggestions, getWordStartPosition } from '../utils/script-autocomplete.js';
 import { executeSQL } from '../utils/sql-engine.js';
+import { formatMetricValue } from '../utils/metric-formatter.js';
 
 export class UnifiedAnalysisBuilder {
     constructor(containerSelector) {
@@ -22,6 +23,8 @@ export class UnifiedAnalysisBuilder {
         this._metricNameInputId = `metric-name-input-builder-${Math.random().toString(36).substr(2, 9)}`;
         this._metricExpressionEditorId = `metric-expression-editor-builder-${Math.random().toString(36).substr(2, 9)}`;
         this._metricAutocompleteId = `metric-autocomplete-suggestions-builder-${Math.random().toString(36).substr(2, 9)}`;
+        this._metricDisplayTypeId = `metric-display-type-${Math.random().toString(36).substr(2, 9)}`;
+        this._metricDecimalPlacesId = `metric-decimal-places-${Math.random().toString(36).substr(2, 9)}`;
         this.init();
     }
     
@@ -66,6 +69,20 @@ export class UnifiedAnalysisBuilder {
                         <label for="${this._metricNameInputId}">Metric Name:</label>
                         <input type="text" id="${this._metricNameInputId}" class="form-control" placeholder="e.g., Average Sales">
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="${this._metricDisplayTypeId}">Display Type:</label>
+                        <select id="${this._metricDisplayTypeId}" class="form-control">
+                            <option value="numeric">Numeric</option>
+                            <option value="currency">Currency</option>
+                            <option value="percentage">Percentage</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="${this._metricDecimalPlacesId}">Decimal Places:</label>
+                        <input type="number" id="${this._metricDecimalPlacesId}" class="form-control" min="0" max="10" value="2">
+                    </div>
                 </div>
                 
                 <div class="form-group metric-editor-wrapper">
@@ -87,6 +104,7 @@ export class UnifiedAnalysisBuilder {
                 <div class="form-actions">
                     <button id="preview-metric" class="btn btn-secondary">Preview</button>
                     <button id="create-metric" class="btn btn-primary" disabled>Create Metric</button>
+                    <button id="update-metric" class="btn btn-primary" disabled style="display: none;">Update Metric</button>
                     <button id="clear-metric-form" class="btn btn-secondary">Clear</button>
                 </div>
                 
@@ -105,6 +123,7 @@ export class UnifiedAnalysisBuilder {
         const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         const previewBtn = this.container.querySelector('#preview-metric');
         const createBtn = this.container.querySelector('#create-metric');
+        const updateBtn = this.container.querySelector('#update-metric');
         const clearBtn = this.container.querySelector('#clear-metric-form');
         
         if (!nameInput || !expressionEditor) return;
@@ -129,8 +148,15 @@ export class UnifiedAnalysisBuilder {
         if (previewBtn) {
             previewBtn.addEventListener('click', () => this.previewMetric());
         }
-        createBtn.addEventListener('click', () => this.createMetric());
-        clearBtn.addEventListener('click', () => this.clearMetricForm());
+        if (createBtn) {
+            createBtn.addEventListener('click', () => this.createMetric());
+        }
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => this.updateMetric());
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearMetricForm());
+        }
     }
     
     handleMetricInput(e) {
@@ -365,19 +391,23 @@ export class UnifiedAnalysisBuilder {
     
     updateCreateButtonState() {
         const createBtn = this.container.querySelector('#create-metric');
+        const updateBtn = this.container.querySelector('#update-metric');
         const previewBtn = this.container.querySelector('#preview-metric');
         const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
         const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
         
-        if (!createBtn) return;
+        if (!nameInput || !expressionEditor) return;
         
-        const hasExpression = expressionEditor && expressionEditor.value.trim() !== '';
-        const isValid = 
-            this.currentDataset !== null &&
-            nameInput && nameInput.value.trim() !== '' &&
-            hasExpression;
+        const hasName = nameInput.value.trim().length > 0;
+        const hasExpression = expressionEditor.value.trim().length > 0;
+        const isValid = hasName && hasExpression && this.currentDataset !== null;
         
-        createBtn.disabled = !isValid;
+        if (createBtn) {
+            createBtn.disabled = !isValid;
+        }
+        if (updateBtn) {
+            updateBtn.disabled = !isValid;
+        }
         if (previewBtn) {
             previewBtn.disabled = !this.currentDataset || !hasExpression;
         }
@@ -424,11 +454,17 @@ export class UnifiedAnalysisBuilder {
                 return;
             }
             
+            // Get formatting options for preview
+            const displayTypeSelect = this.container.querySelector(`#${this._metricDisplayTypeId}`);
+            const decimalPlacesInput = this.container.querySelector(`#${this._metricDecimalPlacesId}`);
+            const displayType = displayTypeSelect ? displayTypeSelect.value : 'numeric';
+            const decimalPlaces = decimalPlacesInput ? parseInt(decimalPlacesInput.value, 10) : 2;
+            
             // Show preview result
             resultContainer.innerHTML = `
                 <div class="preview-result">
                     <strong>Preview Result:</strong><br>
-                    <span class="metric-result-value">${this.formatValue(value)}</span>
+                    <span class="metric-result-value">${this.formatValue(value, displayType, decimalPlaces)}</span>
                     <div class="preview-note">This is a preview. Click "Create Metric" to save.</div>
                 </div>
             `;
@@ -441,15 +477,21 @@ export class UnifiedAnalysisBuilder {
     async createMetric() {
         const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
         const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
+        const displayTypeSelect = this.container.querySelector(`#${this._metricDisplayTypeId}`);
+        const decimalPlacesInput = this.container.querySelector(`#${this._metricDecimalPlacesId}`);
         const resultContainer = this.container.querySelector('#metric-result');
         
         if (!this.currentDataset) {
-            resultContainer.innerHTML = '<div class="error">Error: No dataset selected. Please select a dataset from the left pane.</div>';
+            if (resultContainer) {
+                resultContainer.innerHTML = '<div class="error">Error: No dataset selected. Please select a dataset from the left pane.</div>';
+            }
             return;
         }
         
-        const name = nameInput.value.trim();
-        const expression = expressionEditor.value.trim();
+        const name = nameInput ? nameInput.value.trim() : '';
+        const expression = expressionEditor ? expressionEditor.value.trim() : '';
+        const displayType = displayTypeSelect ? displayTypeSelect.value : 'numeric';
+        const decimalPlaces = decimalPlacesInput ? parseInt(decimalPlacesInput.value, 10) : 2;
         
         if (!name || !expression) {
             return;
@@ -493,7 +535,7 @@ export class UnifiedAnalysisBuilder {
                 operation = 'count';
             }
             
-            // Create the metric with expression
+            // Create the metric with expression and formatting options
             const metric = metricsStore.create(
                 fullDataset.id,
                 name,
@@ -501,14 +543,16 @@ export class UnifiedAnalysisBuilder {
                 'calculated',
                 column,
                 operation,
-                expression
+                expression,
+                displayType,
+                decimalPlaces
             );
             
-            // Show success
+            // Show success with formatted value
             resultContainer.innerHTML = `
                 <div class="success">
                     <strong>Metric created successfully!</strong><br>
-                    <span class="metric-result-value">${this.escapeHtml(name)}: ${this.formatValue(value)}</span>
+                    <span class="metric-result-value">${this.escapeHtml(name)}: ${this.formatValue(value, displayType, decimalPlaces)}</span>
                 </div>
             `;
             
@@ -527,28 +571,146 @@ export class UnifiedAnalysisBuilder {
         }
     }
     
-    formatValue(value) {
-        if (value === null || value === undefined) {
-            return 'N/A';
-        }
-        if (typeof value === 'number') {
-            return value.toLocaleString('en-US', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 4
-            });
-        }
-        return String(value);
+    formatValue(value, displayType = 'numeric', decimalPlaces = 2) {
+        return formatMetricValue(value, displayType, decimalPlaces);
     }
     
     clearMetricForm() {
         const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
         const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
+        const displayTypeSelect = this.container.querySelector(`#${this._metricDisplayTypeId}`);
+        const decimalPlacesInput = this.container.querySelector(`#${this._metricDecimalPlacesId}`);
         const resultContainer = this.container.querySelector('#metric-result');
+        const createBtn = this.container.querySelector('#create-metric');
+        const updateBtn = this.container.querySelector('#update-metric');
         
         if (nameInput) nameInput.value = '';
         if (expressionEditor) expressionEditor.value = '';
+        if (displayTypeSelect) displayTypeSelect.value = 'numeric';
+        if (decimalPlacesInput) decimalPlacesInput.value = '2';
         if (resultContainer) resultContainer.innerHTML = '';
+        if (createBtn) createBtn.style.display = 'inline-block';
+        if (updateBtn) updateBtn.style.display = 'none';
+        this.editingMetricId = null;
         this.hideMetricSuggestions();
+    }
+    
+    async updateMetric() {
+        if (!this.editingMetricId) {
+            return;
+        }
+        
+        const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
+        const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
+        const displayTypeSelect = this.container.querySelector(`#${this._metricDisplayTypeId}`);
+        const decimalPlacesInput = this.container.querySelector(`#${this._metricDecimalPlacesId}`);
+        const resultContainer = this.container.querySelector('#metric-result');
+        
+        if (!this.currentDataset) {
+            if (resultContainer) {
+                resultContainer.innerHTML = '<div class="error">Error: No dataset selected.</div>';
+            }
+            return;
+        }
+        
+        const name = nameInput ? nameInput.value.trim() : '';
+        const expression = expressionEditor ? expressionEditor.value.trim() : '';
+        const displayType = displayTypeSelect ? displayTypeSelect.value : 'numeric';
+        const decimalPlaces = decimalPlacesInput ? parseInt(decimalPlacesInput.value, 10) : 2;
+        
+        if (!name || !expression) {
+            return;
+        }
+        
+        // Show loading immediately
+        if (resultContainer) {
+            resultContainer.innerHTML = '<div class="loading">Updating metric...</div>';
+        }
+        
+        try {
+            // Get full dataset
+            const fullDataset = await this.getFullDataset(this.currentDataset);
+            
+            // Evaluate metric script expression on full dataset
+            const value = evaluateMetricScript(expression, fullDataset);
+            
+            if (value === null || isNaN(value)) {
+                if (resultContainer) {
+                    resultContainer.innerHTML = '<div class="error">Error: Could not calculate metric. Please check your expression.</div>';
+                }
+                return;
+            }
+            
+            // Extract column and operation from expression
+            const columnMatch = expression.match(/(?:SUM|MEAN|AVG|MIN|MAX|STDDEV|COUNT|COUNT_DISTINCT)\s*\(\s*(\w+)\s*\)/);
+            const column = columnMatch ? columnMatch[1] : null;
+            
+            // Determine operation type
+            let operation = 'custom';
+            if (expression.match(/^MEAN|AVG|AVERAGE/i)) {
+                operation = 'mean';
+            } else if (expression.match(/^SUM/i)) {
+                operation = 'sum';
+            } else if (expression.match(/^MIN/i)) {
+                operation = 'min';
+            } else if (expression.match(/^MAX/i)) {
+                operation = 'max';
+            } else if (expression.match(/^STDDEV|STDEV/i)) {
+                operation = 'stdev';
+            } else if (expression.match(/^COUNT_DISTINCT/i)) {
+                operation = 'count_distinct';
+            } else if (expression.match(/^COUNT/i)) {
+                operation = 'count';
+            }
+            
+            // Update the metric
+            const metric = metricsStore.update(this.editingMetricId, {
+                name,
+                value,
+                expression,
+                displayType,
+                decimalPlaces,
+                column,
+                operation
+            });
+            
+            if (!metric) {
+                if (resultContainer) {
+                    resultContainer.innerHTML = '<div class="error">Error: Could not update metric.</div>';
+                }
+                return;
+            }
+            
+            // Show success
+            if (resultContainer) {
+                resultContainer.innerHTML = `
+                    <div class="success">
+                        <strong>Metric updated successfully!</strong><br>
+                        <span class="metric-result-value">${this.escapeHtml(name)}: ${this.formatValue(value, displayType, decimalPlaces)}</span>
+                    </div>
+                `;
+            }
+            
+            // Reset editing state
+            this.editingMetricId = null;
+            const createBtn = this.container.querySelector('#create-metric');
+            const updateBtn = this.container.querySelector('#update-metric');
+            if (createBtn) createBtn.style.display = 'inline-block';
+            if (updateBtn) updateBtn.style.display = 'none';
+            
+            // Notify listeners
+            if (this.metricDialog) {
+                this.metricDialog.onCreated();
+            }
+            if (this.onMetricCreatedCallback) {
+                this.onMetricCreatedCallback(metric);
+            }
+            
+        } catch (error) {
+            if (resultContainer) {
+                resultContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
     }
     
     setDataset(dataset) {
@@ -590,8 +752,12 @@ export class UnifiedAnalysisBuilder {
         
         const nameInput = this.container.querySelector(`#${this._metricNameInputId}`);
         const expressionEditor = this.container.querySelector(`#${this._metricExpressionEditorId}`);
+        const displayTypeSelect = this.container.querySelector(`#${this._metricDisplayTypeId}`);
+        const decimalPlacesInput = this.container.querySelector(`#${this._metricDecimalPlacesId}`);
+        const createBtn = this.container.querySelector('#create-metric');
+        const updateBtn = this.container.querySelector('#update-metric');
         
-        // If duplicating, append " (Copy)" to the name
+        // If duplicating, append " (Copy)" to the name and don't set editing mode
         if (nameInput) {
             nameInput.value = isDuplicate ? `${metric.name || ''} (Copy)` : (metric.name || '');
         }
@@ -612,6 +778,25 @@ export class UnifiedAnalysisBuilder {
             };
             const funcName = operationMap[metric.operation] || metric.operation.toUpperCase();
             if (expressionEditor) expressionEditor.value = `${funcName}(${metric.column})`;
+        }
+        
+        // Load formatting options
+        if (displayTypeSelect) {
+            displayTypeSelect.value = metric.displayType || 'numeric';
+        }
+        if (decimalPlacesInput) {
+            decimalPlacesInput.value = metric.decimalPlaces !== undefined ? metric.decimalPlaces : 2;
+        }
+        
+        // Show update button if editing (not duplicating), hide create button
+        if (!isDuplicate) {
+            this.editingMetricId = metricId;
+            if (createBtn) createBtn.style.display = 'none';
+            if (updateBtn) updateBtn.style.display = 'inline-block';
+        } else {
+            this.editingMetricId = null;
+            if (createBtn) createBtn.style.display = 'inline-block';
+            if (updateBtn) updateBtn.style.display = 'none';
         }
         
         this.updateCreateButtonState();

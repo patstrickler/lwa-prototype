@@ -4,6 +4,7 @@
 import { metricsStore } from '../data/metrics.js';
 import { datasetStore } from '../data/datasets.js';
 import { Modal } from '../utils/modal.js';
+import { formatMetricValue } from '../utils/metric-formatter.js';
 
 export class CalculationsPanel {
     constructor(containerSelector) {
@@ -66,7 +67,7 @@ export class CalculationsPanel {
                             <span class="material-icons calculation-icon" style="font-size: 18px; color: #007bff;">calculate</span>
                             <span class="calculation-name">${this.escapeHtml(metric.name)}</span>
                         </div>
-                        <div class="calculation-value">${this.formatMetricValue(metric.value)}</div>
+                        <div class="calculation-value">${formatMetricValue(metric.value, metric.displayType, metric.decimalPlaces)}</div>
                         ${metric.expression ? `
                             <div class="calculation-expression" title="${this.escapeHtml(metric.expression)}">
                                 ${this.escapeHtml(this.truncateExpression(metric.expression, 40))}
@@ -192,20 +193,6 @@ export class CalculationsPanel {
         }
     }
     
-    formatMetricValue(value) {
-        const num = parseFloat(value);
-        if (isNaN(num)) return String(value);
-        
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(2) + 'M';
-        } else if (num >= 1000) {
-            return (num / 1000).toFixed(2) + 'K';
-        } else if (num % 1 === 0) {
-            return num.toString();
-        } else {
-            return num.toFixed(2);
-        }
-    }
     
     truncateExpression(expression, maxLength) {
         if (!expression) return '';

@@ -286,12 +286,21 @@ export class ReportsPanel {
             closeBtn.addEventListener('click', closeModal);
         }
         
-        // Backdrop click to close
+        // Backdrop click to close - only if clicking directly on backdrop, not modal content
         backdrop.addEventListener('click', (e) => {
+            // Only close if clicking directly on the backdrop, not on the modal content
             if (e.target === backdrop) {
                 closeModal();
             }
         });
+        
+        // Prevent modal content clicks from closing the modal
+        const modal = backdrop.querySelector('.modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
         
         // Create button
         if (createBtn) {
