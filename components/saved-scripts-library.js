@@ -67,11 +67,11 @@ export class SavedScriptsLibrary {
                         </div>
                     </div>
                     <div class="script-item-actions">
-                        <button class="btn btn-sm btn-icon load-script-btn" title="Load Script" data-script-id="${script.id}">
-                            <span class="material-icons" style="font-size: 16px;">play_arrow</span>
+                        <button type="button" class="btn btn-sm btn-icon load-script-btn" title="Load Script" data-script-id="${script.id}" onclick="return false;">
+                            <span class="material-icons" style="font-size: 16px; pointer-events: none;">play_arrow</span>
                         </button>
-                        <button class="btn btn-sm btn-icon delete-script-btn" title="Delete Script" data-script-id="${script.id}">
-                            <span class="material-icons" style="font-size: 16px;">delete</span>
+                        <button type="button" class="btn btn-sm btn-icon delete-script-btn" title="Delete Script" data-script-id="${script.id}" onclick="return false;">
+                            <span class="material-icons" style="font-size: 16px; pointer-events: none;">delete</span>
                         </button>
                     </div>
                 </div>
@@ -90,37 +90,36 @@ export class SavedScriptsLibrary {
         
         // Use event delegation for dynamic content
         this._clickHandler = (e) => {
-            // Check for delete button first (highest priority)
-            const deleteBtn = e.target.closest('.delete-script-btn');
-            if (deleteBtn) {
-                e.preventDefault();
-                e.stopPropagation();
-                const scriptId = deleteBtn.getAttribute('data-script-id');
-                if (scriptId) {
-                    this.deleteScript(scriptId);
+            // Check if clicking on a button or icon inside a button
+            const clickedButton = e.target.closest('button');
+            if (!clickedButton) {
+                // Not clicking on a button, check if clicking on script item
+                const scriptItem = e.target.closest('.saved-script-item');
+                if (scriptItem) {
+                    const scriptId = scriptItem.getAttribute('data-script-id');
+                    if (scriptId) {
+                        this.loadScript(scriptId);
+                    }
                 }
                 return;
             }
             
-            // Check for load button
-            const loadBtn = e.target.closest('.load-script-btn');
-            if (loadBtn) {
-                e.preventDefault();
-                e.stopPropagation();
-                const scriptId = loadBtn.getAttribute('data-script-id');
-                if (scriptId) {
-                    this.loadScript(scriptId);
-                }
+            // We're clicking on a button - determine which one
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const scriptId = clickedButton.getAttribute('data-script-id');
+            if (!scriptId) {
                 return;
             }
             
-            // Click on script item to load it (only if not clicking on buttons)
-            const scriptItem = e.target.closest('.saved-script-item');
-            if (scriptItem && !e.target.closest('button')) {
-                const scriptId = scriptItem.getAttribute('data-script-id');
-                if (scriptId) {
-                    this.loadScript(scriptId);
-                }
+            // Check button type
+            if (clickedButton.classList.contains('delete-script-btn')) {
+                console.log('Delete button clicked for script:', scriptId);
+                this.deleteScript(scriptId);
+            } else if (clickedButton.classList.contains('load-script-btn')) {
+                console.log('Load button clicked for script:', scriptId);
+                this.loadScript(scriptId);
             }
         };
         
@@ -135,6 +134,8 @@ export class SavedScriptsLibrary {
     }
     
     async deleteScript(scriptId) {
+        console.log('deleteScript called with ID:', scriptId);
+        
         if (!scriptId) {
             console.error('No script ID provided for deletion');
             return;
@@ -143,27 +144,42 @@ export class SavedScriptsLibrary {
         const script = scriptsStore.get(scriptId);
         if (!script) {
             console.warn(`Script with ID ${scriptId} not found`);
+            alert(`Script not found. It may have already been deleted.`);
+            this.refresh(); // Refresh to update the list
             return;
         }
         
+        console.log('Script found:', script.name);
+        
         try {
+            console.log('Showing confirmation modal...');
             const confirmed = await Modal.confirm(
                 `Are you sure you want to delete "${script.name}"? This action cannot be undone.`
             );
             
+            console.log('Modal confirmed:', confirmed);
+            
             if (confirmed) {
                 const deleted = scriptsStore.delete(scriptId);
+                console.log('Delete result:', deleted);
+                
                 if (deleted) {
                     this.render();
                     // Re-attach event listeners after render
                     this.attachEventListeners();
                     this.notifyScriptDeleted(scriptId);
+                    console.log('Script deleted successfully');
                 } else {
                     console.error(`Failed to delete script with ID ${scriptId}`);
+                    alert('Failed to delete script. Please try again.');
                 }
+            } else {
+                console.log('Deletion cancelled by user');
             }
         } catch (error) {
             console.error('Error deleting script:', error);
+            console.error('Error stack:', error.stack);
+            
             // Fallback to native confirm on error
             const confirmed = window.confirm(
                 `Are you sure you want to delete "${script.name}"? This action cannot be undone.`
@@ -174,6 +190,8 @@ export class SavedScriptsLibrary {
                     this.render();
                     this.attachEventListeners();
                     this.notifyScriptDeleted(scriptId);
+                } else {
+                    alert('Failed to delete script. Please try again.');
                 }
             }
         }

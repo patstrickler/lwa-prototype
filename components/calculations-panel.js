@@ -11,6 +11,7 @@ export class CalculationsPanel {
         this.container = document.querySelector(containerSelector);
         this.currentDataset = null;
         this.onEditMetricCallbacks = [];
+        this.onMetricDeletedCallbacks = [];
         this.init();
     }
     
@@ -74,14 +75,14 @@ export class CalculationsPanel {
                             </div>
                         ` : ''}
                         <div class="calculation-actions">
-                            <button class="btn btn-sm btn-icon edit-calc-btn" title="Edit" data-id="${metric.id}">
-                                <span class="material-icons" style="font-size: 16px;">edit</span>
+                            <button class="btn btn-sm btn-icon edit-calc-btn" title="Edit" data-id="${metric.id}" type="button">
+                                <span class="material-icons" style="font-size: 16px; pointer-events: none;">edit</span>
                             </button>
-                            <button class="btn btn-sm btn-icon duplicate-calc-btn" title="Duplicate" data-id="${metric.id}">
-                                <span class="material-icons" style="font-size: 16px;">content_copy</span>
+                            <button class="btn btn-sm btn-icon duplicate-calc-btn" title="Duplicate" data-id="${metric.id}" type="button">
+                                <span class="material-icons" style="font-size: 16px; pointer-events: none;">content_copy</span>
                             </button>
-                            <button class="btn btn-sm btn-icon delete-calc-btn" title="Delete" data-id="${metric.id}">
-                                <span class="material-icons" style="font-size: 16px;">delete</span>
+                            <button class="btn btn-sm btn-icon delete-calc-btn" title="Delete" data-id="${metric.id}" type="button">
+                                <span class="material-icons" style="font-size: 16px; pointer-events: none;">delete</span>
                             </button>
                         </div>
                     </div>
@@ -100,6 +101,26 @@ export class CalculationsPanel {
         
         // Use event delegation for dynamically added buttons
         const clickHandler = (e) => {
+            // Check for delete button first (most specific)
+            let deleteBtn = e.target.closest('.delete-calc-btn');
+            if (!deleteBtn && e.target.classList.contains('material-icons')) {
+                // If clicking on icon, find parent button
+                deleteBtn = e.target.closest('.calculation-actions')?.querySelector('.delete-calc-btn');
+            }
+            
+            if (deleteBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const metricId = deleteBtn.getAttribute('data-id');
+                if (metricId) {
+                    console.log('CalculationsPanel: Delete button clicked for metric:', metricId);
+                    this.handleDeleteMetric(metricId);
+                } else {
+                    console.error('CalculationsPanel: Delete button found but no data-id attribute');
+                }
+                return;
+            }
+            
             // Check for edit button
             const editBtn = e.target.closest('.edit-calc-btn');
             if (editBtn) {
@@ -123,23 +144,11 @@ export class CalculationsPanel {
                 }
                 return;
             }
-            
-            // Check for delete button
-            const deleteBtn = e.target.closest('.delete-calc-btn');
-            if (deleteBtn) {
-                e.preventDefault();
-                e.stopPropagation();
-                const metricId = deleteBtn.getAttribute('data-id');
-                if (metricId) {
-                    this.handleDeleteMetric(metricId);
-                }
-                return;
-            }
         };
         
         // Store handler reference for potential cleanup
         this._clickHandler = clickHandler;
-        this.container.addEventListener('click', clickHandler);
+        this.container.addEventListener('click', clickHandler, true); // Use capture phase for better event handling
     }
     
     setDataset(dataset) {
@@ -162,6 +171,7 @@ export class CalculationsPanel {
     async handleDeleteMetric(metricId) {
         if (!metricId) {
             console.error('CalculationsPanel: No metric ID provided for deletion');
+            await Modal.alert('Error: No calculation ID provided for deletion.');
             return;
         }
         
@@ -181,7 +191,13 @@ export class CalculationsPanel {
             if (confirmed) {
                 const deleted = metricsStore.delete(metricId);
                 if (deleted) {
+                    // Refresh the panel
                     this.render();
+                    
+                    // Notify callbacks if any
+                    if (this.onMetricDeletedCallbacks) {
+                        this.onMetricDeletedCallbacks.forEach(callback => callback(metricId));
+                    }
                 } else {
                     console.error(`CalculationsPanel: Failed to delete metric ${metricId}`);
                     await Modal.alert('Failed to delete calculation. Please try again.');
