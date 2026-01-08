@@ -319,7 +319,7 @@ export class ReportsPanel {
                     await Modal.alert(`Error creating report: ${error.message || 'Unknown error'}`);
                 }
             });
-        });
+        }
     }
     
     showReportEditor() {
