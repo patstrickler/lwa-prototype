@@ -16,6 +16,8 @@ export class ScriptExecutionPanel {
         this.selectedSuggestionIndex = -1;
         this.autocompleteVisible = false;
         this.editingScriptId = null;
+        this.lineResults = new Map(); // Store results for each line
+        this.executionContext = null; // Maintain execution context between line executions
         this.init();
     }
     
@@ -55,9 +57,19 @@ export class ScriptExecutionPanel {
                 </div>
                 
                 <div class="form-group script-editor-wrapper">
-                    <label for="script-editor">Script Code:</label>
+                    <label for="script-editor">
+                        Script Code:
+                        <small class="text-muted" style="margin-left: 10px;">
+                            <span class="material-icons" style="font-size: 14px; vertical-align: middle;">keyboard</span>
+                            Ctrl+Enter: Run line | Ctrl+Shift+Enter: Run selection | F5: Run all
+                        </small>
+                    </label>
                     <div class="script-editor-container">
-                        <textarea id="script-editor" class="script-editor" placeholder="Enter your script code here...&#10;&#10;Example (Python):&#10;import pandas as pd&#10;df = pd.DataFrame(dataset['rows'], columns=dataset['columns'])&#10;result = df['column_name'].mean()&#10;&#10;Example (R):&#10;df <- data.frame(dataset$rows)&#10;colnames(df) <- dataset$columns&#10;result <- mean(df$column_name)"></textarea>
+                        <div class="script-editor-with-lines">
+                            <div class="script-line-numbers" id="script-line-numbers"></div>
+                            <textarea id="script-editor" class="script-editor" placeholder="Enter your script code here...&#10;&#10;Example (Python):&#10;result = df['column_name'].mean()&#10;&#10;Or create a plot:&#10;import matplotlib.pyplot as plt&#10;plt.plot(df['column_name'])&#10;plt.title('My Plot')&#10;&#10;Example (R):&#10;result <- mean(df$column_name)&#10;&#10;Note: The dataset is available as 'df' (pandas DataFrame) or 'dataset' (dict)"></textarea>
+                            <div id="script-inline-results" class="script-inline-results"></div>
+                        </div>
                         <div id="script-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
                     </div>
                 </div>
@@ -344,24 +356,22 @@ export class ScriptExecutionPanel {
         const dataset = await this.getFullDataset(storedDataset);
         
         // Show loading state
-        resultContainer.innerHTML = '<div class="script-loading">Executing script...</div>';
+        resultContainer.innerHTML = '<div class="script-loading">Executing script...<br><small>This may take a moment for Python scripts (initializing Pyodide on first run)</small></div>';
         
-        // Simulate execution delay
-        setTimeout(() => {
-            try {
-                // Execute script (mocked) on full dataset
-                const result = scriptExecutionEngine.execute(language, scriptText, dataset);
-                
-                // Display result
-                this.displayResult(result);
-                
-                // Enable save button
-                const saveBtn = this.container.querySelector('#save-script');
-                saveBtn.disabled = false;
-            } catch (error) {
-                resultContainer.innerHTML = `<div class="error">Error: ${error.message}</div>`;
-            }
-        }, 500); // Simulate 500ms execution time
+        try {
+            // Execute script (now async) on full dataset
+            const result = await scriptExecutionEngine.execute(language, scriptText, dataset);
+            
+            // Display result
+            this.displayResult(result);
+            
+            // Enable save button
+            const saveBtn = this.container.querySelector('#save-script');
+            saveBtn.disabled = false;
+        } catch (error) {
+            resultContainer.innerHTML = `<div class="error">Error: ${this.escapeHtml(error.message)}</div>`;
+            console.error('Script execution error:', error);
+        }
     }
     
     displayResult(result) {
@@ -376,6 +386,8 @@ export class ScriptExecutionPanel {
                             <span class="result-language">${result.language.toUpperCase()}</span>
                         </div>
                         <div class="result-value">${this.formatValue(result.value)}</div>
+                        ${result.output ? `<div class="script-output" style="margin-top: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-family: monospace; font-size: 12px;">${this.escapeHtml(result.output)}</div>` : ''}
+                        ${result.note ? `<div class="script-note" style="margin-top: 10px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; font-size: 12px; color: #856404;">${this.escapeHtml(result.note)}</div>` : ''}
                     </div>
                 `;
                 break;
@@ -393,6 +405,8 @@ export class ScriptExecutionPanel {
                         <div class="series-data">
                             <strong>Data:</strong> [${result.value.join(', ')}]
                         </div>
+                        ${result.output ? `<div class="script-output" style="margin-top: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-family: monospace; font-size: 12px;">${this.escapeHtml(result.output)}</div>` : ''}
+                        ${result.note ? `<div class="script-note" style="margin-top: 10px; padding: 8px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; font-size: 12px; color: #856404;">${this.escapeHtml(result.note)}</div>` : ''}
                     </div>
                 `;
                 // Draw simple line chart
@@ -400,17 +414,27 @@ export class ScriptExecutionPanel {
                 break;
                 
             case 'image':
+                const imageSrc = typeof result.value === 'string' && result.value.startsWith('data:image')
+                    ? result.value
+                    : null;
+                
                 resultContainer.innerHTML = `
                     <div class="result-image">
                         <div class="result-header">
                             <span class="result-type">Image Result</span>
                             <span class="result-language">${result.language.toUpperCase()}</span>
                         </div>
-                        <div class="image-placeholder">
-                            <div class="image-icon">📊</div>
-                            <div class="image-label">Chart/Plot (Mock)</div>
-                            <div class="image-note">In a real implementation, this would display the generated plot</div>
-                        </div>
+                        ${imageSrc 
+                            ? `<div class="image-container">
+                                <img src="${imageSrc}" alt="Generated plot" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" />
+                               </div>`
+                            : `<div class="image-placeholder">
+                                <div class="image-icon">📊</div>
+                                <div class="image-label">Chart/Plot</div>
+                                <div class="image-note">Plot generated successfully</div>
+                               </div>`
+                        }
+                        ${result.output ? `<div class="script-output" style="margin-top: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-family: monospace; font-size: 12px;">${this.escapeHtml(result.output)}</div>` : ''}
                     </div>
                 `;
                 break;
@@ -510,13 +534,13 @@ export class ScriptExecutionPanel {
             // Extract result from displayed result
             const resultType = resultElement.classList.contains('result-scalar') ? 'scalar' :
                               resultElement.classList.contains('result-series') ? 'series' : 'image';
-            // For simplicity, we'll re-execute to get the result
+                // Re-execute to get the result
             try {
                 const storedDataset = this.currentDataset ? datasetStore.get(this.currentDataset.id) : null;
                 if (storedDataset) {
                     // Get full dataset for execution
                     const fullDataset = await this.getFullDataset(storedDataset);
-                    result = scriptExecutionEngine.execute(language, scriptText, fullDataset);
+                    result = await scriptExecutionEngine.execute(language, scriptText, fullDataset);
                 }
             } catch (error) {
                 console.error('Error getting result for save:', error);
@@ -563,6 +587,7 @@ export class ScriptExecutionPanel {
         this.container.querySelector('#script-result').innerHTML = '';
         this.container.querySelector('#save-script').disabled = true;
         this.editingScriptId = null;
+        this.clearInlineResults();
     }
     
     loadScriptForEditing(scriptId) {
@@ -593,10 +618,342 @@ export class ScriptExecutionPanel {
             this.displayResult(script.result);
         }
         
+        // Update line numbers
+        this.updateLineNumbers();
+        
         // Scroll to editor
         if (scriptEditor) {
             scriptEditor.focus();
         }
+    }
+    
+    handleExecutionShortcuts(e) {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        if (!scriptEditor) return;
+        
+        // Ctrl+Enter or Cmd+Enter: Run current line
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            this.executeCurrentLine();
+        }
+        // Ctrl+Shift+Enter: Run selection
+        else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+            e.preventDefault();
+            this.executeSelection();
+        }
+        // F5: Run all
+        else if (e.key === 'F5') {
+            e.preventDefault();
+            this.executeScript();
+        }
+    }
+    
+    updateLineNumbers() {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const lineNumbers = this.container.querySelector('#script-line-numbers');
+        if (!scriptEditor || !lineNumbers) return;
+        
+        const lines = scriptEditor.value.split('\n');
+        const lineCount = lines.length;
+        
+        lineNumbers.innerHTML = lines.map((_, index) => {
+            const lineNum = index + 1;
+            const hasResult = this.lineResults.has(lineNum);
+            const resultClass = hasResult ? 'has-result' : '';
+            return `<div class="line-number ${resultClass}" data-line="${lineNum}">${lineNum}</div>`;
+        }).join('');
+        
+        // Sync scroll
+        this.syncLineNumbersScroll();
+    }
+    
+    syncLineNumbersScroll() {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const lineNumbers = this.container.querySelector('#script-line-numbers');
+        if (scriptEditor && lineNumbers) {
+            lineNumbers.scrollTop = scriptEditor.scrollTop;
+        }
+    }
+    
+    getCurrentLine() {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        if (!scriptEditor) return null;
+        
+        const text = scriptEditor.value;
+        const cursorPos = scriptEditor.selectionStart;
+        const textBeforeCursor = text.substring(0, cursorPos);
+        const lines = textBeforeCursor.split('\n');
+        const currentLineNum = lines.length;
+        const currentLine = lines[lines.length - 1];
+        
+        return {
+            lineNum: currentLineNum,
+            line: currentLine,
+            fullText: text
+        };
+    }
+    
+    getSelection() {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        if (!scriptEditor) return null;
+        
+        const start = scriptEditor.selectionStart;
+        const end = scriptEditor.selectionEnd;
+        
+        if (start === end) {
+            return null; // No selection
+        }
+        
+        const text = scriptEditor.value;
+        const selectedText = text.substring(start, end);
+        
+        // Get line numbers for selection
+        const textBeforeStart = text.substring(0, start);
+        const textBeforeEnd = text.substring(0, end);
+        const startLine = textBeforeStart.split('\n').length;
+        const endLine = textBeforeEnd.split('\n').length;
+        
+        return {
+            text: selectedText,
+            startLine,
+            endLine,
+            start,
+            end
+        };
+    }
+    
+    async executeCurrentLine() {
+        const lineInfo = this.getCurrentLine();
+        if (!lineInfo || !lineInfo.line.trim()) {
+            return;
+        }
+        
+        await this.executeLine(lineInfo.lineNum, lineInfo.line);
+    }
+    
+    async executeSelection() {
+        const selection = this.getSelection();
+        if (!selection) {
+            // If no selection, execute current line
+            await this.executeCurrentLine();
+            return;
+        }
+        
+        await this.executeCodeBlock(selection.text, selection.startLine, selection.endLine);
+    }
+    
+    async executeLine(lineNum, lineText) {
+        if (!lineText.trim()) return;
+        
+        const language = this.container.querySelector('#script-language').value;
+        
+        // Show loading indicator
+        this.showInlineResult(lineNum, '<div class="inline-loading">Running...</div>');
+        
+        try {
+            // Get or initialize execution context
+            if (!this.executionContext) {
+                await this.initializeExecutionContext(language);
+            }
+            
+            // Execute the line in context
+            const result = await this.executeInContext(language, lineText);
+            
+            // Display inline result
+            this.showInlineResult(lineNum, this.formatInlineResult(result));
+            this.lineResults.set(lineNum, result);
+            
+            // Update line number indicator
+            this.updateLineNumberIndicator(lineNum, true);
+            
+        } catch (error) {
+            this.showInlineResult(lineNum, `<div class="inline-error">${this.escapeHtml(error.message)}</div>`);
+            this.lineResults.set(lineNum, { error: error.message });
+        }
+    }
+    
+    async executeCodeBlock(code, startLine, endLine) {
+        const language = this.container.querySelector('#script-language').value;
+        
+        // Show loading for all lines in selection
+        for (let i = startLine; i <= endLine; i++) {
+            this.showInlineResult(i, '<div class="inline-loading">Running...</div>');
+        }
+        
+        try {
+            // Get or initialize execution context
+            if (!this.executionContext) {
+                await this.initializeExecutionContext(language);
+            }
+            
+            // Execute the code block
+            const result = await this.executeInContext(language, code);
+            
+            // Display result on the last line
+            this.showInlineResult(endLine, this.formatInlineResult(result));
+            this.lineResults.set(endLine, result);
+            this.updateLineNumberIndicator(endLine, true);
+            
+        } catch (error) {
+            this.showInlineResult(endLine, `<div class="inline-error">${this.escapeHtml(error.message)}</div>`);
+        }
+    }
+    
+    async initializeExecutionContext(language) {
+        const storedDataset = this.currentDataset ? datasetStore.get(this.currentDataset.id) : null;
+        const dataset = await this.getFullDataset(storedDataset);
+        
+        this.executionContext = {
+            language,
+            dataset,
+            initialized: false
+        };
+        
+        // Initialize the execution engine with dataset
+        if (language === 'python') {
+            // For Python, we'll initialize Pyodide and set up the dataset
+            await scriptExecutionEngine.initializePyodide();
+            const datasetCode = scriptExecutionEngine.prepareDatasetForPython(dataset);
+            await scriptExecutionEngine.pyodide.runPython(datasetCode);
+            this.executionContext.initialized = true;
+        }
+    }
+    
+    async executeInContext(language, code) {
+        if (!this.executionContext) {
+            throw new Error('Execution context not initialized');
+        }
+        
+        if (language === 'python') {
+            return await this.executePythonLine(code);
+        } else {
+            return await this.executeRLine(code);
+        }
+    }
+    
+    async executePythonLine(code) {
+        const pyodide = scriptExecutionEngine.pyodide;
+        if (!pyodide) {
+            throw new Error('Python environment not initialized');
+        }
+        
+        // Capture print output
+        pyodide.runPython(`
+            import sys
+            from io import StringIO
+            if '_output_buffer' not in locals():
+                _output_buffer = StringIO()
+                sys.stdout = _output_buffer
+        `);
+        
+        // Execute the line
+        try {
+            pyodide.runPython(code);
+        } catch (error) {
+            pyodide.runPython('sys.stdout = sys.__stdout__');
+            throw error;
+        }
+        
+        // Get print output
+        const output = pyodide.runPython('_output_buffer.getvalue()');
+        pyodide.runPython('_output_buffer.seek(0); _output_buffer.truncate(0)');
+        
+        // Try to get result if it exists
+        let result = null;
+        try {
+            result = pyodide.runPython('result if "result" in locals() else None');
+        } catch (e) {
+            // result might not exist, that's okay
+        }
+        
+        return {
+            result,
+            output: output || null,
+            type: result !== null ? (Array.isArray(result) ? 'series' : 'scalar') : 'output'
+        };
+    }
+    
+    async executeRLine(code) {
+        // For R, use the execution engine
+        const result = await scriptExecutionEngine.executeR(code, this.executionContext.dataset);
+        return {
+            result: result.value,
+            output: null,
+            type: result.type
+        };
+    }
+    
+    showInlineResult(lineNum, html) {
+        const inlineResults = this.container.querySelector('#script-inline-results');
+        if (!inlineResults) return;
+        
+        let resultDiv = inlineResults.querySelector(`[data-line="${lineNum}"]`);
+        if (!resultDiv) {
+            resultDiv = document.createElement('div');
+            resultDiv.className = 'inline-result';
+            resultDiv.setAttribute('data-line', lineNum);
+            resultDiv.id = `inline-result-${lineNum}`;
+            inlineResults.appendChild(resultDiv);
+        }
+        
+        resultDiv.innerHTML = html;
+        
+        // Position the result
+        this.positionInlineResult(lineNum);
+    }
+    
+    positionInlineResult(lineNum) {
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const resultDiv = this.container.querySelector(`#inline-result-${lineNum}`);
+        if (!scriptEditor || !resultDiv) return;
+        
+        // Calculate line position
+        const lines = scriptEditor.value.split('\n');
+        const lineHeight = 20; // Approximate line height
+        const padding = 12;
+        const topOffset = (lineNum - 1) * lineHeight + padding;
+        
+        resultDiv.style.top = `${topOffset}px`;
+    }
+    
+    formatInlineResult(result) {
+        if (result.error) {
+            return `<div class="inline-error">${this.escapeHtml(result.error)}</div>`;
+        }
+        
+        let html = '';
+        
+        if (result.output) {
+            html += `<div class="inline-output">${this.escapeHtml(result.output)}</div>`;
+        }
+        
+        if (result.result !== null && result.result !== undefined) {
+            const value = this.formatValue(result.result);
+            html += `<div class="inline-value">${value}</div>`;
+        }
+        
+        return html || '<div class="inline-success">✓</div>';
+    }
+    
+    updateLineNumberIndicator(lineNum, hasResult) {
+        const lineNumber = this.container.querySelector(`#script-line-numbers .line-number[data-line="${lineNum}"]`);
+        if (lineNumber) {
+            if (hasResult) {
+                lineNumber.classList.add('has-result');
+            } else {
+                lineNumber.classList.remove('has-result');
+            }
+        }
+    }
+    
+    clearInlineResults() {
+        const inlineResults = this.container.querySelector('#script-inline-results');
+        if (inlineResults) {
+            inlineResults.innerHTML = '';
+        }
+        this.lineResults.clear();
+        this.executionContext = null;
+        this.updateLineNumbers();
     }
     
     /**

@@ -5,6 +5,7 @@ import { VisualizationPanel } from './components/visualization-panel.js';
 import { ReportsPanel } from './components/reports-panel.js';
 import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
+import { CalculationsPanel } from './components/calculations-panel.js';
 import { datasetSelectionManager } from './utils/dataset-selection-manager.js';
 import { ScriptExecutionPanel } from './components/script-execution-panel.js';
 import { SavedScriptsLibrary } from './components/saved-scripts-library.js';
@@ -61,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
     const reportsPanel = new ReportsPanel('#reports-panel');
+    const calculationsPanel = new CalculationsPanel('#calculations-panel');
     
     // Initialize scripting components
     const datasetBrowserScripting = new DatasetBrowser('#dataset-browser-scripting');
@@ -108,17 +110,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Set up event listeners for component communication
-    // Dataset Browser (Analysis) → Analysis Panel
+    // Dataset Browser (Analysis) → Analysis Panel & Calculations Panel
     datasetBrowserAnalysis.onDatasetSelect((dataset) => {
         analysisPanel.setDataset(dataset);
         analysisPanel.refreshDatasetSelector();
+        calculationsPanel.setDataset(dataset);
     });
     
-    // Dataset Browser (Analysis) → Edit Metric
-    datasetBrowserAnalysis.onEditMetric((metricId, isDuplicate) => {
+    // Calculations Panel → Edit Metric
+    calculationsPanel.onEditMetric((metricId, isDuplicate) => {
         if (analysisPanel.unifiedBuilder) {
             analysisPanel.unifiedBuilder.editMetric(metricId, isDuplicate);
         }
+    });
+    
+    // Analysis Panel → Calculations Panel (refresh when metric is created)
+    analysisPanel.onMetricsUpdated((metrics) => {
+        calculationsPanel.refresh();
     });
     
     // Dataset Browser (Visualization) → Visualization Panel

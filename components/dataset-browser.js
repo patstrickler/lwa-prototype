@@ -207,37 +207,6 @@ export class DatasetBrowser {
                         }
                     </div>
                 </div>
-                
-                <div class="metrics-section">
-                    <div class="section-title" style="font-size: 0.85rem; padding: 6px 0;">
-                        <span class="section-icon" style="font-size: 0.9rem;">📈</span>
-                        <span>Metrics</span>
-                    </div>
-                    <div class="items-list editable-items">
-                        ${metrics && metrics.length > 0
-                            ? metrics.map(metric => `
-                                <div class="editable-item metric-item draggable-item" 
-                                     data-type="metric"
-                                     data-id="${metric.id}"
-                                     data-value="${metric.id}"
-                                     data-dataset="${dataset.id}"
-                                     draggable="true">
-                                    <span class="material-icons item-icon" style="font-size: 16px;">trending_up</span>
-                                    <div class="item-info">
-                                        <span class="item-name">${this.escapeHtml(metric.name)}</span>
-                                        <span class="item-value">${this.formatMetricValue(metric.value)}</span>
-                                    </div>
-                                    <div class="item-actions" style="display: flex; gap: 2px;">
-                                        <button class="btn btn-sm btn-icon edit-btn" title="Edit" style="padding: 2px 4px; font-size: 14px;"><span class="material-icons" style="font-size: 14px;">edit</span></button>
-                                        <button class="btn btn-sm btn-icon duplicate-btn" title="Duplicate" style="padding: 2px 4px; font-size: 14px;"><span class="material-icons" style="font-size: 14px;">content_copy</span></button>
-                                        <button class="btn btn-sm btn-icon delete-btn" title="Delete" style="padding: 2px 4px; font-size: 14px;"><span class="material-icons" style="font-size: 14px;">delete</span></button>
-                                    </div>
-                                </div>
-                            `).join('')
-                            : '<div class="empty-state-small">No metrics defined</div>'
-                        }
-                    </div>
-                </div>
             </div>
         `;
     }
