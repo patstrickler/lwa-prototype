@@ -10,12 +10,28 @@ import { getTableData } from '../data/table-data.js';
  * @returns {Promise<{columns: string[], rows: any[][]}>}
  */
 export async function executeSQL(sql, latency = 500) {
+    console.log('[SQL Engine.executeSQL] Executing SQL query', {
+        sqlLength: sql?.length || 0,
+        sqlPreview: sql?.substring(0, 100) + (sql?.length > 100 ? '...' : ''),
+        latency
+    });
+    
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             try {
                 const result = parseAndExecuteSQL(sql);
+                console.log('[SQL Engine.executeSQL] Query executed successfully', {
+                    columns: result.columns?.length || 0,
+                    rows: result.rows?.length || 0
+                });
                 resolve(result);
             } catch (error) {
+                console.error('[SQL Engine.executeSQL] Error executing SQL:', {
+                    error: error.message,
+                    stack: error.stack,
+                    sqlPreview: sql?.substring(0, 100),
+                    timestamp: new Date().toISOString()
+                });
                 reject(error);
             }
         }, latency);
@@ -57,7 +73,7 @@ function parseAndExecuteSQL(sql) {
         throw new Error('Invalid SELECT clause. Please use format: SELECT column1, column2 FROM table_name');
     }
     
-    const selectClause = selectMatch[1].trim();
+        const selectClause = selectMatch[1].trim();
     const columnSpecs = parseSelectClause(selectClause);
     
     // Use TOP limit if found, otherwise use LIMIT
@@ -861,23 +877,23 @@ function compareValues(a, b) {
 function generateColumnValue(columnName, rowIndex, tableName) {
     const colLower = columnName.toLowerCase();
     const baseDate = new Date('2024-01-01');
-    
-    // Generate data based on column name patterns
-    if (colLower.includes('date') || colLower.includes('_at')) {
-        const date = new Date(baseDate);
+            
+            // Generate data based on column name patterns
+            if (colLower.includes('date') || colLower.includes('_at')) {
+                const date = new Date(baseDate);
         date.setDate(date.getDate() + rowIndex);
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD format
-    }
-    
-    if (colLower.includes('id')) {
+                return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+            }
+            
+            if (colLower.includes('id')) {
         return rowIndex + 1;
-    }
-    
-    if (colLower.includes('email')) {
+            }
+            
+            if (colLower.includes('email')) {
         return `user${rowIndex + 1}@example.com`;
-    }
-    
-    if (colLower.includes('name')) {
+            }
+            
+            if (colLower.includes('name')) {
         if (colLower.includes('sample')) {
             return `Sample-${String(rowIndex + 1).padStart(4, '0')}`;
         }
@@ -889,23 +905,23 @@ function generateColumnValue(columnName, rowIndex, tableName) {
             return `Lab ${rowIndex + 1}`;
         }
         return `Item ${rowIndex + 1}`;
-    }
-    
-    if (colLower.includes('value') || colLower.includes('result')) {
-        // Generate numeric values with some variation
+            }
+            
+            if (colLower.includes('value') || colLower.includes('result')) {
+                // Generate numeric values with some variation
         return parseFloat((Math.random() * 100 + rowIndex * 0.5).toFixed(2));
-    }
-    
-    if (colLower.includes('price') || colLower.includes('amount') || colLower.includes('total')) {
-        return parseFloat((Math.random() * 1000 + 10).toFixed(2));
-    }
-    
-    if (colLower.includes('quantity') || colLower.includes('count')) {
-        return Math.floor(Math.random() * 100) + 1;
-    }
-    
-    if (colLower.includes('category') || colLower.includes('type')) {
-        const categories = ['A', 'B', 'C', 'D'];
+            }
+            
+            if (colLower.includes('price') || colLower.includes('amount') || colLower.includes('total')) {
+                return parseFloat((Math.random() * 1000 + 10).toFixed(2));
+            }
+            
+            if (colLower.includes('quantity') || colLower.includes('count')) {
+                return Math.floor(Math.random() * 100) + 1;
+            }
+            
+            if (colLower.includes('category') || colLower.includes('type')) {
+                const categories = ['A', 'B', 'C', 'D'];
         return categories[rowIndex % categories.length];
     }
     
@@ -926,10 +942,10 @@ function generateColumnValue(columnName, rowIndex, tableName) {
     
     if (colLower.includes('reference_range')) {
         return '0-100';
-    }
-    
-    if (colLower.includes('event')) {
-        const events = ['click', 'view', 'purchase', 'signup'];
+            }
+            
+            if (colLower.includes('event')) {
+                const events = ['click', 'view', 'purchase', 'signup'];
         return events[rowIndex % events.length];
     }
     
