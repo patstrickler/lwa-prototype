@@ -2602,8 +2602,22 @@ export class VisualizationPanel {
      */
     updateAxisDisplay(displayId, selection) {
         const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
-        const display = sidebarContainer ? sidebarContainer.querySelector(`#${displayId}`) : this.container.querySelector(`#${displayId}`);
-        if (!display) return;
+        const searchContainer = sidebarContainer || this.container;
+        
+        // Try to find by ID first
+        let display = searchContainer.querySelector(`#${displayId}`);
+        
+        // If not found and displayId contains axis info, try to find by data-axis attribute
+        if (!display && displayId && displayId.includes('axis-display')) {
+            // Extract axis from displayId (e.g., 'x-axis-display' -> 'x')
+            const axis = displayId.split('-')[0];
+            display = searchContainer.querySelector(`.axis-selection-display[data-axis="${axis}"]`);
+        }
+        
+        if (!display) {
+            console.warn(`Could not find axis display with ID "${displayId}"`);
+            return;
+        }
         
         // Get or create content container
         let contentContainer = display.querySelector('.axis-selection-content');
