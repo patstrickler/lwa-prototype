@@ -34,7 +34,9 @@ export class Modal {
      */
     static confirm(message) {
         return new Promise((resolve) => {
+            console.log('Modal.confirm called with message:', message);
             const backdrop = this.createModal('confirm', message, null);
+            console.log('Modal backdrop created:', backdrop);
             const okBtn = backdrop.querySelector('.modal-btn-primary');
             const cancelBtn = backdrop.querySelector('.modal-btn-secondary');
             
@@ -42,11 +44,14 @@ export class Modal {
                 console.error('Modal: Buttons not found in confirm modal', {
                     backdrop: !!backdrop,
                     okBtn: !!okBtn,
-                    cancelBtn: !!cancelBtn
+                    cancelBtn: !!cancelBtn,
+                    backdropHTML: backdrop.innerHTML.substring(0, 200)
                 });
                 resolve(false);
                 return;
             }
+            
+            console.log('Modal buttons found, appending to body');
             
             // Prevent event propagation on modal content clicks
             const modal = backdrop.querySelector('.modal');
@@ -82,6 +87,7 @@ export class Modal {
             
             // Append to body and ensure visibility
             document.body.appendChild(backdrop);
+            console.log('Modal backdrop appended to body');
             
             // Force visibility styles immediately
             backdrop.style.display = 'flex';
@@ -104,11 +110,14 @@ export class Modal {
                 modal.style.opacity = '1';
             }
             
+            console.log('Modal styles applied, backdrop in DOM:', document.body.contains(backdrop));
+            
             // Focus after a short delay to ensure DOM is ready
             setTimeout(() => {
                 if (okBtn) {
                     okBtn.focus();
                 }
+                console.log('Modal should be visible now');
             }, 100);
         });
     }
