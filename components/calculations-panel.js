@@ -124,7 +124,10 @@ export class CalculationsPanel {
                 const metricId = deleteBtn.getAttribute('data-id');
                 if (metricId) {
                     console.log('CalculationsPanel: Delete button clicked for metric:', metricId);
-                    this.handleDeleteMetric(metricId);
+                    // Use setTimeout to allow event to fully propagate before showing modal
+                    setTimeout(() => {
+                        this.handleDeleteMetric(metricId);
+                    }, 0);
                 } else {
                     console.error('CalculationsPanel: Delete button found but no data-id attribute');
                 }
