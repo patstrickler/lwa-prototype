@@ -288,9 +288,7 @@ main {
 /* Visualization Layout - Bootstrap handles grid */
 
 /* Saved Datasets Dropdown Styles - Use Bootstrap card */
-.saved-datasets-dropdown-container {
-    /* Bootstrap card handles styling */
-}
+/* Styles are handled by Bootstrap card classes */
 
 .dropdown-label {
     /* Use Bootstrap form-label class instead */
@@ -4702,6 +4700,21 @@ main {
     justify-content: center;
     z-index: 10000;
     animation: fadeIn 0.2s ease-in;
+}
+
+/* Ensure reports modal is always visible */
+.reports-modal-backdrop {
+    z-index: 10500 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.reports-modal {
+    z-index: 10501 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    display: block !important;
 }
 
 .modal-backdrop.modal-closing {

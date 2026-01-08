@@ -204,12 +204,12 @@ export class ReportsPanel {
         const datasets = datasetStore.getAll();
         console.log('Visualizations:', visualizations.length);
         
-        // Create the backdrop first
+        // Create the backdrop first - use unique class to avoid Bootstrap conflicts
         const backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop';
+        backdrop.className = 'modal-backdrop reports-modal-backdrop';
         backdrop.id = 'create-report-dialog-backdrop';
         // Force styles to ensure visibility (override Bootstrap if present)
-        backdrop.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background-color: rgba(0, 0, 0, 0.5) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 10500 !important;';
+        backdrop.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background-color: rgba(0, 0, 0, 0.5) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 10500 !important; opacity: 1 !important; visibility: visible !important;';
         
         // Build the HTML content for visualizations
         const vizOptions = visualizations.length === 0
@@ -225,8 +225,8 @@ export class ReportsPanel {
         
         // Set the modal HTML inside the backdrop - use explicit styles to override Bootstrap
         backdrop.innerHTML = `
-            <div class="modal" style="max-width: 700px !important; width: 90% !important; margin: 20px !important; position: relative !important; z-index: 10501 !important; display: block !important;">
-                <div class="modal-content" style="background-color: #fff !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; max-height: 90vh !important; position: relative !important;">
+            <div class="modal reports-modal" style="max-width: 700px !important; width: 90% !important; margin: 20px !important; position: relative !important; z-index: 10501 !important; display: block !important; opacity: 1 !important; visibility: visible !important; transform: none !important;">
+                <div class="modal-content" style="background-color: #fff !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; max-height: 90vh !important; position: relative !important; opacity: 1 !important; visibility: visible !important;">
                     <div class="modal-header">
                         <h3 class="modal-title">Create New Report/Dashboard</h3>
                         <button type="button" class="modal-close" id="close-create-report-dialog">×</button>
@@ -521,12 +521,18 @@ export class ReportsPanel {
                     </select>
                     <select class="form-control filter-field" data-index="${index}">
                         <option value="">-- Select Field --</option>
-                        ${filter.datasetId && datasets.find(ds => ds.id === filter.datasetId) 
-                            ? datasets.find(ds => ds.id === filter.datasetId).columns.map(col => `
+                        ${filter.datasetId ? (() => {
+                            const dataset = datasets.find(ds => ds.id === filter.datasetId);
+                            return dataset && dataset.columns ? dataset.columns.map(col => `
                                 <option value="${col}" ${filter.field === col ? 'selected' : ''}>${this.escapeHtml(col)}</option>
-                            `).join('')
-                            : ''}
+                            `).join('') : '';
+                        })() : ''}
                     </select>
+                    ${filter.datasetId && filter.field ? `
+                        <input type="text" class="form-control filter-label" data-index="${index}" 
+                               placeholder="Filter label (optional)" value="${filter.label || filter.field || ''}" 
+                               style="margin-top: 8px;">
+                    ` : ''}
                     <select class="form-control filter-type" data-index="${index}">
                         <option value="date" ${filter.type === 'date' ? 'selected' : ''}>Date</option>
                         <option value="text" ${filter.type === 'text' ? 'selected' : ''}>Text</option>
@@ -648,6 +654,64 @@ export class ReportsPanel {
                 this.updateFilterDataset(index, datasetId);
             });
         });
+        
+        // Field change handler for filters
+        this.container.querySelectorAll('.filter-field').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const field = e.target.value;
+                const index = parseInt(e.target.getAttribute('data-index'));
+                this.updateFilterField(index, field);
+            });
+        });
+        
+        // Filter type change handler
+        this.container.querySelectorAll('.filter-type').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const type = e.target.value;
+                const index = parseInt(e.target.getAttribute('data-index'));
+                this.updateFilterType(index, type);
+            });
+        });
+        
+        // Filter label change handler
+        this.container.querySelectorAll('.filter-label').forEach(input => {
+            input.addEventListener('blur', (e) => {
+                const label = e.target.value.trim();
+                const index = parseInt(e.target.getAttribute('data-index'));
+                this.updateFilterLabel(index, label);
+            });
+        });
+    }
+    
+    updateFilterField(index, field) {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report || !report.filters[index]) return;
+        
+        report.filters[index].field = field;
+        // Auto-generate label if not set
+        if (!report.filters[index].label) {
+            report.filters[index].label = field;
+        }
+        reportsStore.update(this.currentReport.id, { filters: report.filters });
+        this.renderReportEditor();
+    }
+    
+    updateFilterType(index, type) {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report || !report.filters[index]) return;
+        
+        report.filters[index].type = type;
+        reportsStore.update(this.currentReport.id, { filters: report.filters });
+        this.renderReportEditor();
+    }
+    
+    updateFilterLabel(index, label) {
+        const report = reportsStore.get(this.currentReport.id);
+        if (!report || !report.filters[index]) return;
+        
+        report.filters[index].label = label || report.filters[index].field || '';
+        reportsStore.update(this.currentReport.id, { filters: report.filters });
+        // Don't re-render to avoid losing focus, just update the store
     }
     
     addFilter() {
@@ -681,6 +745,9 @@ export class ReportsPanel {
         
         report.filters[index].datasetId = datasetId;
         report.filters[index].field = ''; // Reset field when dataset changes
+        report.filters[index].label = ''; // Reset label when dataset changes
+        
+        // If dataset selected, populate field dropdown in next render
         reportsStore.update(this.currentReport.id, { filters: report.filters });
         this.renderReportEditor();
     }
@@ -1158,9 +1225,15 @@ export class ReportsPanel {
     }
     
     getFilterLabel(filter) {
+        // Use custom label if provided
+        if (filter.label && filter.label.trim()) {
+            return filter.label.trim();
+        }
+        // Fall back to field name
         if (filter.field) {
             return filter.field;
         }
+        // Fall back to dataset name
         if (filter.datasetId) {
             const dataset = datasetStore.get(filter.datasetId);
             return dataset ? dataset.name : 'Unknown Dataset';
