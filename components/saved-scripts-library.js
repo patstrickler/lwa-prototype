@@ -79,31 +79,48 @@ export class SavedScriptsLibrary {
     attachEventListeners() {
         if (!this.container) return;
         
+        // Remove existing listener if any (to prevent duplicates)
+        if (this._clickHandler) {
+            this.container.removeEventListener('click', this._clickHandler);
+        }
+        
         // Use event delegation for dynamic content
-        this.container.addEventListener('click', (e) => {
-            const loadBtn = e.target.closest('.load-script-btn');
-            if (loadBtn) {
-                const scriptId = loadBtn.getAttribute('data-script-id');
-                this.loadScript(scriptId);
-                e.stopPropagation();
-                return;
-            }
-            
+        this._clickHandler = (e) => {
+            // Check for delete button first (highest priority)
             const deleteBtn = e.target.closest('.delete-script-btn');
             if (deleteBtn) {
-                const scriptId = deleteBtn.getAttribute('data-script-id');
-                this.deleteScript(scriptId);
+                e.preventDefault();
                 e.stopPropagation();
+                const scriptId = deleteBtn.getAttribute('data-script-id');
+                if (scriptId) {
+                    this.deleteScript(scriptId);
+                }
                 return;
             }
             
-            // Click on script item to load it
-            const scriptItem = e.target.closest('.saved-script-item');
-            if (scriptItem && !loadBtn && !deleteBtn) {
-                const scriptId = scriptItem.getAttribute('data-script-id');
-                this.loadScript(scriptId);
+            // Check for load button
+            const loadBtn = e.target.closest('.load-script-btn');
+            if (loadBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const scriptId = loadBtn.getAttribute('data-script-id');
+                if (scriptId) {
+                    this.loadScript(scriptId);
+                }
+                return;
             }
-        });
+            
+            // Click on script item to load it (only if not clicking on buttons)
+            const scriptItem = e.target.closest('.saved-script-item');
+            if (scriptItem && !e.target.closest('button')) {
+                const scriptId = scriptItem.getAttribute('data-script-id');
+                if (scriptId) {
+                    this.loadScript(scriptId);
+                }
+            }
+        };
+        
+        this.container.addEventListener('click', this._clickHandler);
     }
     
     loadScript(scriptId) {
@@ -114,20 +131,37 @@ export class SavedScriptsLibrary {
     }
     
     async deleteScript(scriptId) {
+        if (!scriptId) {
+            console.error('No script ID provided for deletion');
+            return;
+        }
+        
         const script = scriptsStore.get(scriptId);
-        if (!script) return;
+        if (!script) {
+            console.warn(`Script with ID ${scriptId} not found`);
+            return;
+        }
         
-        const { Modal } = await import('../utils/modal.js');
-        const confirmed = await Modal.confirm(
-            `Are you sure you want to delete "${script.name}"? This action cannot be undone.`
-        );
-        
-        if (confirmed) {
-            const deleted = scriptsStore.delete(scriptId);
-            if (deleted) {
-                this.render();
-                this.notifyScriptDeleted(scriptId);
+        try {
+            const { Modal } = await import('../utils/modal.js');
+            const confirmed = await Modal.confirm(
+                `Are you sure you want to delete "${script.name}"? This action cannot be undone.`
+            );
+            
+            if (confirmed) {
+                const deleted = scriptsStore.delete(scriptId);
+                if (deleted) {
+                    this.render();
+                    // Re-attach event listeners after render
+                    this.attachEventListeners();
+                    this.notifyScriptDeleted(scriptId);
+                } else {
+                    console.error(`Failed to delete script with ID ${scriptId}`);
+                }
             }
+        } catch (error) {
+            console.error('Error deleting script:', error);
+            alert(`Error deleting script: ${error.message}`);
         }
     }
     
@@ -149,6 +183,8 @@ export class SavedScriptsLibrary {
     
     refresh() {
         this.render();
+        // Re-attach event listeners after render to ensure they work with new DOM
+        this.attachEventListeners();
     }
     
     escapeHtml(text) {

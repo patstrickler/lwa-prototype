@@ -114,8 +114,25 @@ export class ScriptExecutionPanel {
             saveBtn.disabled = !scriptEditor.value.trim() || !scriptName.value.trim();
         });
         
-        // Handle keyboard events for autocomplete
-        scriptEditor.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        // Handle keyboard events for autocomplete and line execution
+        scriptEditor.addEventListener('keydown', (e) => {
+            this.handleKeyDown(e);
+            this.handleExecutionShortcuts(e);
+        });
+        
+        // Update line numbers on input
+        scriptEditor.addEventListener('input', () => {
+            this.updateLineNumbers();
+        });
+        
+        // Update line numbers on scroll (sync with editor)
+        scriptEditor.addEventListener('scroll', () => {
+            this.syncLineNumbersScroll();
+            this.updateInlineResultsPosition();
+        });
+        
+        // Initialize line numbers
+        this.updateLineNumbers();
         
         // Hide suggestions when clicking outside
         document.addEventListener('click', (e) => {

@@ -90,31 +90,48 @@ export class CalculationsPanel {
         if (!this.container) return;
         
         // Use event delegation for dynamically added buttons
-        this.container.addEventListener('click', (e) => {
+        // Remove any existing listeners first to avoid duplicates
+        const clickHandler = (e) => {
+            // Check for edit button
             const editBtn = e.target.closest('.edit-calc-btn');
             if (editBtn) {
-                const metricId = editBtn.getAttribute('data-id');
-                this.notifyEditMetric(metricId, false);
+                e.preventDefault();
                 e.stopPropagation();
+                const metricId = editBtn.getAttribute('data-id');
+                if (metricId) {
+                    this.notifyEditMetric(metricId, false);
+                }
                 return;
             }
             
+            // Check for duplicate button
             const duplicateBtn = e.target.closest('.duplicate-calc-btn');
             if (duplicateBtn) {
-                const metricId = duplicateBtn.getAttribute('data-id');
-                this.notifyEditMetric(metricId, true);
+                e.preventDefault();
                 e.stopPropagation();
+                const metricId = duplicateBtn.getAttribute('data-id');
+                if (metricId) {
+                    this.notifyEditMetric(metricId, true);
+                }
                 return;
             }
             
+            // Check for delete button
             const deleteBtn = e.target.closest('.delete-calc-btn');
             if (deleteBtn) {
-                const metricId = deleteBtn.getAttribute('data-id');
-                this.handleDeleteMetric(metricId);
+                e.preventDefault();
                 e.stopPropagation();
+                const metricId = deleteBtn.getAttribute('data-id');
+                if (metricId) {
+                    this.handleDeleteMetric(metricId);
+                }
                 return;
             }
-        });
+        };
+        
+        // Store handler reference for potential cleanup
+        this._clickHandler = clickHandler;
+        this.container.addEventListener('click', clickHandler);
     }
     
     setDataset(dataset) {
@@ -135,20 +152,36 @@ export class CalculationsPanel {
     }
     
     async handleDeleteMetric(metricId) {
+        if (!metricId) {
+            console.error('CalculationsPanel: No metric ID provided for deletion');
+            return;
+        }
+        
         const metric = metricsStore.get(metricId);
         if (!metric) {
+            console.warn(`CalculationsPanel: Metric with ID ${metricId} not found`);
+            await Modal.alert('Calculation not found. It may have already been deleted.');
+            this.render(); // Refresh to update the list
             return;
         }
         
         const metricName = metric.name || 'this calculation';
-        const confirmed = await Modal.confirm(
-            `Are you sure you want to delete "${metricName}"? This action cannot be undone.`
-        );
-        if (confirmed) {
-            const deleted = metricsStore.delete(metricId);
-            if (deleted) {
-                this.render();
+        try {
+            const confirmed = await Modal.confirm(
+                `Are you sure you want to delete "${metricName}"? This action cannot be undone.`
+            );
+            if (confirmed) {
+                const deleted = metricsStore.delete(metricId);
+                if (deleted) {
+                    this.render();
+                } else {
+                    console.error(`CalculationsPanel: Failed to delete metric ${metricId}`);
+                    await Modal.alert('Failed to delete calculation. Please try again.');
+                }
             }
+        } catch (error) {
+            console.error('CalculationsPanel: Error deleting metric:', error);
+            await Modal.alert(`Error deleting calculation: ${error.message || 'Unknown error'}`);
         }
     }
     

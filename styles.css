@@ -3886,17 +3886,19 @@ main {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 600px;
+    max-height: calc(100vh - 200px);
     overflow-y: auto;
+    padding: 4px 0;
 }
 
 .saved-script-item {
-    padding: 12px;
+    padding: 10px;
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition-base);
+    font-size: var(--font-size-sm);
 }
 
 .saved-script-item:hover {
@@ -3920,10 +3922,11 @@ main {
 
 .script-item-name {
     font-weight: var(--font-weight-semibold);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     color: var(--color-text);
     margin-bottom: 4px;
     word-break: break-word;
+    line-height: 1.3;
 }
 
 .script-item-meta {
@@ -3967,8 +3970,14 @@ main {
 
 .script-item-actions {
     display: flex;
-    gap: 4px;
+    gap: 2px;
     flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.script-item-actions .btn-icon {
+    padding: 2px 4px;
+    font-size: 14px;
 }
 
 .btn-icon {
