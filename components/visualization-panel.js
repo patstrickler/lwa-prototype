@@ -35,9 +35,6 @@ export class VisualizationPanel {
         this.container.innerHTML = `
             <div class="visualization-panel">
                 <div id="charts-container" class="charts-container preview-container">
-                    <div class="preview-placeholder">
-                        <p class="text-muted">Select a dataset and chart type to see preview</p>
-                    </div>
                 </div>
             </div>
         `;
