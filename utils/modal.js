@@ -53,8 +53,10 @@ export class Modal {
             
             console.log('Modal buttons found, appending to body');
             
-            // Prevent event propagation on modal content clicks
+            // Get modal element for styling
             const modal = backdrop.querySelector('.modal');
+            
+            // Prevent event propagation on modal content clicks
             if (modal) {
                 modal.addEventListener('click', (e) => {
                     e.stopPropagation();
