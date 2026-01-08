@@ -85,8 +85,6 @@ export class ReportsPanel {
             });
         } else {
             console.error('Create report button not found in container:', this.container);
-        } else {
-            console.warn('Create report button not found!');
         }
     }
     
