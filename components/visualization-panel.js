@@ -856,20 +856,6 @@ export class VisualizationPanel {
         });
     }
     
-    formatMetricValue(value) {
-        const num = parseFloat(value);
-        if (isNaN(num)) return String(value);
-        
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(2) + 'M';
-        } else if (num >= 1000) {
-            return (num / 1000).toFixed(2) + 'K';
-        } else if (num % 1 === 0) {
-            return num.toString();
-        } else {
-            return num.toFixed(2);
-        }
-    }
     
     /**
      * Auto-renders the chart when selections change
@@ -1170,152 +1156,26 @@ export class VisualizationPanel {
         const yAxis = this.yAxisSelection;
         const zAxis = this.zAxisSelection;
         
+        // Handle special case: both axes are metrics - show KPI cards
+        if (xAxis.type === 'metric' && yAxis.type === 'metric') {
+            const xMetric = metricsStore.get(xAxis.value);
+            const yMetric = metricsStore.get(yAxis.value);
+            if (xMetric) this.renderKPICard(xMetric);
+            if (yMetric) this.renderKPICard(yMetric);
+            return;
+        }
+        
         // Handle special chart types first (before metric/column logic)
         if (chartType === 'table') {
             this.renderTableWithFields(dataset);
             return;
         }
         
-        // Handle scatter charts with metrics - render as scatter plot, not scorecards
-        if (chartType === 'scatter') {
-            if (xAxis && yAxis) {
-                // Scatter can handle metrics - group by X and calculate Y metric for each group
-                if (xAxis.type === 'column' && yAxis.type === 'metric') {
-                    const metric = metricsStore.get(yAxis.value);
-                    if (!metric) return;
-                    
-                    const data = this.getDatasetData(dataset);
-                    if (!data || data.length === 0) return;
-                    
-                    // Group by X and calculate metric for each group
-                    const groups = {};
-                    data.forEach(row => {
-                        const xValue = row[xAxis.value];
-                        if (xValue === null || xValue === undefined) return;
-                        const xKey = String(xValue);
-                        if (!groups[xKey]) {
-                            groups[xKey] = [];
-                        }
-                        groups[xKey].push(row);
-                    });
-                    
-                    // Calculate metric for each group
-                    const scatterData = [];
-                    Object.entries(groups).forEach(([xKey, groupRows]) => {
-                        const groupRowsArray = groupRows.map(row => {
-                            return dataset.columns.map(col => row[col]);
-                        });
-                        
-                        const groupDataset = {
-                            id: dataset.id,
-                            name: dataset.name,
-                            columns: dataset.columns,
-                            rows: groupRowsArray
-                        };
-                        
-                        try {
-                            const metricValue = metricExecutionEngine.executeMetric(metric, groupDataset);
-                            scatterData.push({
-                                x: parseFloat(xKey) || xKey,
-                                y: metricValue !== null && metricValue !== undefined ? parseFloat(metricValue) || 0 : 0
-                            });
-                        } catch (error) {
-                            console.error('Error calculating metric for scatter:', error);
-                        }
-                    });
-                    
-                    if (scatterData.length > 0) {
-                        const seriesData = {
-                            chartData: scatterData.map(p => [p.x, p.y]),
-                            isXNumeric: typeof scatterData[0].x === 'number',
-                            categories: []
-                        };
-                        
-                        const chartId = `chart_${Date.now()}`;
-                        const chartContainer = document.createElement('div');
-                        chartContainer.id = chartId;
-                        chartContainer.className = 'chart-wrapper';
-                        
-                        const chartsContainer = this.container.querySelector('#charts-container');
-                        chartsContainer.appendChild(chartContainer);
-                        
-                        const stylingOptions = this.getStylingOptions();
-                        this.renderHighchart(chartId, 'scatter', seriesData, {
-                            xLabel: stylingOptions.xLabel || this.formatColumnName(xAxis.value),
-                            yLabel: stylingOptions.yLabel || metric.name,
-                            title: stylingOptions.title || `${metric.name} vs ${this.formatColumnName(xAxis.value)}`,
-                            color: stylingOptions.color,
-                            showTrendline: stylingOptions.showTrendline
-                        });
-                        return;
-                    }
-                } else if (xAxis.type === 'metric' && yAxis.type === 'metric') {
-                    // Both axes are metrics - calculate both for each unique combination
-                    const xMetric = metricsStore.get(xAxis.value);
-                    const yMetric = metricsStore.get(yAxis.value);
-                    if (!xMetric || !yMetric) return;
-                    
-                    const data = this.getDatasetData(dataset);
-                    if (!data || data.length === 0) return;
-                    
-                    // Calculate both metrics for the entire dataset
-                    const dataArray = data.map(row => {
-                        return dataset.columns.map(col => row[col]);
-                    });
-                    
-                    const fullDataset = {
-                        id: dataset.id,
-                        name: dataset.name,
-                        columns: dataset.columns,
-                        rows: dataArray
-                    };
-                    
-                    try {
-                        const xValue = metricExecutionEngine.executeMetric(xMetric, fullDataset);
-                        const yValue = metricExecutionEngine.executeMetric(yMetric, fullDataset);
-                        
-                        const seriesData = {
-                            chartData: [[parseFloat(xValue) || 0, parseFloat(yValue) || 0]],
-                            isXNumeric: true,
-                            categories: []
-                        };
-                        
-                        const chartId = `chart_${Date.now()}`;
-                        const chartContainer = document.createElement('div');
-                        chartContainer.id = chartId;
-                        chartContainer.className = 'chart-wrapper';
-                        
-                        const chartsContainer = this.container.querySelector('#charts-container');
-                        chartsContainer.appendChild(chartContainer);
-                        
-                        const stylingOptions = this.getStylingOptions();
-                        this.renderHighchart(chartId, 'scatter', seriesData, {
-                            xLabel: stylingOptions.xLabel || xMetric.name,
-                            yLabel: stylingOptions.yLabel || yMetric.name,
-                            title: stylingOptions.title || `${yMetric.name} vs ${xMetric.name}`,
-                            color: stylingOptions.color,
-                            showTrendline: stylingOptions.showTrendline
-                        });
-                        return;
-                    } catch (error) {
-                        console.error('Error calculating metrics for scatter:', error);
-                        return;
-                    }
-                } else if (xAxis.type === 'column' && yAxis.type === 'column') {
-                    // Both are columns - standard scatter
-                    this.renderScatterChart(dataset, xAxis.value, yAxis.value, zAxis ? zAxis.value : null);
-                    return;
-                }
-            }
-            this.showError('Scatter plots require X and Y axes to be columns or metrics.');
-            return;
-        }
-        
         // Handle case where Y is a metric but X is a column
         // Group by X and recalculate metric for each group
-        // Only for Highcharts chart types (not table, scorecard, scatter)
+        // Only for Highcharts chart types (not table, scorecard)
         if (yAxis.type === 'metric' && xAxis.type === 'column' && 
-            (chartType === 'line' || chartType === 'bar')) {
+            (chartType === 'line' || chartType === 'bar' || chartType === 'scatter')) {
             const metric = metricsStore.get(yAxis.value);
             if (!metric) return;
                 
@@ -2998,20 +2858,6 @@ export class VisualizationPanel {
         contentContainer.appendChild(selectedItem);
     }
     
-    formatMetricValue(value) {
-        const num = parseFloat(value);
-        if (isNaN(num)) return String(value);
-        
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(2) + 'M';
-        } else if (num >= 1000) {
-            return (num / 1000).toFixed(2) + 'K';
-        } else if (num % 1 === 0) {
-            return num.toString();
-        } else {
-            return num.toFixed(2);
-        }
-    }
     
     inferColumnType(dataset, columnName) {
         if (!dataset.rows || dataset.rows.length === 0) {
@@ -3270,10 +3116,70 @@ export class VisualizationPanel {
         const stylingOptions = this.getStylingOptions();
         const title = stylingOptions.title || 'Data Table';
         
+        // Separate fields into grouping fields (categorical/dimensional) and aggregated fields
+        const groupingFields = [];
+        const aggregatedFields = [];
+        
+        validFields.forEach(field => {
+            if (field.type === 'metric') {
+                // Metrics are always aggregated
+                aggregatedFields.push(field);
+            } else if (field.type === 'column') {
+                // Columns with aggregation are aggregated, otherwise they're grouping fields
+                if (field.aggregation) {
+                    aggregatedFields.push(field);
+                } else {
+                    groupingFields.push(field);
+                }
+            }
+        });
+        
+        // If no grouping fields, group by all categorical columns
+        // If no aggregated fields, just show all rows (no aggregation needed)
+        let groupedData;
+        
+        if (groupingFields.length === 0 && aggregatedFields.length > 0) {
+            // No grouping fields but have aggregated fields - aggregate entire dataset
+            const groups = { '_all': data };
+            groupedData = this.aggregateTableGroups(groups, groupingFields, aggregatedFields, dataset);
+        } else if (aggregatedFields.length === 0) {
+            // No aggregated fields - just show unique combinations of grouping fields
+            const groups = {};
+            data.forEach(row => {
+                const groupKey = groupingFields.map(f => String(row[f.value] || '')).join('|');
+                if (!groups[groupKey]) {
+                    groups[groupKey] = [row];
+                }
+            });
+            groupedData = Object.values(groups).map(groupRows => {
+                const row = groupRows[0];
+                const result = {};
+                groupingFields.forEach(field => {
+                    result[field.value] = row[field.value];
+                });
+                return result;
+            });
+        } else {
+            // Group by grouping fields and aggregate aggregated fields
+            const groups = {};
+            data.forEach(row => {
+                const groupKey = groupingFields.map(f => String(row[f.value] || '')).join('|');
+                if (!groups[groupKey]) {
+                    groups[groupKey] = [];
+                }
+                groups[groupKey].push(row);
+            });
+            groupedData = this.aggregateTableGroups(groups, groupingFields, aggregatedFields, dataset);
+        }
+        
         // Build column headers
         const headers = validFields.map(field => {
             if (field.type === 'column') {
-                return this.formatColumnName(field.value);
+                let header = this.formatColumnName(field.value);
+                if (field.aggregation) {
+                    header = `${field.aggregation}(${header})`;
+                }
+                return header;
             } else {
                 const metric = metricsStore.get(field.value);
                 return metric ? metric.name : 'Unknown';
@@ -3293,18 +3199,17 @@ export class VisualizationPanel {
                         </tr>
                     </thead>
                     <tbody>
-                        ${data.map(row => `
+                        ${groupedData.map(groupRow => `
                             <tr>
                                 ${validFields.map(field => {
                                     let value;
                                     if (field.type === 'column') {
-                                        value = row[field.value];
+                                        value = groupRow[field.value];
                                     } else {
-                                        const metric = metricsStore.get(field.value);
-                                        value = metric ? metric.value : '';
+                                        value = groupRow[`_metric_${field.value}`];
                                     }
                                     const isNumeric = typeof value === 'number' || !isNaN(parseFloat(value));
-                                    return `<td class="${isNumeric ? 'numeric' : ''}">${this.escapeHtml(String(value || ''))}</td>`;
+                                    return `<td class="${isNumeric ? 'numeric' : ''}">${this.escapeHtml(String(value !== null && value !== undefined ? value : ''))}</td>`;
                                 }).join('')}
                             </tr>
                         `).join('')}
@@ -3314,6 +3219,99 @@ export class VisualizationPanel {
         `;
         
         chartContainer.innerHTML = tableHTML;
+    }
+    
+    /**
+     * Aggregates table groups
+     * @param {Object} groups - Object with group keys and arrays of rows
+     * @param {Array} groupingFields - Fields used for grouping
+     * @param {Array} aggregatedFields - Fields to aggregate
+     * @param {Object} dataset - Dataset object
+     * @returns {Array} Array of aggregated row objects
+     */
+    aggregateTableGroups(groups, groupingFields, aggregatedFields, dataset) {
+        return Object.entries(groups).map(([groupKey, groupRows]) => {
+            const result = {};
+            
+            // Add grouping field values from first row
+            if (groupingFields.length > 0) {
+                const firstRow = groupRows[0];
+                groupingFields.forEach(field => {
+                    result[field.value] = firstRow[field.value];
+                });
+            }
+            
+            // Calculate aggregated values
+            aggregatedFields.forEach(field => {
+                if (field.type === 'metric') {
+                    // Calculate metric for this group
+                    const metric = metricsStore.get(field.value);
+                    if (metric) {
+                        const groupRowsArray = groupRows.map(row => {
+                            return dataset.columns.map(col => row[col]);
+                        });
+                        
+                        const groupDataset = {
+                            id: dataset.id,
+                            name: dataset.name,
+                            columns: dataset.columns,
+                            rows: groupRowsArray
+                        };
+                        
+                        try {
+                            const metricValue = metricExecutionEngine.executeMetric(metric, groupDataset);
+                            result[`_metric_${field.value}`] = metricValue !== null && metricValue !== undefined ? metricValue : 0;
+                        } catch (error) {
+                            console.error('Error calculating metric for table group:', error);
+                            result[`_metric_${field.value}`] = 0;
+                        }
+                    } else {
+                        result[`_metric_${field.value}`] = 0;
+                    }
+                } else if (field.type === 'column' && field.aggregation) {
+                    // Aggregate column with specified aggregation
+                    const values = groupRows
+                        .map(row => row[field.value])
+                        .filter(v => v !== null && v !== undefined);
+                    
+                    let aggregatedValue;
+                    switch (field.aggregation) {
+                        case 'COUNT':
+                            aggregatedValue = values.length;
+                            break;
+                        case 'COUNT_DISTINCT':
+                            aggregatedValue = new Set(values).size;
+                            break;
+                        case 'SUM':
+                            aggregatedValue = values.reduce((sum, v) => {
+                                const num = parseFloat(v);
+                                return sum + (isNaN(num) ? 0 : num);
+                            }, 0);
+                            break;
+                        case 'AVG':
+                            const sum = values.reduce((s, v) => {
+                                const num = parseFloat(v);
+                                return s + (isNaN(num) ? 0 : num);
+                            }, 0);
+                            aggregatedValue = values.length > 0 ? sum / values.length : 0;
+                            break;
+                        case 'MIN':
+                            const nums = values.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                            aggregatedValue = nums.length > 0 ? Math.min(...nums) : 0;
+                            break;
+                        case 'MAX':
+                            const nums2 = values.map(v => parseFloat(v)).filter(n => !isNaN(n));
+                            aggregatedValue = nums2.length > 0 ? Math.max(...nums2) : 0;
+                            break;
+                        default:
+                            aggregatedValue = values.length;
+                    }
+                    result[field.value] = aggregatedValue;
+                }
+            });
+            
+            return result;
+        });
     }
     
     /**
