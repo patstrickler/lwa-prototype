@@ -39,17 +39,33 @@ export class Modal {
             const cancelBtn = backdrop.querySelector('.modal-btn-secondary');
             
             if (!okBtn || !cancelBtn) {
-                console.error('Modal: Buttons not found in confirm modal');
+                console.error('Modal: Buttons not found in confirm modal', {
+                    backdrop: !!backdrop,
+                    okBtn: !!okBtn,
+                    cancelBtn: !!cancelBtn
+                });
                 resolve(false);
                 return;
             }
             
-            okBtn.addEventListener('click', () => {
+            // Prevent event propagation on modal content clicks
+            const modal = backdrop.querySelector('.modal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+            
+            okBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 this.closeModal(backdrop);
                 resolve(true);
             });
             
-            cancelBtn.addEventListener('click', () => {
+            cancelBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 this.closeModal(backdrop);
                 resolve(false);
             });
@@ -57,13 +73,28 @@ export class Modal {
             // Close on backdrop click (backdrop is the element itself)
             backdrop.addEventListener('click', (e) => {
                 if (e.target === backdrop) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     this.closeModal(backdrop);
                     resolve(false);
                 }
             });
             
+            // Append to body and ensure visibility
             document.body.appendChild(backdrop);
-            setTimeout(() => okBtn.focus(), 100);
+            
+            // Force visibility styles
+            backdrop.style.display = 'flex';
+            backdrop.style.visibility = 'visible';
+            backdrop.style.opacity = '1';
+            backdrop.style.zIndex = '10000';
+            
+            // Focus after a short delay to ensure DOM is ready
+            setTimeout(() => {
+                if (okBtn) {
+                    okBtn.focus();
+                }
+            }, 100);
         });
     }
     
