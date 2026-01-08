@@ -1492,31 +1492,99 @@ export class VisualizationPanel {
         
         if (chartType === 'pie' || chartType === 'donut') {
             // Pie/donut requires X (categorical) and Y (aggregated field)
-            if (xAxis && xAxis.type === 'column' && yAxis && yAxis.type === 'column') {
-                // For pie/donut, Y axis must have aggregation
-                // If not specified, default based on column type
-                if (!yAxis.aggregation) {
-                    const columnType = this.inferColumnType(dataset, yAxis.value);
-                    if (columnType === 'numeric') {
-                        yAxis.aggregation = 'SUM'; // Default to SUM for numeric
-                    } else {
-                        yAxis.aggregation = 'COUNT'; // Default to COUNT for non-numeric
+            // X must be a column, Y can be a column (with aggregation) or a metric
+            if (xAxis && xAxis.type === 'column' && yAxis) {
+                if (yAxis.type === 'column') {
+                    // Y is a column - must have aggregation
+                    // If not specified, default based on column type
+                    if (!yAxis.aggregation) {
+                        const columnType = this.inferColumnType(dataset, yAxis.value);
+                        if (columnType === 'numeric') {
+                            yAxis.aggregation = 'SUM'; // Default to SUM for numeric
+                        } else {
+                            yAxis.aggregation = 'COUNT'; // Default to COUNT for non-numeric
+                        }
                     }
+                    
+                    // Apply aggregation
+                    let pieData = this.getDatasetData(dataset);
+                    pieData = this.applyAggregation(pieData, xAxis.value, yAxis.value, yAxis.aggregation);
+                    // Convert aggregated data back to row format for pie chart
+                    pieData = pieData.map(item => ({
+                        [xAxis.value]: item.x,
+                        [yAxis.value]: item.y
+                    }));
+                    
+                    this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType, pieData, yAxis.aggregation);
+                    return;
+                } else if (yAxis.type === 'metric') {
+                    // Y is a metric - group by X and calculate metric for each group
+                    const metric = metricsStore.get(yAxis.value);
+                    if (!metric) {
+                        this.showError('Metric not found.');
+                        return;
+                    }
+                    
+                    const data = this.getDatasetData(dataset);
+                    if (!data || data.length === 0) {
+                        this.showError('No data available.');
+                        return;
+                    }
+                    
+                    // Group by X and calculate metric for each group
+                    const groups = {};
+                    data.forEach(row => {
+                        const xValue = row[xAxis.value];
+                        if (xValue === null || xValue === undefined) return;
+                        const xKey = String(xValue);
+                        if (!groups[xKey]) {
+                            groups[xKey] = [];
+                        }
+                        groups[xKey].push(row);
+                    });
+                    
+                    // Calculate metric for each group and convert to pie chart format
+                    const pieData = [];
+                    Object.entries(groups).forEach(([xKey, groupRows]) => {
+                        const groupRowsArray = groupRows.map(row => {
+                            return dataset.columns.map(col => row[col]);
+                        });
+                        
+                        const groupDataset = {
+                            id: dataset.id,
+                            name: dataset.name,
+                            columns: dataset.columns,
+                            rows: groupRowsArray
+                        };
+                        
+                        try {
+                            const metricValue = metricExecutionEngine.executeMetric(metric, groupDataset);
+                            pieData.push({
+                                [xAxis.value]: xKey,
+                                [yAxis.value]: metricValue !== null && metricValue !== undefined ? metricValue : 0
+                            });
+                        } catch (error) {
+                            console.error('Error calculating metric for pie chart:', error);
+                            pieData.push({
+                                [xAxis.value]: xKey,
+                                [yAxis.value]: 0
+                            });
+                        }
+                    });
+                    
+                    if (pieData.length > 0) {
+                        this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType, pieData, metric.operation || 'METRIC');
+                        return;
+                    } else {
+                        this.showError('No data available for pie chart.');
+                        return;
+                    }
+                } else {
+                    this.showError('Pie/Donut charts require X axis (categorical field) to be a column and Y axis to be a column (with aggregation) or a metric.');
+                    return;
                 }
-                
-                // Apply aggregation
-                let pieData = this.getDatasetData(dataset);
-                pieData = this.applyAggregation(pieData, xAxis.value, yAxis.value, yAxis.aggregation);
-                // Convert aggregated data back to row format for pie chart
-                pieData = pieData.map(item => ({
-                    [xAxis.value]: item.x,
-                    [yAxis.value]: item.y
-                }));
-                
-                this.renderPieChart(dataset, xAxis.value, yAxis.value, chartType, pieData, yAxis.aggregation);
-                return;
             } else {
-                this.showError('Pie/Donut charts require X axis (categorical field) and Y axis (aggregated field) to be columns.');
+                this.showError('Pie/Donut charts require X axis (categorical field) to be a column.');
                 return;
             }
         }
