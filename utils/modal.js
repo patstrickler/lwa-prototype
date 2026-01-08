@@ -83,11 +83,26 @@ export class Modal {
             // Append to body and ensure visibility
             document.body.appendChild(backdrop);
             
-            // Force visibility styles
+            // Force visibility styles immediately
             backdrop.style.display = 'flex';
             backdrop.style.visibility = 'visible';
             backdrop.style.opacity = '1';
             backdrop.style.zIndex = '10000';
+            backdrop.style.position = 'fixed';
+            backdrop.style.top = '0';
+            backdrop.style.left = '0';
+            backdrop.style.right = '0';
+            backdrop.style.bottom = '0';
+            backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            backdrop.style.alignItems = 'center';
+            backdrop.style.justifyContent = 'center';
+            
+            // Ensure modal is visible
+            if (modal) {
+                modal.style.display = 'block';
+                modal.style.visibility = 'visible';
+                modal.style.opacity = '1';
+            }
             
             // Focus after a short delay to ensure DOM is ready
             setTimeout(() => {
