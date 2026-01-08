@@ -66,7 +66,22 @@ export class ReportsPanel {
     attachEventListeners() {
         const createBtn = this.container.querySelector('#create-report-btn');
         if (createBtn) {
-            createBtn.addEventListener('click', () => this.showCreateReportDialog());
+            createBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Create button clicked');
+                try {
+                    this.showCreateReportDialog().catch(err => {
+                        console.error('Error in showCreateReportDialog:', err);
+                        Modal.alert(`Error opening dialog: ${err.message || 'Unknown error'}`);
+                    });
+                } catch (error) {
+                    console.error('Error calling showCreateReportDialog:', error);
+                    Modal.alert(`Error: ${error.message || 'Unknown error'}`);
+                }
+            });
+        } else {
+            console.warn('Create report button not found!');
         }
     }
     
@@ -251,23 +266,37 @@ export class ReportsPanel {
             </div>
         `;
         
+        // Append backdrop to body
         document.body.appendChild(backdrop);
-        console.log('Modal backdrop added to DOM');
+        console.log('Modal backdrop added to DOM', backdrop);
         
-        // Get references to elements
+        // Get references to elements - they should be available immediately after innerHTML
         const titleInput = backdrop.querySelector('#new-report-title');
         const cancelBtn = backdrop.querySelector('#cancel-create-report-btn');
         const closeBtn = backdrop.querySelector('#close-create-report-dialog');
         const createBtn = backdrop.querySelector('#create-report-submit-btn');
         
-        // Focus the title input
-        setTimeout(() => {
-            if (titleInput) {
-                titleInput.focus();
-                titleInput.select();
-            }
-        }, 100);
+        console.log('Modal elements found:', {
+            titleInput: !!titleInput,
+            cancelBtn: !!cancelBtn,
+            closeBtn: !!closeBtn,
+            createBtn: !!createBtn
+        });
         
+        if (!titleInput || !cancelBtn || !createBtn) {
+            console.error('Critical modal elements missing!');
+            Modal.alert('Error: Could not initialize dialog. Please refresh the page.');
+            if (backdrop.parentNode) {
+                backdrop.parentNode.removeChild(backdrop);
+            }
+            return;
+        }
+        
+        // Set up event listeners
+        this.setupModalEventListeners(backdrop, titleInput, cancelBtn, closeBtn, createBtn);
+    }
+    
+    setupModalEventListeners(backdrop, titleInput, cancelBtn, closeBtn, createBtn) {
         // Close handler
         const closeModal = () => {
             console.log('Closing modal');
@@ -276,36 +305,39 @@ export class ReportsPanel {
             }
         };
         
+        // Focus the title input
+        if (titleInput) {
+            setTimeout(() => {
+                titleInput.focus();
+                titleInput.select();
+            }, 100);
+        }
+        
         // Cancel button
         if (cancelBtn) {
-            cancelBtn.addEventListener('click', closeModal);
-        }
-        
-        // Close button
-        if (closeBtn) {
-            closeBtn.addEventListener('click', closeModal);
-        }
-        
-        // Backdrop click to close - only if clicking directly on backdrop, not modal content
-        backdrop.addEventListener('click', (e) => {
-            // Only close if clicking directly on the backdrop, not on the modal content
-            if (e.target === backdrop) {
-                closeModal();
-            }
-        });
-        
-        // Prevent modal content clicks from closing the modal
-        const modal = backdrop.querySelector('.modal');
-        if (modal) {
-            modal.addEventListener('click', (e) => {
+            cancelBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
+                closeModal();
+            });
+        }
+        
+        // Close button (X)
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closeModal();
             });
         }
         
         // Create button
         if (createBtn) {
-            createBtn.addEventListener('click', async () => {
+            createBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 console.log('Create button clicked');
+                
                 const title = titleInput ? titleInput.value.trim() : '';
                 
                 if (!title) {
@@ -327,6 +359,22 @@ export class ReportsPanel {
                     console.error('Error creating report:', error);
                     await Modal.alert(`Error creating report: ${error.message || 'Unknown error'}`);
                 }
+            });
+        }
+        
+        // Backdrop click to close - only if clicking directly on backdrop, not modal content
+        backdrop.addEventListener('click', (e) => {
+            // Only close if clicking directly on the backdrop, not on the modal content
+            if (e.target === backdrop) {
+                closeModal();
+            }
+        });
+        
+        // Prevent modal content clicks from closing the modal
+        const modal = backdrop.querySelector('.modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                e.stopPropagation();
             });
         }
     }
