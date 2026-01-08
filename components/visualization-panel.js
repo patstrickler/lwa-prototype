@@ -1683,7 +1683,15 @@ export class VisualizationPanel {
                 seriesData = this.convertToHighchartsSeries(data, xColumn, yColumn, chartType);
             }
         } catch (error) {
-            console.error('Error preparing chart data:', error);
+            console.error('[VisualizationPanel.renderChart] Error preparing chart data:', {
+                error: error.message,
+                stack: error.stack,
+                chartType,
+                xColumn,
+                yColumn,
+                dataLength: data?.length || 0,
+                timestamp: new Date().toISOString()
+            });
             this.showError(`Error preparing chart data: ${error.message}`);
             return;
         }
@@ -1705,6 +1713,21 @@ export class VisualizationPanel {
             color: stylingOptions.color,
             showTrendline: stylingOptions.showTrendline
         });
+        
+        console.log('[VisualizationPanel.renderChart] Chart rendered successfully', {
+            chartType,
+            chartId
+        });
+        } catch (error) {
+            console.error('[VisualizationPanel.renderChart] Error rendering chart:', {
+                error: error.message,
+                stack: error.stack,
+                chartType,
+                datasetId,
+                timestamp: new Date().toISOString()
+            });
+            this.showError(`Error rendering chart: ${error.message || 'Unknown error'}`);
+        }
     }
     
     /**

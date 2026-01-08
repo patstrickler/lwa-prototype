@@ -57,6 +57,16 @@ export class DatasetBrowser {
             console.warn('DatasetBrowser: Container not found, skipping initialization');
             return;
         }
+        
+        // Try to restore selection from global manager
+        const globalSelectedId = datasetSelectionManager.getSelectedDatasetId();
+        if (globalSelectedId) {
+            const dataset = datasetStore.get(globalSelectedId);
+            if (dataset) {
+                this.selectedDataset = dataset;
+            }
+        }
+        
         this.attachEventListeners();
         this.render();
         // Ensure details are visible if a dataset is already selected
