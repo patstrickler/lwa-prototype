@@ -52,6 +52,15 @@ export class ScriptExecutionPanel {
     }
     
     init() {
+        // Try to restore selection from global manager
+        const globalSelectedId = datasetSelectionManager.getSelectedDatasetId();
+        if (globalSelectedId) {
+            const dataset = datasetStore.get(globalSelectedId);
+            if (dataset) {
+                this.currentDataset = dataset;
+            }
+        }
+        
         this.render();
         this.attachEventListeners();
     }

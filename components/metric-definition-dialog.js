@@ -189,6 +189,8 @@ export class MetricDefinitionDialog {
     }
     
     async createMetric() {
+        console.log('[MetricDefinitionDialog.createMetric] Starting metric creation');
+        
         const datasetSelect = this.dialog.querySelector('#metric-dataset-select');
         const columnSelect = this.dialog.querySelector('#metric-column-select');
         const operationSelect = this.dialog.querySelector('#metric-operation-select');
@@ -200,11 +202,26 @@ export class MetricDefinitionDialog {
         const name = nameInput.value.trim();
         
         if (!datasetId || !column || !operation || !name) {
+            console.warn('[MetricDefinitionDialog.createMetric] Missing required fields', {
+                hasDatasetId: !!datasetId,
+                hasColumn: !!column,
+                hasOperation: !!operation,
+                hasName: !!name
+            });
             return;
         }
         
+        console.log('[MetricDefinitionDialog.createMetric] Creating metric', {
+            datasetId,
+            column,
+            operation,
+            name,
+            editingMetricId: this.editingMetricId || null
+        });
+        
         const dataset = datasetStore.get(datasetId);
         if (!dataset) {
+            console.error('[MetricDefinitionDialog.createMetric] Dataset not found', { datasetId });
             await Modal.alert('Error: Dataset not found');
             return;
         }
@@ -217,12 +234,14 @@ export class MetricDefinitionDialog {
         
         // Check if dataset is empty
         if (!dataset.rows || dataset.rows.length === 0) {
+            console.error('[MetricDefinitionDialog.createMetric] Dataset is empty', { datasetId });
             await Modal.alert('Error: Cannot calculate metric on an empty dataset. Please select a dataset with data.');
             return;
         }
         
         // Check if dataset has columns
         if (!dataset.columns || dataset.columns.length === 0) {
+            console.error('[MetricDefinitionDialog.createMetric] Dataset has no columns', { datasetId });
             await Modal.alert('Error: Dataset has no columns. Cannot calculate metric.');
             return;
         }
@@ -230,6 +249,10 @@ export class MetricDefinitionDialog {
         // Validate metric definition
         const validation = metricExecutionEngine.validate(metricDefinition, dataset.columns);
         if (!validation.isValid) {
+            console.error('[MetricDefinitionDialog.createMetric] Validation failed', {
+                errors: validation.errors,
+                metricDefinition
+            });
             await Modal.alert(`Error: ${validation.errors.join(', ')}`);
             return;
         }
@@ -238,7 +261,20 @@ export class MetricDefinitionDialog {
         let value;
         try {
             value = metricExecutionEngine.execute(metricDefinition, dataset.rows, dataset.columns);
+            console.log('[MetricDefinitionDialog.createMetric] Metric executed successfully', {
+                operation,
+                column,
+                value
+            });
         } catch (error) {
+            console.error('[MetricDefinitionDialog.createMetric] Error executing metric:', {
+                error: error.message,
+                stack: error.stack,
+                metricDefinition,
+                datasetId,
+                rowCount: dataset.rows.length,
+                timestamp: new Date().toISOString()
+            });
             // Provide user-friendly error messages
             let errorMessage = 'Error executing metric.';
             if (error.message) {
@@ -257,6 +293,10 @@ export class MetricDefinitionDialog {
         }
         
         if (value === null) {
+            console.warn('[MetricDefinitionDialog.createMetric] Metric calculation returned null', {
+                operation,
+                column
+            });
             await Modal.alert('Error: Could not calculate metric. The column may not contain numeric values, or the calculation failed.');
             return;
         }
@@ -264,6 +304,9 @@ export class MetricDefinitionDialog {
         // Update existing metric or create new one
         let metric;
         if (this.editingMetricId) {
+            console.log('[MetricDefinitionDialog.createMetric] Updating existing metric', {
+                metricId: this.editingMetricId
+            });
             // Update existing metric
             const existingMetric = metricsStore.get(this.editingMetricId);
             if (existingMetric) {
@@ -274,6 +317,7 @@ export class MetricDefinitionDialog {
                 this.editingMetricId = null;
             }
         } else {
+            console.log('[MetricDefinitionDialog.createMetric] Creating new metric');
             // Create new metric
             metric = metricsStore.create(
                 datasetId,
@@ -283,6 +327,10 @@ export class MetricDefinitionDialog {
                 column,
                 operation
             );
+            console.log('[MetricDefinitionDialog.createMetric] Metric created successfully', {
+                metricId: metric.id,
+                metricName: metric.name
+            });
         }
         
         // Notify listeners
