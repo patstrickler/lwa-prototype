@@ -176,6 +176,8 @@ export class ReportsPanel {
     }
     
     async showCreateReportDialog() {
+        console.log('showCreateReportDialog called');
+        
         // Check if user is viewer - if so, show message
         if (this.isViewer) {
             await Modal.alert('Only analysts can create reports. Please contact an administrator to change your role.');
@@ -185,194 +187,136 @@ export class ReportsPanel {
         // Get available visualizations and datasets
         const visualizations = visualizationsStore.getAll();
         const datasets = datasetStore.getAll();
+        console.log('Visualizations:', visualizations.length);
         
-        return new Promise((resolve) => {
-            // Create backdrop
-            const backdrop = document.createElement('div');
-            backdrop.className = 'modal-backdrop';
-            backdrop.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-            
-            // Create modal
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.style.cssText = 'width: 90%; max-width: 700px; margin: 20px; animation: slideIn 0.2s ease-out;';
-            
-            const modalContent = document.createElement('div');
-            modalContent.className = 'modal-content';
-            modalContent.style.cssText = 'background-color: #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;';
-            
-            // Header
-            const modalHeader = document.createElement('div');
-            modalHeader.className = 'modal-header';
-            modalHeader.style.cssText = 'padding: 20px 20px 15px; border-bottom: 1px solid #eee; flex-shrink: 0;';
-            const modalTitle = document.createElement('h3');
-            modalTitle.className = 'modal-title';
-            modalTitle.style.cssText = 'margin: 0; font-size: 18px; font-weight: 600; color: #333;';
-            modalTitle.textContent = 'Create New Report/Dashboard';
-            modalHeader.appendChild(modalTitle);
-            
-            // Body
-            const modalBody = document.createElement('div');
-            modalBody.className = 'modal-body';
-            modalBody.style.cssText = 'padding: 20px; flex: 1; overflow-y: auto; max-height: calc(90vh - 150px);';
-            
-            // Title input
-            const titleGroup = document.createElement('div');
-            titleGroup.style.marginBottom = '20px';
-            const titleLabel = document.createElement('label');
-            titleLabel.style.display = 'block';
-            titleLabel.style.marginBottom = '8px';
-            titleLabel.style.fontWeight = '600';
-            titleLabel.textContent = 'Report/Dashboard Title:';
-            const titleInput = document.createElement('input');
-            titleInput.type = 'text';
-            titleInput.id = 'new-report-title';
-            titleInput.className = 'form-control';
-            titleInput.placeholder = 'Enter report title';
-            titleInput.value = 'New Report';
-            titleInput.style.width = '100%';
-            titleInput.style.padding = '8px';
-            titleGroup.appendChild(titleLabel);
-            titleGroup.appendChild(titleInput);
-            modalBody.appendChild(titleGroup);
-            
-            // Visualizations section
-            const vizGroup = document.createElement('div');
-            vizGroup.style.marginBottom = '20px';
-            const vizLabel = document.createElement('label');
-            vizLabel.style.display = 'block';
-            vizLabel.style.marginBottom = '8px';
-            vizLabel.style.fontWeight = '600';
-            vizLabel.textContent = 'Visualizations to Display:';
-            const vizContainer = document.createElement('div');
-            vizContainer.id = 'new-report-visualizations';
-            vizContainer.style.maxHeight = '200px';
-            vizContainer.style.overflowY = 'auto';
-            vizContainer.style.border = '1px solid #ddd';
-            vizContainer.style.borderRadius = '4px';
-            vizContainer.style.padding = '10px';
-            vizContainer.style.background = '#f9f9f9';
-            
-            if (visualizations.length === 0) {
-                const noVizMsg = document.createElement('p');
-                noVizMsg.style.color = '#666';
-                noVizMsg.style.fontStyle = 'italic';
-                noVizMsg.style.margin = '0';
-                noVizMsg.textContent = 'No saved visualizations. Create visualizations first in the Visualization page.';
-                vizContainer.appendChild(noVizMsg);
-            } else {
-                visualizations.forEach(viz => {
-                    const label = document.createElement('label');
-                    label.style.display = 'block';
-                    label.style.padding = '8px';
-                    label.style.marginBottom = '4px';
-                    label.style.cursor = 'pointer';
-                    label.style.borderRadius = '4px';
-                    label.addEventListener('mouseenter', () => label.style.background = '#e9ecef');
-                    label.addEventListener('mouseleave', () => label.style.background = 'transparent');
-                    
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'new-report-viz-checkbox';
-                    checkbox.value = viz.id;
-                    checkbox.style.marginRight = '8px';
-                    
-                    const span = document.createElement('span');
-                    span.innerHTML = `${this.escapeHtml(viz.name)} <span style="color: #666;">(${viz.type})</span>`;
-                    
-                    label.appendChild(checkbox);
-                    label.appendChild(span);
-                    vizContainer.appendChild(label);
-                });
+        // Create the backdrop first
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        backdrop.id = 'create-report-dialog-backdrop';
+        
+        // Build the HTML content for visualizations
+        const vizOptions = visualizations.length === 0
+            ? '<p style="color: #666; font-style: italic; margin: 0;">No saved visualizations. Create visualizations first in the Visualization page.</p>'
+            : visualizations.map(viz => `
+                <label style="display: block; padding: 8px; margin-bottom: 4px; cursor: pointer; border-radius: 4px; transition: background 0.2s;" 
+                       onmouseover="this.style.background='#e9ecef'" 
+                       onmouseout="this.style.background='transparent'">
+                    <input type="checkbox" class="new-report-viz-checkbox" value="${viz.id}" style="margin-right: 8px;">
+                    <span>${this.escapeHtml(viz.name)} <span style="color: #666;">(${viz.type})</span></span>
+                </label>
+            `).join('');
+        
+        // Set the modal HTML inside the backdrop
+        backdrop.innerHTML = `
+            <div class="modal" style="max-width: 700px; width: 90%;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Create New Report/Dashboard</h3>
+                        <button type="button" class="modal-close" id="close-create-report-dialog">×</button>
+                    </div>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="new-report-title" style="display: block; margin-bottom: 8px; font-weight: 600;">Report/Dashboard Title *</label>
+                            <input type="text" id="new-report-title" class="form-control" placeholder="Enter report title" value="New Report" required>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Visualizations to Display:</label>
+                            <div id="new-report-visualizations" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: #f9f9f9;">
+                                ${vizOptions}
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Access Control:</label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">You can manage detailed access control after creating the report.</p>
+                            <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: #f9f9f9;">
+                                <p style="margin: 0; color: #666; font-style: italic;">No restrictions (all users can access)</p>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Filters:</label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">You can add filters after creating the report in the editor.</p>
+                            <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: #f9f9f9;">
+                                <p style="margin: 0; color: #666; font-style: italic;">No filters added yet</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="cancel-create-report-btn">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="create-report-submit-btn">Create Report</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(backdrop);
+        console.log('Modal backdrop added to DOM');
+        
+        // Get references to elements
+        const titleInput = backdrop.querySelector('#new-report-title');
+        const cancelBtn = backdrop.querySelector('#cancel-create-report-btn');
+        const closeBtn = backdrop.querySelector('#close-create-report-dialog');
+        const createBtn = backdrop.querySelector('#create-report-submit-btn');
+        
+        // Focus the title input
+        setTimeout(() => {
+            if (titleInput) {
+                titleInput.focus();
+                titleInput.select();
             }
-            
-            vizGroup.appendChild(vizLabel);
-            vizGroup.appendChild(vizContainer);
-            modalBody.appendChild(vizGroup);
-            
-            // Filters section
-            const filterGroup = document.createElement('div');
-            filterGroup.style.marginBottom = '20px';
-            const filterLabel = document.createElement('label');
-            filterLabel.style.display = 'block';
-            filterLabel.style.marginBottom = '8px';
-            filterLabel.style.fontWeight = '600';
-            filterLabel.textContent = 'Filters to Apply:';
-            const filterContainer = document.createElement('div');
-            filterContainer.id = 'new-report-filters';
-            filterContainer.style.minHeight = '100px';
-            filterContainer.style.border = '1px solid #ddd';
-            filterContainer.style.borderRadius = '4px';
-            filterContainer.style.padding = '10px';
-            filterContainer.style.background = '#f9f9f9';
-            const filterMsg = document.createElement('p');
-            filterMsg.style.color = '#666';
-            filterMsg.style.fontStyle = 'italic';
-            filterMsg.style.margin = '0';
-            filterMsg.textContent = 'No filters added. You can add filters after creating the report.';
-            filterContainer.appendChild(filterMsg);
-            filterGroup.appendChild(filterLabel);
-            filterGroup.appendChild(filterContainer);
-            modalBody.appendChild(filterGroup);
-            
-            // Footer
-            const modalFooter = document.createElement('div');
-            modalFooter.className = 'modal-footer';
-            modalFooter.style.cssText = 'padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;';
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'btn btn-secondary';
-            cancelBtn.textContent = 'Cancel';
-            cancelBtn.addEventListener('click', () => {
-                Modal.closeModal(backdrop);
-                resolve(false);
-            });
-            const createBtn = document.createElement('button');
-            createBtn.className = 'btn btn-primary';
-            createBtn.textContent = 'Create Report';
+        }, 100);
+        
+        // Close handler
+        const closeModal = () => {
+            console.log('Closing modal');
+            if (backdrop && backdrop.parentNode) {
+                backdrop.parentNode.removeChild(backdrop);
+            }
+        };
+        
+        // Cancel button
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', closeModal);
+        }
+        
+        // Close button
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeModal);
+        }
+        
+        // Backdrop click to close
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) {
+                closeModal();
+            }
+        });
+        
+        // Create button
+        if (createBtn) {
             createBtn.addEventListener('click', async () => {
-                const title = titleInput.value.trim();
+                console.log('Create button clicked');
+                const title = titleInput ? titleInput.value.trim() : '';
+                
                 if (!title) {
                     await Modal.alert('Report title is required.');
                     return;
                 }
                 
-                const vizCheckboxes = modalBody.querySelectorAll('.new-report-viz-checkbox:checked');
+                const vizCheckboxes = backdrop.querySelectorAll('.new-report-viz-checkbox:checked');
                 const visualizationIds = Array.from(vizCheckboxes).map(cb => cb.value);
-                const filters = [];
+                console.log('Selected visualizations:', visualizationIds);
                 
                 try {
-                    this.currentReport = reportsStore.create(title, visualizationIds, filters, { users: [], groups: [] }, [], []);
-                    Modal.closeModal(backdrop);
+                    this.currentReport = reportsStore.create(title, visualizationIds, [], { users: [], groups: [] }, [], []);
+                    console.log('Report created:', this.currentReport.id);
+                    closeModal();
                     await Modal.alert(`Report "${title}" created successfully!`);
                     this.showReportEditor();
-                    resolve(true);
                 } catch (error) {
                     console.error('Error creating report:', error);
                     await Modal.alert(`Error creating report: ${error.message || 'Unknown error'}`);
-                }
-            });
-            modalFooter.appendChild(cancelBtn);
-            modalFooter.appendChild(createBtn);
-            
-            // Assemble modal
-            modalContent.appendChild(modalHeader);
-            modalContent.appendChild(modalBody);
-            modalContent.appendChild(modalFooter);
-            modal.appendChild(modalContent);
-            backdrop.appendChild(modal);
-            document.body.appendChild(backdrop);
-            
-            // Focus title input
-            setTimeout(() => {
-                titleInput.focus();
-                titleInput.select();
-            }, 100);
-            
-            // Close on backdrop click
-            backdrop.addEventListener('click', (e) => {
-                if (e.target === backdrop) {
-                    Modal.closeModal(backdrop);
-                    resolve(false);
                 }
             });
         });
