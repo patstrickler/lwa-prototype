@@ -61,11 +61,11 @@ export class VisualizationPanel {
         sidebarContainer.innerHTML = `
             <div class="visualization-builder-sidebar">
                 <div class="builder-form">
-                    <div class="form-group">
-                        <label for="dataset-select-sidebar">Dataset:</label>
-                        <select id="dataset-select-sidebar" class="form-control">
-                            <option value="">-- Select Dataset --</option>
-                        </select>
+                    <div class="form-group" style="padding: 8px; background-color: #f8f9fa; border-radius: 4px; margin-bottom: 8px;">
+                        <label style="font-size: 11px; color: #6c757d; margin-bottom: 4px;">Dataset:</label>
+                        <div id="current-dataset-display" style="font-size: 12px; font-weight: 500; color: #495057;">
+                            <span class="text-muted">Select a dataset from the left pane</span>
+                        </div>
                     </div>
                     
                     <div class="form-group">
