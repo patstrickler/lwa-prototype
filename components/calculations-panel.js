@@ -5,6 +5,7 @@ import { metricsStore } from '../data/metrics.js';
 import { datasetStore } from '../data/datasets.js';
 import { Modal } from '../utils/modal.js';
 import { formatMetricValue } from '../utils/metric-formatter.js';
+import { datasetSelectionManager } from '../utils/dataset-selection-manager.js';
 
 export class CalculationsPanel {
     constructor(containerSelector) {
