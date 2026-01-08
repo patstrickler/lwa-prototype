@@ -208,6 +208,8 @@ export class ReportsPanel {
         const backdrop = document.createElement('div');
         backdrop.className = 'modal-backdrop';
         backdrop.id = 'create-report-dialog-backdrop';
+        // Force styles to ensure visibility (override Bootstrap if present)
+        backdrop.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background-color: rgba(0, 0, 0, 0.5) !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 10500 !important;';
         
         // Build the HTML content for visualizations
         const vizOptions = visualizations.length === 0
@@ -221,10 +223,10 @@ export class ReportsPanel {
                 </label>
             `).join('');
         
-        // Set the modal HTML inside the backdrop
+        // Set the modal HTML inside the backdrop - use explicit styles to override Bootstrap
         backdrop.innerHTML = `
-            <div class="modal" style="max-width: 700px; width: 90%;">
-                <div class="modal-content">
+            <div class="modal" style="max-width: 700px !important; width: 90% !important; margin: 20px !important; position: relative !important; z-index: 10501 !important; display: block !important;">
+                <div class="modal-content" style="background-color: #fff !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; max-height: 90vh !important; position: relative !important;">
                     <div class="modal-header">
                         <h3 class="modal-title">Create New Report/Dashboard</h3>
                         <button type="button" class="modal-close" id="close-create-report-dialog">×</button>
