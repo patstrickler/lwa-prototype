@@ -1156,15 +1156,6 @@ export class VisualizationPanel {
         const yAxis = this.yAxisSelection;
         const zAxis = this.zAxisSelection;
         
-        // Handle special case: both axes are metrics - show KPI cards
-        if (xAxis.type === 'metric' && yAxis.type === 'metric') {
-            const xMetric = metricsStore.get(xAxis.value);
-            const yMetric = metricsStore.get(yAxis.value);
-            if (xMetric) this.renderKPICard(xMetric);
-            if (yMetric) this.renderKPICard(yMetric);
-            return;
-        }
-        
         // Handle special chart types first (before metric/column logic)
         if (chartType === 'table') {
             this.renderTableWithFields(dataset);
@@ -1532,12 +1523,153 @@ export class VisualizationPanel {
         
         if (chartType === 'scatter') {
             // Scatter plot with optional Z axis
-            if (xAxis && xAxis.type === 'column' && yAxis && yAxis.type === 'column') {
-                // Note: Scatter plots typically don't use aggregation, but we could support it
-                this.renderScatterChart(dataset, xAxis.value, yAxis.value, zAxis ? zAxis.value : null);
-                return;
+            if (xAxis && yAxis) {
+                // Handle different combinations of columns and metrics
+                if (xAxis.type === 'column' && yAxis.type === 'column') {
+                    // Both are columns - standard scatter
+                    this.renderScatterChart(dataset, xAxis.value, yAxis.value, zAxis ? zAxis.value : null);
+                    return;
+                } else if (xAxis.type === 'column' && yAxis.type === 'metric') {
+                    // X is column, Y is metric - group by X and calculate Y metric for each group
+                    const metric = metricsStore.get(yAxis.value);
+                    if (!metric) {
+                        this.showError('Metric not found.');
+                        return;
+                    }
+                    
+                    const data = this.getDatasetData(dataset);
+                    if (!data || data.length === 0) {
+                        this.showError('No data available.');
+                        return;
+                    }
+                    
+                    // Group by X and calculate metric for each group
+                    const groups = {};
+                    data.forEach(row => {
+                        const xValue = row[xAxis.value];
+                        if (xValue === null || xValue === undefined) return;
+                        const xKey = String(xValue);
+                        if (!groups[xKey]) {
+                            groups[xKey] = [];
+                        }
+                        groups[xKey].push(row);
+                    });
+                    
+                    // Calculate metric for each group
+                    const scatterData = [];
+                    Object.entries(groups).forEach(([xKey, groupRows]) => {
+                        const groupRowsArray = groupRows.map(row => {
+                            return dataset.columns.map(col => row[col]);
+                        });
+                        
+                        const groupDataset = {
+                            id: dataset.id,
+                            name: dataset.name,
+                            columns: dataset.columns,
+                            rows: groupRowsArray
+                        };
+                        
+                        try {
+                            const metricValue = metricExecutionEngine.executeMetric(metric, groupDataset);
+                            scatterData.push({
+                                x: parseFloat(xKey) || xKey,
+                                y: metricValue !== null && metricValue !== undefined ? parseFloat(metricValue) || 0 : 0
+                            });
+                        } catch (error) {
+                            console.error('Error calculating metric for scatter:', error);
+                        }
+                    });
+                    
+                    if (scatterData.length > 0) {
+                        const seriesData = {
+                            chartData: scatterData.map(p => [p.x, p.y]),
+                            isXNumeric: typeof scatterData[0].x === 'number',
+                            categories: []
+                        };
+                        
+                        const chartId = `chart_${Date.now()}`;
+                        const chartContainer = document.createElement('div');
+                        chartContainer.id = chartId;
+                        chartContainer.className = 'chart-wrapper';
+                        
+                        const chartsContainer = this.container.querySelector('#charts-container');
+                        chartsContainer.appendChild(chartContainer);
+                        
+                        const stylingOptions = this.getStylingOptions();
+                        this.renderHighchart(chartId, 'scatter', seriesData, {
+                            xLabel: stylingOptions.xLabel || this.formatColumnName(xAxis.value),
+                            yLabel: stylingOptions.yLabel || metric.name,
+                            title: stylingOptions.title || `${metric.name} vs ${this.formatColumnName(xAxis.value)}`,
+                            color: stylingOptions.color,
+                            showTrendline: stylingOptions.showTrendline
+                        });
+                        return;
+                    }
+                } else if (xAxis.type === 'metric' && yAxis.type === 'metric') {
+                    // Both axes are metrics - calculate both for the entire dataset
+                    const xMetric = metricsStore.get(xAxis.value);
+                    const yMetric = metricsStore.get(yAxis.value);
+                    if (!xMetric || !yMetric) {
+                        this.showError('One or more metrics not found.');
+                        return;
+                    }
+                    
+                    const data = this.getDatasetData(dataset);
+                    if (!data || data.length === 0) {
+                        this.showError('No data available.');
+                        return;
+                    }
+                    
+                    // Calculate both metrics for the entire dataset
+                    const dataArray = data.map(row => {
+                        return dataset.columns.map(col => row[col]);
+                    });
+                    
+                    const fullDataset = {
+                        id: dataset.id,
+                        name: dataset.name,
+                        columns: dataset.columns,
+                        rows: dataArray
+                    };
+                    
+                    try {
+                        const xValue = metricExecutionEngine.executeMetric(xMetric, fullDataset);
+                        const yValue = metricExecutionEngine.executeMetric(yMetric, fullDataset);
+                        
+                        const seriesData = {
+                            chartData: [[parseFloat(xValue) || 0, parseFloat(yValue) || 0]],
+                            isXNumeric: true,
+                            categories: []
+                        };
+                        
+                        const chartId = `chart_${Date.now()}`;
+                        const chartContainer = document.createElement('div');
+                        chartContainer.id = chartId;
+                        chartContainer.className = 'chart-wrapper';
+                        
+                        const chartsContainer = this.container.querySelector('#charts-container');
+                        chartsContainer.appendChild(chartContainer);
+                        
+                        const stylingOptions = this.getStylingOptions();
+                        this.renderHighchart(chartId, 'scatter', seriesData, {
+                            xLabel: stylingOptions.xLabel || xMetric.name,
+                            yLabel: stylingOptions.yLabel || yMetric.name,
+                            title: stylingOptions.title || `${yMetric.name} vs ${xMetric.name}`,
+                            color: stylingOptions.color,
+                            showTrendline: stylingOptions.showTrendline
+                        });
+                        return;
+                    } catch (error) {
+                        console.error('Error calculating metrics for scatter:', error);
+                        this.showError('Error calculating metrics for scatter plot.');
+                        return;
+                    }
+                } else {
+                    this.showError('Scatter plots require X and Y axes to be columns or metrics.');
+                    return;
+                }
             } else {
-                this.showError('Scatter plots require X and Y axes to be columns.');
+                this.showError('Scatter plots require X and Y axes.');
                 return;
             }
         }
