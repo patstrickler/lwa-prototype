@@ -2537,13 +2537,31 @@ export class VisualizationPanel {
         
         if (axis === 'x') {
             this.xAxisSelection = selection;
-            this.updateAxisDisplay('x-axis-display', selection);
+            // Find the actual display element by data-axis attribute
+            const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+            const searchContainer = sidebarContainer || this.container;
+            const xDisplay = searchContainer.querySelector(`.axis-selection-display[data-axis="x"]`);
+            if (xDisplay) {
+                this.updateAxisDisplay(xDisplay.id || 'x-axis-display', selection);
+            }
         } else if (axis === 'y') {
             this.yAxisSelection = selection;
-            this.updateAxisDisplay('y-axis-display', selection);
+            // Find the actual display element by data-axis attribute
+            const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+            const searchContainer = sidebarContainer || this.container;
+            const yDisplay = searchContainer.querySelector(`.axis-selection-display[data-axis="y"]`);
+            if (yDisplay) {
+                this.updateAxisDisplay(yDisplay.id || 'y-axis-display', selection);
+            }
         } else if (axis === 'z') {
             this.zAxisSelection = selection;
-            this.updateAxisDisplay('z-axis-display', selection);
+            // Find the actual display element by data-axis attribute
+            const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+            const searchContainer = sidebarContainer || this.container;
+            const zDisplay = searchContainer.querySelector(`.axis-selection-display[data-axis="z"]`);
+            if (zDisplay) {
+                this.updateAxisDisplay(zDisplay.id || 'z-axis-display', selection);
+            }
         }
         
         this.autoRender();
