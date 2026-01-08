@@ -16,6 +16,15 @@ export class CalculationsPanel {
     }
     
     init() {
+        // Check if there's a globally selected dataset on initialization
+        const selectedDatasetId = datasetSelectionManager.getSelectedDatasetId();
+        if (selectedDatasetId) {
+            const dataset = datasetStore.get(selectedDatasetId);
+            if (dataset) {
+                this.currentDataset = dataset;
+            }
+        }
+        
         this.render();
         this.attachEventListeners();
         // Refresh periodically to catch new metrics

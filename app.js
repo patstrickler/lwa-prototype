@@ -7,6 +7,7 @@ import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
 import { CalculationsPanel } from './components/calculations-panel.js';
 import { datasetSelectionManager } from './utils/dataset-selection-manager.js';
+import { datasetStore } from './data/datasets.js';
 import { ScriptExecutionPanel } from './components/script-execution-panel.js';
 import { SavedScriptsLibrary } from './components/saved-scripts-library.js';
 
@@ -39,6 +40,20 @@ function initNavigation() {
                     // This will update all dataset browsers on the new page
                     datasetSelectionManager.notifySelectionChanged(selectedDatasetId);
                 }
+                
+                // Refresh calculations panel when Analyze tab is opened
+                if (pageId === 'analysis' && calculationsPanel) {
+                    const currentDatasetId = datasetSelectionManager.getSelectedDatasetId();
+                    if (currentDatasetId) {
+                        const dataset = datasetStore.get(currentDatasetId);
+                        if (dataset) {
+                            calculationsPanel.setDataset(dataset);
+                        }
+                    } else {
+                        // Refresh to show current state (might be empty)
+                        calculationsPanel.refresh();
+                    }
+                }
             }
         });
     });
@@ -46,10 +61,7 @@ function initNavigation() {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize navigation
-    initNavigation();
-    
-    // Initialize components
+    // Initialize components first
     const tableBrowser = new TableBrowser('#table-browser', '#saved-datasets-container');
     
     // Initialize dataset browsers for both pages
@@ -63,6 +75,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
     const reportsPanel = new ReportsPanel('#reports-panel');
     const calculationsPanel = new CalculationsPanel('#calculations-panel');
+    
+    // Initialize navigation (pass calculationsPanel so it can refresh on tab switch)
+    initNavigation(calculationsPanel);
+    
+    // Pre-load calculations if Analyze tab is active and a dataset is selected
+    const analyzePage = document.getElementById('analysis-page');
+    if (analyzePage && analyzePage.classList.contains('active')) {
+        const currentDatasetId = datasetSelectionManager.getSelectedDatasetId();
+        if (currentDatasetId) {
+            const dataset = datasetStore.get(currentDatasetId);
+            if (dataset) {
+                calculationsPanel.setDataset(dataset);
+            }
+        }
+    }
     
     // Initialize scripting components
     const datasetBrowserScripting = new DatasetBrowser('#dataset-browser-scripting');
