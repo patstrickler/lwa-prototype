@@ -159,7 +159,11 @@ export class VisualizationPanel {
             datasetSelect.addEventListener('change', () => {
                 const datasetId = datasetSelect.value;
                 if (datasetId) {
-                    this.selectDataset(datasetId);
+                    const dataset = datasetStore.get(datasetId);
+                    if (dataset) {
+                        this.currentDataset = dataset;
+                        this.selectDataset(datasetId);
+                    }
                 } else {
                     this.currentDataset = null;
                     this.clearChart();
@@ -2369,7 +2373,7 @@ export class VisualizationPanel {
         // Close any existing dropdown
         this.closeAxisSelectionDropdown();
         
-        // Get current dataset from browser or stored selection
+        // Get current dataset from stored selection or sidebar selector
         let dataset = null;
         if (this.xAxisSelection) {
             dataset = datasetStore.get(this.xAxisSelection.datasetId);
@@ -2377,7 +2381,15 @@ export class VisualizationPanel {
             dataset = datasetStore.get(this.yAxisSelection.datasetId);
         }
         
-        // If no dataset, try to get from dataset browser
+        // If no dataset, try to get from sidebar dataset selector
+        if (!dataset) {
+            const datasetSelect = document.querySelector('#dataset-select-sidebar');
+            if (datasetSelect && datasetSelect.value) {
+                dataset = datasetStore.get(datasetSelect.value);
+            }
+        }
+        
+        // Fallback to dataset browser (left panel) if still no dataset
         if (!dataset) {
             const datasetBrowser = document.querySelector('#dataset-browser-visualization');
             if (datasetBrowser) {
@@ -2389,11 +2401,14 @@ export class VisualizationPanel {
         }
         
         if (!dataset) {
-            await Modal.alert('Please select a dataset first from the left panel.');
+            await Modal.alert('Please select a dataset first from the Chart Builder sidebar.');
             return;
         }
         
-        const axisDisplay = this.container.querySelector(`[data-axis="${axis}"]`);
+        // Find axis display in sidebar or main container
+        const sidebarContainer = document.querySelector('#visualization-builder-sidebar');
+        const searchContainer = sidebarContainer || this.container;
+        const axisDisplay = searchContainer.querySelector(`.axis-selection-display[data-axis="${axis}"]`);
         if (!axisDisplay || !triggerElement) return;
         
         // Get position for dropdown

@@ -5,6 +5,7 @@ import { scriptsStore } from '../data/scripts.js';
 import { scriptExecutionEngine } from '../utils/script-execution-engine.js';
 import { datasetStore } from '../data/datasets.js';
 import { getColumnSuggestions, getWordStartPosition } from '../utils/script-autocomplete.js';
+import { executeSQL } from '../utils/sql-engine.js';
 
 export class ScriptExecutionPanel {
     constructor(containerSelector) {
@@ -24,8 +25,20 @@ export class ScriptExecutionPanel {
     }
     
     render() {
+        const datasetInfo = this.currentDataset 
+            ? `<div class="dataset-info-badge">
+                <span class="material-icons" style="font-size: 16px; vertical-align: middle;">table_chart</span>
+                <span>${this.escapeHtml(this.currentDataset.name)}</span>
+                <span class="dataset-stats">${this.currentDataset.columns ? this.currentDataset.columns.length : 0} cols, ${this.currentDataset.rows ? this.currentDataset.rows.length : 0} rows</span>
+               </div>`
+            : '<div class="dataset-info-badge no-dataset"><span class="material-icons" style="font-size: 16px; vertical-align: middle;">info</span><span>Select a dataset from the sidebar to script on</span></div>';
+        
         this.container.innerHTML = `
             <div class="script-execution-panel">
+                <div class="script-header">
+                    ${datasetInfo}
+                </div>
+                
                 <div class="script-controls">
                     <div class="form-group">
                         <label for="script-language">Language:</label>
@@ -44,15 +57,24 @@ export class ScriptExecutionPanel {
                 <div class="form-group script-editor-wrapper">
                     <label for="script-editor">Script Code:</label>
                     <div class="script-editor-container">
-                        <textarea id="script-editor" class="script-editor" placeholder="Enter your script code here..."></textarea>
+                        <textarea id="script-editor" class="script-editor" placeholder="Enter your script code here...&#10;&#10;Example (Python):&#10;import pandas as pd&#10;df = pd.DataFrame(dataset['rows'], columns=dataset['columns'])&#10;result = df['column_name'].mean()&#10;&#10;Example (R):&#10;df <- data.frame(dataset$rows)&#10;colnames(df) <- dataset$columns&#10;result <- mean(df$column_name)"></textarea>
                         <div id="script-autocomplete-suggestions" class="autocomplete-suggestions" style="display: none;"></div>
                     </div>
                 </div>
                 
                 <div class="script-actions">
-                    <button id="run-script" class="btn btn-primary">Run Script</button>
-                    <button id="save-script" class="btn btn-secondary" disabled>Save Script</button>
-                    <button id="clear-script" class="btn btn-secondary">Clear</button>
+                    <button id="run-script" class="btn btn-primary">
+                        <span class="material-icons" style="font-size: 18px; vertical-align: middle;">play_arrow</span>
+                        Run Script
+                    </button>
+                    <button id="save-script" class="btn btn-secondary" disabled>
+                        <span class="material-icons" style="font-size: 18px; vertical-align: middle;">save</span>
+                        Save Script
+                    </button>
+                    <button id="clear-script" class="btn btn-outline-secondary">
+                        <span class="material-icons" style="font-size: 18px; vertical-align: middle;">clear</span>
+                        Clear
+                    </button>
                 </div>
                 
                 <div id="script-result" class="script-result"></div>
@@ -263,6 +285,37 @@ export class ScriptExecutionPanel {
     
     setDataset(dataset) {
         this.currentDataset = dataset;
+        // Re-render to show updated dataset info
+        const scriptEditor = this.container.querySelector('#script-editor');
+        const scriptName = this.container.querySelector('#script-name');
+        const languageSelect = this.container.querySelector('#script-language');
+        
+        // Preserve current script content
+        const currentScript = scriptEditor ? scriptEditor.value : '';
+        const currentName = scriptName ? scriptName.value : '';
+        const currentLanguage = languageSelect ? languageSelect.value : 'python';
+        
+        // Re-render
+        this.render();
+        
+        // Restore script content
+        const newScriptEditor = this.container.querySelector('#script-editor');
+        const newScriptName = this.container.querySelector('#script-name');
+        const newLanguageSelect = this.container.querySelector('#script-language');
+        
+        if (newScriptEditor && currentScript) {
+            newScriptEditor.value = currentScript;
+        }
+        if (newScriptName && currentName) {
+            newScriptName.value = currentName;
+        }
+        if (newLanguageSelect && currentLanguage) {
+            newLanguageSelect.value = currentLanguage;
+        }
+        
+        // Re-attach event listeners
+        this.attachEventListeners();
+        
         // Update suggestions when dataset changes
         this.updateSuggestions();
     }

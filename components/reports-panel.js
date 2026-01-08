@@ -190,30 +190,31 @@ export class ReportsPanel {
             // Create backdrop
             const backdrop = document.createElement('div');
             backdrop.className = 'modal-backdrop';
-            backdrop.style.display = 'flex';
+            backdrop.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
             
             // Create modal
             const modal = document.createElement('div');
             modal.className = 'modal';
-            modal.style.maxWidth = '700px';
-            modal.style.width = '90%';
+            modal.style.cssText = 'width: 90%; max-width: 700px; margin: 20px; animation: slideIn 0.2s ease-out;';
             
             const modalContent = document.createElement('div');
             modalContent.className = 'modal-content';
+            modalContent.style.cssText = 'background-color: #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;';
             
             // Header
             const modalHeader = document.createElement('div');
             modalHeader.className = 'modal-header';
+            modalHeader.style.cssText = 'padding: 20px 20px 15px; border-bottom: 1px solid #eee; flex-shrink: 0;';
             const modalTitle = document.createElement('h3');
             modalTitle.className = 'modal-title';
+            modalTitle.style.cssText = 'margin: 0; font-size: 18px; font-weight: 600; color: #333;';
             modalTitle.textContent = 'Create New Report/Dashboard';
             modalHeader.appendChild(modalTitle);
             
             // Body
             const modalBody = document.createElement('div');
             modalBody.className = 'modal-body';
-            modalBody.style.maxHeight = '70vh';
-            modalBody.style.overflowY = 'auto';
+            modalBody.style.cssText = 'padding: 20px; flex: 1; overflow-y: auto; max-height: calc(90vh - 150px);';
             
             // Title input
             const titleGroup = document.createElement('div');
@@ -317,6 +318,7 @@ export class ReportsPanel {
             // Footer
             const modalFooter = document.createElement('div');
             modalFooter.className = 'modal-footer';
+            modalFooter.style.cssText = 'padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;';
             const cancelBtn = document.createElement('button');
             cancelBtn.className = 'btn btn-secondary';
             cancelBtn.textContent = 'Cancel';

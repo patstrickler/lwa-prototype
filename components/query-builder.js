@@ -39,10 +39,10 @@ export class QueryBuilder {
                 </div>
                 <div class="query-actions">
                     <div class="query-controls">
-                        <label for="record-limit" class="record-limit-label">Max Records:</label>
-                        <select id="record-limit" class="record-limit-select">
-                            <option value="10">10</option>
-                            <option value="25" selected>25</option>
+                        <label for="preview-limit" class="record-limit-label">Preview Limit:</label>
+                        <select id="preview-limit" class="record-limit-select">
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
                             <option value="250">250</option>
@@ -111,8 +111,45 @@ export class QueryBuilder {
         saveBtn.addEventListener('click', () => this.saveAsDataset());
         updateBtn.addEventListener('click', () => this.updateDataset());
         
+        // Preview limit change handler - update display without re-running query
+        const previewLimitSelect = this.container.querySelector('#preview-limit');
+        if (previewLimitSelect) {
+            previewLimitSelect.addEventListener('change', () => {
+                if (this.currentResult && this.currentResult.data) {
+                    this.updatePreviewDisplay();
+                }
+            });
+        }
+        
         // Drag and drop handlers
         this.setupDragAndDrop();
+    }
+    
+    /**
+     * Updates the preview display based on current preview limit
+     * without re-running the query
+     */
+    updatePreviewDisplay() {
+        const previewLimitSelect = this.container.querySelector('#preview-limit');
+        const previewLimit = previewLimitSelect ? parseInt(previewLimitSelect.value, 10) : 10;
+        
+        if (!this.currentResult || !this.currentResult.data) {
+            return;
+        }
+        
+        // Get preview data based on limit
+        const previewData = previewLimit > 0 && previewLimit < this.currentResult.data.length 
+            ? this.currentResult.data.slice(0, previewLimit)
+            : this.currentResult.data;
+        
+        // Create preview result
+        const previewResult = {
+            ...this.currentResult,
+            data: previewData
+        };
+        
+        // Update display
+        this.displayResults(previewResult);
     }
     
     setupDragAndDrop() {
@@ -481,15 +518,15 @@ export class QueryBuilder {
         const query = this.editor.value.trim();
         const saveBtn = this.container.querySelector('#save-dataset');
         const runBtn = this.container.querySelector('#run-query');
-        const limitSelect = this.container.querySelector('#record-limit');
+        const previewLimitSelect = this.container.querySelector('#preview-limit');
         
         if (!query) {
             this.showError('Please enter a SQL query.');
             return;
         }
         
-        // Get record limit from selector
-        const recordLimit = limitSelect ? parseInt(limitSelect.value, 10) : 25;
+        // Get preview limit from selector (default to 10)
+        const previewLimit = previewLimitSelect ? parseInt(previewLimitSelect.value, 10) : 10;
         
         // Show loading state
         runBtn.disabled = true;
@@ -521,106 +558,56 @@ export class QueryBuilder {
             
             this.fullQuery = fullQuery;
             
-            // Check if query has LIMIT or TOP clause
-            const hasLimit = /\blimit\s+(\d+)\b/i.test(query);
-            const hasTop = /select\s+top\s+(\d+)\s+/i.test(query);
+            // Execute the FULL query (no LIMIT) to get all data
+            const fullSqlResult = await executeSQL(fullQuery, 500);
             
-            // Extract the limit value if present
-            let queryLimit = null;
-            if (hasLimit) {
-                const limitMatch = query.match(/\blimit\s+(\d+)\b/i);
-                queryLimit = limitMatch ? parseInt(limitMatch[1], 10) : null;
-            } else if (hasTop) {
-                const topMatch = query.match(/select\s+top\s+(\d+)\s+/i);
-                queryLimit = topMatch ? parseInt(topMatch[1], 10) : null;
-            }
-            
-            // Now execute the limited query for preview
-            let queryToExecute = query;
-            
-            // Only add LIMIT if query doesn't already have LIMIT or TOP
-            if (!hasLimit && !hasTop && recordLimit > 0) {
-                // Add LIMIT to query (before semicolon if present, or at end)
-                if (query.trim().endsWith(';')) {
-                    queryToExecute = query.trim().slice(0, -1) + ` LIMIT ${recordLimit};`;
-                } else {
-                    queryToExecute = query + ` LIMIT ${recordLimit}`;
-                }
-            }
-            
-            const sqlResult = await executeSQL(queryToExecute, 500);
-            
-            // Calculate total count based on whether query has LIMIT/TOP
-            let totalCount = null;
-            if (queryLimit !== null) {
-                // If query has LIMIT/TOP, show the limited count (actual rows returned)
-                totalCount = sqlResult.rows ? sqlResult.rows.length : 0;
-            } else {
-                // If no LIMIT/TOP, get the full count
-                try {
-                    // Execute full query with a high limit to get count
-                    const countQuery = fullQuery + (fullQuery.trim().endsWith(';') ? '' : ' ') + 'LIMIT 10000';
-                    const countResult = await executeSQL(countQuery, 300);
-                    totalCount = countResult.rows ? countResult.rows.length : 0;
-                    // If we got 10000 rows, the actual count might be higher
-                    if (totalCount === 10000) {
-                        totalCount = '10000+';
-                    }
-                } catch (countError) {
-                    console.warn('Could not get total count:', countError);
-                    // Fallback to actual rows returned
-                    totalCount = sqlResult.rows ? sqlResult.rows.length : 0;
-                }
-            }
-            
+            // Get total count from full result
+            const totalCount = fullSqlResult.rows ? fullSqlResult.rows.length : 0;
             this.totalRecordCount = totalCount;
             this.updateTotalRecordsIndicator();
             
             // Check if result is empty
-            if (!sqlResult || !sqlResult.columns || sqlResult.columns.length === 0) {
+            if (!fullSqlResult || !fullSqlResult.columns || fullSqlResult.columns.length === 0) {
                 this.showError('Query executed successfully but returned no columns. Please check your SELECT clause.');
                 this.currentResult = null;
                 saveBtn.disabled = true;
                 return;
             }
             
-            if (!sqlResult.rows || sqlResult.rows.length === 0) {
-                // Empty result set is valid - show message
-                const result = {
-                    id: `result_${Date.now()}`,
-                    name: 'Query Result',
-                    data: [],
-                    columns: sqlResult.columns,
-                    query: this.fullQuery || query
-                };
-                this.currentResult = result;
-                this.displayResults(result);
-                saveBtn.disabled = false;
-                return;
-            }
-            
-            // Convert rows (array of arrays) to data (array of objects)
-            const data = sqlResult.rows.map(row => {
+            // Convert full rows (array of arrays) to data (array of objects)
+            const fullData = fullSqlResult.rows.map(row => {
                 const rowObj = {};
-                sqlResult.columns.forEach((column, index) => {
+                fullSqlResult.columns.forEach((column, index) => {
                     rowObj[column] = row[index];
                 });
                 return rowObj;
             });
             
-            // Create result object in expected format
-            // Store the full query (without LIMIT) for saving datasets
-            const result = {
+            // Create result object with FULL dataset
+            const fullResult = {
                 id: `result_${Date.now()}`,
                 name: 'Query Result',
-                data: data,
-                columns: sqlResult.columns,
+                data: fullData, // Store ALL data
+                columns: fullSqlResult.columns,
                 query: this.fullQuery || query || (this.editor ? this.editor.value.trim() : '')
             };
             
-            this.currentResult = result;
-            this.columnMetadata = this.calculateMetadata(result);
-            this.displayResults(result);
+            // Store the full result
+            this.currentResult = fullResult;
+            this.columnMetadata = this.calculateMetadata(fullResult);
+            
+            // Create preview result with limited rows for display
+            const previewData = previewLimit > 0 && previewLimit < fullData.length 
+                ? fullData.slice(0, previewLimit)
+                : fullData;
+            
+            const previewResult = {
+                ...fullResult,
+                data: previewData // Only preview data for display
+            };
+            
+            // Display only the preview
+            this.displayResults(previewResult);
             saveBtn.disabled = false;
         } catch (error) {
             // Provide user-friendly error messages
@@ -1017,17 +1004,28 @@ export class QueryBuilder {
     }
     
     /**
-     * Updates the total records indicator next to the max records selector
+     * Updates the total records indicator next to the preview limit selector
      */
     updateTotalRecordsIndicator() {
         const indicator = this.container.querySelector('#total-records-indicator');
         if (!indicator) return;
         
         if (this.totalRecordCount !== null && this.totalRecordCount !== undefined) {
-            const countText = typeof this.totalRecordCount === 'number' 
+            const previewLimitSelect = this.container.querySelector('#preview-limit');
+            const previewLimit = previewLimitSelect ? parseInt(previewLimitSelect.value, 10) : 10;
+            const totalCount = typeof this.totalRecordCount === 'number' 
                 ? this.totalRecordCount.toLocaleString() 
                 : this.totalRecordCount;
-            indicator.textContent = `(Total: ${countText} records)`;
+            
+            // Show preview count vs total count
+            if (this.currentResult && this.currentResult.data) {
+                const displayedCount = previewLimit > 0 && previewLimit < this.currentResult.data.length 
+                    ? previewLimit 
+                    : this.currentResult.data.length;
+                indicator.textContent = `(Showing ${displayedCount.toLocaleString()} of ${totalCount} records)`;
+            } else {
+                indicator.textContent = `(Total: ${totalCount} records)`;
+            }
             indicator.style.display = 'inline-block';
         } else {
             indicator.style.display = 'none';

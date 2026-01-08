@@ -6,6 +6,8 @@ import { ReportsPanel } from './components/reports-panel.js';
 import { TableBrowser } from './components/table-browser.js';
 import { DatasetBrowser } from './components/dataset-browser.js';
 import { datasetSelectionManager } from './utils/dataset-selection-manager.js';
+import { ScriptExecutionPanel } from './components/script-execution-panel.js';
+import { SavedScriptsLibrary } from './components/saved-scripts-library.js';
 
 // Page routing/navigation functionality
 function initNavigation() {
@@ -59,6 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisPanel = new AnalysisPanel('#analysis-panel');
     const visualizationPanel = new VisualizationPanel('#visualization-panel');
     const reportsPanel = new ReportsPanel('#reports-panel');
+    
+    // Initialize scripting components
+    const datasetBrowserScripting = new DatasetBrowser('#dataset-browser-scripting');
+    const scriptingPanel = new ScriptExecutionPanel('#scripting-panel');
+    const savedScriptsLibrary = new SavedScriptsLibrary('#saved-scripts-library');
     
     // Lazy load admin panel only when admin page is accessed
     let adminPanel = null;
@@ -137,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         analysisPanel.refreshDatasetSelector();
         datasetBrowserAnalysis.refresh();
         datasetBrowserVisualization.refresh();
+        datasetBrowserScripting.refresh();
     });
     
     // Analysis Panel → Visualization Panel
@@ -159,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Refresh dataset browsers
         datasetBrowserAnalysis.refresh();
         datasetBrowserVisualization.refresh();
+        datasetBrowserScripting.refresh();
         
         // Clear query builder if it was editing the deleted dataset
         if (queryBuilder.currentDatasetId === datasetId) {
@@ -174,6 +183,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (visualizationPanel.currentDataset && visualizationPanel.currentDataset.id === datasetId) {
             visualizationPanel.updateDataset(null);
         }
+        
+        // Clear scripting panel if it was using the deleted dataset
+        if (scriptingPanel.currentDataset && scriptingPanel.currentDataset.id === datasetId) {
+            scriptingPanel.setDataset(null);
+        }
     });
     
     queryBuilder.onDatasetDeleted((datasetId, dataset) => {
@@ -186,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Refresh dataset browsers
         datasetBrowserAnalysis.refresh();
         datasetBrowserVisualization.refresh();
+        datasetBrowserScripting.refresh();
         
         // Clear analysis panel if it was using the deleted dataset
         if (analysisPanel.currentDataset && analysisPanel.currentDataset.id === datasetId) {
@@ -196,6 +211,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (visualizationPanel.currentDataset && visualizationPanel.currentDataset.id === datasetId) {
             visualizationPanel.updateDataset(null);
         }
+        
+        // Clear scripting panel if it was using the deleted dataset
+        if (scriptingPanel.currentDataset && scriptingPanel.currentDataset.id === datasetId) {
+            scriptingPanel.setDataset(null);
+        }
+    });
+    
+    // Scripting page integration
+    // Dataset Browser (Scripting) → Scripting Panel
+    datasetBrowserScripting.onDatasetSelect((dataset) => {
+        scriptingPanel.setDataset(dataset);
+    });
+    
+    // Saved Scripts Library → Scripting Panel
+    savedScriptsLibrary.onScriptSelect((script) => {
+        scriptingPanel.loadScriptForEditing(script.id);
+    });
+    
+    // Scripting Panel → Saved Scripts Library (refresh after save)
+    scriptingPanel.onSaved(() => {
+        savedScriptsLibrary.refresh();
     });
 });
 
